@@ -19,16 +19,19 @@ export type ConstructionListProps = {
 const ConstructionList: FC<ConstructionListProps> = ({ onSelect }) => {
   const { client } = useClient();
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [constructions, setConstructions] = useState<
     Awaited<ReturnType<RCDEClient["getConstructionList"]>>["constructions"]
   >([]);
 
-  useEffect(() => {
+  const fetchConstructions = useCallback(() => {
     client?.getConstructionList().then((list) => {
       setConstructions(list.constructions);
     });
   }, [client]);
+
+  useEffect(() => {
+    fetchConstructions();
+  }, [fetchConstructions]);
 
   const handleNewConstruction = useCallback(() => {
     setOpen(true);
@@ -37,13 +40,11 @@ const ConstructionList: FC<ConstructionListProps> = ({ onSelect }) => {
   const handleCreateConstruction = useCallback(
     (construction: CreateConstructionSchema) => {
       client?.createConstruction(construction).then(() => {
-        client?.getConstructionList().then((list) => {
-          setConstructions(list.constructions);
-        });
+        fetchConstructions();
         setOpen(false);
       });
     },
-    [client]
+    [client, fetchConstructions]
   );
 
   const handleClose = useCallback(() => {
