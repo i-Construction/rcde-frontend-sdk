@@ -1,8 +1,11 @@
 import { Box, Button } from "@mui/material";
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import ja from 'date-fns/locale/ja';
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useClient } from "../contexts/client";
-import { ConstructionList } from "./ConstructionList";
 import { ConstructionDetail } from "./ConstructionDetail";
+import { ConstructionList } from "./ConstructionList";
 
 interface Page<Variant extends string = string> {
   variant: Variant;
@@ -19,8 +22,8 @@ const Root: FC = () => {
   const { client, initialize } = useClient();
 
   useEffect(() => {
-    const clientId = "VbATMQpPvL4u1CunoH07d5X5NZLrDHgO";
-    const clientSecret = "xCoz4aLSvp8IDAal";
+    const clientId = "3cjrVuN6DUQIaKhXgGnbV91wKVZa9Sou";
+    const clientSecret = "ZLyJ1Pawmw9WqWF5";
     const baseUrl = "http://localhost:8000";
     initialize({
       clientId,
@@ -64,18 +67,20 @@ const Root: FC = () => {
   }, [page]);
 
   return (
-    <Box>
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
       <Box>
-        <Button
-          fullWidth
-          onClick={handleBack}
-          disabled={page.variant === "root"}
-        >
-          戻る
-        </Button>
+        <Box>
+          <Button
+            fullWidth
+            onClick={handleBack}
+            disabled={page.variant === "root"}
+          >
+            戻る
+          </Button>
+        </Box>
+        {p}
       </Box>
-      {p}
-    </Box>
+    </LocalizationProvider>
   );
 };
 
