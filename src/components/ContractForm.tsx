@@ -10,8 +10,7 @@ import {
 import { DatePicker } from "@mui/x-date-pickers";
 import { FC, useCallback, useMemo, useState } from "react";
 import { Controller, SubmitHandler, useForm } from "react-hook-form";
-import { createConstructionSchema } from "../schemas/construction";
-import { CreateContractSchema } from "../schemas/contract";
+import { createContractSchema, CreateContractSchema } from "../schemas/contract";
 
 export type ContractFormProps = {
   onSubmit: (values: CreateContractSchema) => void;
@@ -26,7 +25,7 @@ const ContractForm: FC<ContractFormProps> = ({ onSubmit }) => {
     formState: { errors, isValid, isSubmitting },
     handleSubmit,
   } = useForm<CreateContractSchema>({
-    resolver: zodResolver(createConstructionSchema),
+    resolver: zodResolver(createContractSchema),
     mode: "onChange",
   });
 
