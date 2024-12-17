@@ -89,7 +89,7 @@ const Root: FC = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
-      <Box>
+      <Box width={1} height={1} display="flex" flexDirection={"column"}>
         <Box>
           <Button
             fullWidth
