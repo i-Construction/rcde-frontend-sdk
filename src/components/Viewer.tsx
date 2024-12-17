@@ -6,10 +6,11 @@ import {
   MapControls,
 } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { FC, useMemo } from "react";
+import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Color, DoubleSide, Quaternion, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { LeftSider } from "./LeftSider";
+import { RCDEClient } from "@rcde/api-sdk";
 
 export type ViewerProps = {
   constructionId: number;
@@ -17,7 +18,25 @@ export type ViewerProps = {
 };
 
 const Viewer: FC<ViewerProps> = (props) => {
+  const { constructionId, contractId } = props;
   const { client } = useClient();
+  const [contractFiles, setContractFiles] = useState<
+    Awaited<ReturnType<RCDEClient["getContractFileList"]>>["contractFiles"]
+  >([]);
+
+  const fetchContractFiles = useCallback(() => {
+    client
+      ?.getContractFileList({
+        contractId,
+      })
+      .then(({ contractFiles }) => {
+        setContractFiles(contractFiles);
+      });
+  }, [client, contractId]);
+
+  useEffect(() => {
+    fetchContractFiles();
+  }, [fetchContractFiles]);
 
   const camera = useMemo(() => {
     return {
@@ -31,7 +50,7 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   return (
     <Box width={1} height={1} flexGrow={1} display="flex">
-      <LeftSider />
+      <LeftSider constructionId={constructionId} contractId={contractId} />
       <Box width={1} height={1}>
         <Canvas camera={camera}>
           <MapControls makeDefault screenSpacePanning />
