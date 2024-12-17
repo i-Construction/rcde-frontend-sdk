@@ -85,7 +85,9 @@ const LeftSider: FC<LeftSiderProps> = ({
   }, [open, state]);
 
   return (
-    <MenuList dense>
+    <MenuList dense sx={{
+      flex: '0 0 auto',
+    }}>
       {menus.map((menu, index) => {
         return (
           <MenuItem key={index} onClick={menu.onClick}>

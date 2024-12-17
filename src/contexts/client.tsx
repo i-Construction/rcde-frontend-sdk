@@ -16,6 +16,9 @@ type ClientContextType = {
 
 const ClientContext = createContext<ClientContextType | undefined>(undefined);
 
+export type ContractFiles = NonNullable<Awaited<ReturnType<RCDEClient["getContractFileList"]>>["contractFiles"]>;
+export type ContractFile = ContractFiles[number];
+
 export const ClientProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [client, setClient] = useState<RCDEClient | undefined>();
 

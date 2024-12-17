@@ -1,4 +1,5 @@
 import { Box } from "@mui/material";
+import { RCDEClient } from "@rcde/api-sdk";
 import {
   GizmoHelper,
   GizmoViewport,
@@ -8,9 +9,10 @@ import {
 import { Canvas } from "@react-three/fiber";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Color, DoubleSide, Quaternion, Vector3 } from "three";
-import { useClient } from "../contexts/client";
+import { ContractFiles, useClient } from "../contexts/client";
+import { ContractFileView } from "./ContractFileView";
 import { LeftSider } from "./LeftSider";
-import { RCDEClient } from "@rcde/api-sdk";
+import { RightSider } from "./RightSider";
 
 export type ViewerProps = {
   constructionId: number;
@@ -20,9 +22,7 @@ export type ViewerProps = {
 const Viewer: FC<ViewerProps> = (props) => {
   const { constructionId, contractId } = props;
   const { client } = useClient();
-  const [contractFiles, setContractFiles] = useState<
-    Awaited<ReturnType<RCDEClient["getContractFileList"]>>["contractFiles"]
-  >([]);
+  const [contractFiles, setContractFiles] = useState<ContractFiles>([]);
 
   const fetchContractFiles = useCallback(() => {
     client
@@ -30,7 +30,7 @@ const Viewer: FC<ViewerProps> = (props) => {
         contractId,
       })
       .then(({ contractFiles }) => {
-        setContractFiles(contractFiles);
+        setContractFiles(contractFiles ?? []);
       });
   }, [client, contractId]);
 
@@ -49,12 +49,18 @@ const Viewer: FC<ViewerProps> = (props) => {
   }, []);
 
   return (
-    <Box width={1} height={1} flexGrow={1} display="flex">
+    <Box width={1} height={1} display="flex">
       <LeftSider constructionId={constructionId} contractId={contractId} />
-      <Box width={1} height={1}>
-        <Canvas camera={camera}>
+      <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
+        <Canvas camera={camera}
+        >
           <MapControls makeDefault screenSpacePanning />
           <ambientLight intensity={0.5} />
+          {
+            contractFiles?.map((file) => {
+              return <ContractFileView key={file.id} file={file} />;
+            })
+          }
           <Grid
             args={[10, 10]}
             quaternion={new Quaternion().setFromAxisAngle(
@@ -77,6 +83,7 @@ const Viewer: FC<ViewerProps> = (props) => {
           </GizmoHelper>
         </Canvas>
       </Box>
+      <RightSider files={contractFiles} />
     </Box>
   );
 };
