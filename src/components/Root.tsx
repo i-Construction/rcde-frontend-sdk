@@ -6,16 +6,22 @@ import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useClient } from "../contexts/client";
 import { ConstructionDetail } from "./ConstructionDetail";
 import { ConstructionList } from "./ConstructionList";
+import { ContractDetail } from "./ContractDetail";
 
 interface Page<Variant extends string = string> {
   variant: Variant;
 }
 
 type ConstructionDetail = Page<"construction"> & {
-  id: number;
+  constructionId: number;
 };
 
-type Pages = Page<"root"> | ConstructionDetail;
+type ContractDetail = Page<"contract"> & {
+  constructionId: number;
+  contractId: number;
+};
+
+type Pages = Page<"root"> | ConstructionDetail | ContractDetail;
 
 const Root: FC = () => {
   const [page, setPage] = useState<Pages>({ variant: "root" });
@@ -39,6 +45,11 @@ const Root: FC = () => {
       }
       case "construction": {
         setPage({ variant: "root" });
+        break;
+      }
+      case "contract": {
+        setPage({ variant: "construction", constructionId: page.constructionId });
+        break;
       }
       default: {
         break;
@@ -46,19 +57,29 @@ const Root: FC = () => {
     }
   }, [page]);
 
+  const handleSelectContract = useCallback((props: {
+    constructionId: number;
+    contractId: number;
+  }) => {
+    setPage({ variant: "contract", ...props });
+  }, []);
+
   const p = useMemo(() => {
     switch (page.variant) {
       case "root": {
         return (
           <ConstructionList
-            onSelect={(id) => {
-              setPage({ variant: "construction", id });
+            onSelect={(constructionId) => {
+              setPage({ variant: "construction", constructionId });
             }}
           />
         );
       }
       case "construction": {
-        return <ConstructionDetail id={page.id} />;
+        return <ConstructionDetail id={page.constructionId} onSelect={handleSelectContract} />;
+      }
+      case "contract": {
+        return <ContractDetail constructionId={page.constructionId} contractId={page.contractId} />;
       }
       default: {
         return null;

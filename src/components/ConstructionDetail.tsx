@@ -15,10 +15,10 @@ import { CreateContractSchema } from "../schemas/contract";
 
 export type ConstructionDetailProps = {
   id: number;
-  onSelect?: (id: number) => void;
+  onSelect?: (props: { constructionId: number; contractId: number }) => void;
 };
 
-const ConstructionDetail: FC<ConstructionDetailProps> = ({ id, onSelect }) => {
+const ConstructionDetail: FC<ConstructionDetailProps> = ({ id: constructionId, onSelect }) => {
   const { client } = useClient();
   const [open, setOpen] = useState(false);
 
@@ -30,20 +30,20 @@ const ConstructionDetail: FC<ConstructionDetailProps> = ({ id, onSelect }) => {
   >([]);
 
   useEffect(() => {
-    client?.getConstruction(id).then((c) => {
+    client?.getConstruction(constructionId).then((c) => {
       setConstruction(c);
     });
-  }, [client, id]);
+  }, [client, constructionId]);
 
   const fetchContracts = useCallback(() => {
     client
       ?.getContractList({
-        constructionId: id,
+        constructionId: constructionId,
       })
       .then((list) => {
         setContracts(list.contracts);
       });
-  }, [client, id]);
+  }, [client, constructionId]);
 
   useEffect(() => {
     fetchContracts();
@@ -59,15 +59,17 @@ const ConstructionDetail: FC<ConstructionDetailProps> = ({ id, onSelect }) => {
 
   const handleCreateContract = useCallback(
     (contract: CreateContractSchema) => {
-      client?.createContract({
-        constructionId: id,
-        ...contract
-      }).then(() => {
-        fetchContracts();
-        setOpen(false);
-      });
+      client
+        ?.createContract({
+          constructionId: constructionId,
+          ...contract,
+        })
+        .then(() => {
+          fetchContracts();
+          setOpen(false);
+        });
     },
-    [id, client, fetchContracts]
+    [constructionId, client, fetchContracts]
   );
 
   return (
@@ -106,7 +108,7 @@ const ConstructionDetail: FC<ConstructionDetailProps> = ({ id, onSelect }) => {
               <ListItemButton
                 onClick={() => {
                   if (id !== undefined) {
-                    onSelect?.(id);
+                    onSelect?.({ constructionId, contractId: id });
                   }
                 }}
               >
