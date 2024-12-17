@@ -7,6 +7,7 @@ import {
   FC,
   useCallback,
 } from "react";
+import { GlobalStateContext } from "./state";
 
 type ClientContextType = {
   client?: RCDEClient;
@@ -33,7 +34,9 @@ export const ClientProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   return (
     <ClientContext.Provider value={{ client, initialize }}>
-      {children}
+      <GlobalStateContext.Provider>
+        {children}
+      </GlobalStateContext.Provider>
     </ClientContext.Provider>
   );
 };
