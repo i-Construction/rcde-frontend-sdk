@@ -9,10 +9,11 @@ import {
 import { Canvas } from "@react-three/fiber";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Color, DoubleSide, Quaternion, Vector3 } from "three";
-import { ContractFiles, useClient } from "../contexts/client";
+import { useClient } from "../contexts/client";
 import { ContractFileView } from "./ContractFileView";
 import { LeftSider } from "./LeftSider";
 import { RightSider } from "./RightSider";
+import { useContractFiles } from "../contexts/contractFiles";
 
 export type ViewerProps = {
   constructionId: number;
@@ -20,9 +21,16 @@ export type ViewerProps = {
 };
 
 const Viewer: FC<ViewerProps> = (props) => {
+  const { load, containers } = useContractFiles();
   const { constructionId, contractId } = props;
-  const { client } = useClient();
-  const [contractFiles, setContractFiles] = useState<ContractFiles>([]);
+  const { client, setProject } = useClient();
+
+  useEffect(() => {
+    setProject({
+      constructionId,
+      contractId,
+    });
+  }, [constructionId, contractId]);
 
   const fetchContractFiles = useCallback(() => {
     client
@@ -30,7 +38,7 @@ const Viewer: FC<ViewerProps> = (props) => {
         contractId,
       })
       .then(({ contractFiles }) => {
-        setContractFiles(contractFiles ?? []);
+        load(contractFiles ?? []);
       });
   }, [client, contractId]);
 
@@ -57,7 +65,7 @@ const Viewer: FC<ViewerProps> = (props) => {
           <MapControls makeDefault screenSpacePanning />
           <ambientLight intensity={0.5} />
           {
-            contractFiles?.map((file) => {
+            containers?.filter((file) => file.visible).map(({ file }) => {
               return <ContractFileView key={file.id} file={file} />;
             })
           }
@@ -83,7 +91,7 @@ const Viewer: FC<ViewerProps> = (props) => {
           </GizmoHelper>
         </Canvas>
       </Box>
-      <RightSider files={contractFiles} />
+      <RightSider />
     </Box>
   );
 };

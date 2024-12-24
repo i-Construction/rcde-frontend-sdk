@@ -25,7 +25,7 @@ type Pages = Page<"root"> | ConstructionDetail | ContractDetail;
 
 const Root: FC = () => {
   const [page, setPage] = useState<Pages>({ variant: "root" });
-  const { client, initialize } = useClient();
+  const { initialize } = useClient();
 
   useEffect(() => {
     const clientId = "3cjrVuN6DUQIaKhXgGnbV91wKVZa9Sou";

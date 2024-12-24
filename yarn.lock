@@ -575,8 +575,8 @@
   resolved "https://registry.yarnpkg.com/@popperjs/core/-/core-2.11.8.tgz#6b79032e760a0899cd4204710beede972a3a185f"
   integrity sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==
 
-"@rcde/api-sdk@file:../rcde-api-sdk":
-  version "1.0.3"
+"@rcde/api-sdk@../rcde-api-sdk":
+  version "0.0.0"
   dependencies:
     axios "^1.7.7"
     dotenv "^16.4.5"

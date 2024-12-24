@@ -1,13 +1,18 @@
-import { Container } from "@mui/material";
+import "./App.css";
 import { Root } from "./components/Root";
 import { ClientProvider } from "./contexts/client";
-import "./App.css";
+import { ContractFilesProvider } from "./contexts/contractFiles";
+import { GlobalStateContext } from "./contexts/state";
 
 function App() {
   return (
-    <ClientProvider>
-      <Root />
-    </ClientProvider>
+    <GlobalStateContext.Provider>
+      <ClientProvider>
+        <ContractFilesProvider>
+          <Root />
+        </ContractFilesProvider>
+      </ClientProvider>
+    </GlobalStateContext.Provider>
   );
 }
 

@@ -1,26 +1,30 @@
 import { RCDEClient } from "@rcde/api-sdk";
 import {
   createContext,
+  Dispatch,
+  FC,
+  ReactNode,
+  SetStateAction,
+  useCallback,
   useContext,
   useState,
-  ReactNode,
-  FC,
-  useCallback,
 } from "react";
-import { GlobalStateContext } from "./state";
 
 type ClientContextType = {
   client?: RCDEClient;
   initialize: (props: ConstructorParameters<typeof RCDEClient>[0]) => void;
+  project?: {
+    constructionId: number;
+    contractId: number;
+  };
+  setProject: Dispatch<SetStateAction<ClientContextType["project"]>>;
 };
 
 const ClientContext = createContext<ClientContextType | undefined>(undefined);
 
-export type ContractFiles = NonNullable<Awaited<ReturnType<RCDEClient["getContractFileList"]>>["contractFiles"]>;
-export type ContractFile = ContractFiles[number];
-
 export const ClientProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [client, setClient] = useState<RCDEClient | undefined>();
+  const [project, setProject] = useState<ClientContextType["project"]>();
 
   const initialize = useCallback(
     (props: Parameters<ClientContextType["initialize"]>[0]) => {
@@ -36,10 +40,8 @@ export const ClientProvider: FC<{ children: ReactNode }> = ({ children }) => {
   );
 
   return (
-    <ClientContext.Provider value={{ client, initialize }}>
-      <GlobalStateContext.Provider>
-        {children}
-      </GlobalStateContext.Provider>
+    <ClientContext.Provider value={{ client, initialize, project, setProject }}>
+      {children}
     </ClientContext.Provider>
   );
 };
