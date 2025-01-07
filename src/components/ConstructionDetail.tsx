@@ -1,17 +1,16 @@
 import {
   Box,
-  Button,
   List,
   ListItem,
   ListItemButton,
   Modal,
-  Typography,
+  Typography
 } from "@mui/material";
+import { RCDEClient } from "@rcde/api-sdk";
 import { FC, useCallback, useEffect, useState } from "react";
 import { useClient } from "../contexts/client";
-import { RCDEClient } from "@rcde/api-sdk";
-import { ContractForm } from "./ContractForm";
 import { CreateContractSchema } from "../schemas/contract";
+import { ContractForm } from "./ContractForm";
 
 export type ConstructionDetailProps = {
   id: number;

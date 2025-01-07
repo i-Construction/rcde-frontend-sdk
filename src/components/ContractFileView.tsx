@@ -6,19 +6,39 @@ import {
   PointCloudMeta
 } from "pcd-viewer";
 import { PNG } from "pngjs/browser";
-import { FC, useCallback, useEffect, useState } from "react";
-import { Vector3 } from "three";
+import { forwardRef, useCallback, useEffect, useState } from "react";
+import { Box3, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile } from "../contexts/contractFiles";
 
-export type ContractFileProps = {
-  file: ContractFile;
+export type ContractFileViewRef = {
+  id: ContractFile['id'];
+  boundingBox: Box3;
 };
 
-const ContractFileView: FC<ContractFileProps> = ({ file }) => {
+export type ContractFileProps = {
+  file: ContractFile;
+  referencePoint?: Vector3;
+};
+
+const ContractFileView = forwardRef<ContractFileViewRef, ContractFileProps>(({ file, referencePoint }, ref) => {
   const { client, project } = useClient();
   const [meta, setMeta] = useState<PointCloudMeta | undefined>(undefined);
-  const [offset, setOffset] = useState(new Vector3());
+
+  const setRef = useCallback((meta: PointCloudMeta) => {
+    if (ref === null) return;
+    const { min, max } = meta.bounds;
+    const box = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
+    const o = {
+      id: file.id,
+      boundingBox: box,
+    };;
+    if (ref !== null && typeof ref === 'function') {
+      ref(o);
+    } else if (ref !== null && typeof ref === 'object') {
+      ref.current = o;
+    }
+  }, [ref, file]);
 
   useEffect(() => {
     const { id } = file;
@@ -30,17 +50,17 @@ const ContractFileView: FC<ContractFileProps> = ({ file }) => {
       })
       .then((meta) => {
         const d = meta as unknown as PointCloudMeta;
-        const { min } = d.bounds;
         setMeta(d);
-        setOffset(new Vector3().fromArray(min).negate());
+        setRef(d);
       });
-  }, [file, client, project]);
+  }, [file, client, project, setRef]);
 
   const loader: PointCloudLODLoader<PngBuffer> = useCallback(
     (props) => {
       const { address, color } = props;
       const { lod, coordinate } = address;
       // Construct the URL of the PNG file from the address.
+      // eslint-disable-next-line no-async-promise-executor
       return new Promise(async (resolve, reject) => {
         const png = new PNG();
         const addr = `${coordinate.x}-${coordinate.y}-${coordinate.z}`;
@@ -82,13 +102,9 @@ const ContractFileView: FC<ContractFileProps> = ({ file }) => {
     [client, project, file]
   );
 
-  return (
-    <group position={offset}>
-      {meta !== undefined ? (
-        <PointCloud meta={meta} loader={loader} parser={pngParser} />
-      ) : null}
-    </group>
-  );
-};
+  return meta !== undefined ? (
+    <PointCloud meta={meta} loader={loader} parser={pngParser} />
+  ) : null;
+});
 
 export { ContractFileView };
