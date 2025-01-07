@@ -1,11 +1,8 @@
 import {
   Adjust,
   InsertDriveFile,
-  OpenWith,
   Palette,
-  RotateLeft,
-  SquareFoot,
-  ThreeDRotation,
+  SquareFoot
 } from "@mui/icons-material";
 import { ListItemIcon, ListItemText, MenuItem, MenuList } from "@mui/material";
 import { FC, useCallback, useMemo, useState } from "react";
@@ -61,6 +58,7 @@ const LeftSider: FC<LeftSiderProps> = ({
         text: "基準点",
         selected: state.matches("reference_point"),
       },
+      /*
       {
         icon: <OpenWith />,
         text: "移動",
@@ -71,16 +69,19 @@ const LeftSider: FC<LeftSiderProps> = ({
         text: "回転",
         selected: state.matches("transform.rotation"),
       },
+      */
       {
         icon: <SquareFoot />,
         text: "寸法",
         selected: state.matches("metric"),
       },
+      /*
       {
         icon: <ThreeDRotation />,
         text: "モデリング",
         selected: state.matches("modeling"),
       },
+      */
     ];
   }, [open, state]);
 

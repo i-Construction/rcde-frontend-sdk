@@ -29,7 +29,7 @@ const ContractFileView: FC<ContractFileProps> = ({ file }) => {
         contractFileId: id,
       })
       .then((meta) => {
-        const d = meta as any as PointCloudMeta;
+        const d = meta as unknown as PointCloudMeta;
         const { min } = d.bounds;
         setMeta(d);
         setOffset(new Vector3().fromArray(min).negate());
@@ -79,7 +79,7 @@ const ContractFileView: FC<ContractFileProps> = ({ file }) => {
         });
       });
     },
-    [client, project]
+    [client, project, file]
   );
 
   return (

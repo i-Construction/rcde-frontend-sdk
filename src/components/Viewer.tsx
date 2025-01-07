@@ -1,5 +1,4 @@
 import { Box } from "@mui/material";
-import { RCDEClient } from "@rcde/api-sdk";
 import {
   GizmoHelper,
   GizmoViewport,
@@ -7,13 +6,13 @@ import {
   MapControls,
 } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { FC, useCallback, useEffect, useMemo, useState } from "react";
+import { FC, useCallback, useEffect, useMemo } from "react";
 import { Color, DoubleSide, Quaternion, Vector3 } from "three";
 import { useClient } from "../contexts/client";
+import { useContractFiles } from "../contexts/contractFiles";
 import { ContractFileView } from "./ContractFileView";
 import { LeftSider } from "./LeftSider";
 import { RightSider } from "./RightSider";
-import { useContractFiles } from "../contexts/contractFiles";
 
 export type ViewerProps = {
   constructionId: number;
@@ -30,7 +29,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       constructionId,
       contractId,
     });
-  }, [constructionId, contractId]);
+  }, [constructionId, contractId, setProject]);
 
   const fetchContractFiles = useCallback(() => {
     client
@@ -40,7 +39,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       .then(({ contractFiles }) => {
         load(contractFiles ?? []);
       });
-  }, [client, contractId]);
+  }, [client, contractId, load]);
 
   useEffect(() => {
     fetchContractFiles();
