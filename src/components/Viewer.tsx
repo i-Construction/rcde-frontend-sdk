@@ -62,7 +62,7 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   useEffect(() => {
     if (project === undefined) return;
-    const promises = containers.map((c) => {
+    const promises = containers.filter((c) => c.visible).map((c) => {
       const id = c.file.id;
       if (id === undefined) return Promise.resolve(undefined);
       return client

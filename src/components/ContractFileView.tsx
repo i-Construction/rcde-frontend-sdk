@@ -1,4 +1,4 @@
-import chroma from 'chroma-js';
+import chroma from "chroma-js";
 import {
   PngBuffer,
   pngParser,
@@ -6,7 +6,7 @@ import {
   PointCloudColor,
   PointCloudLODLoader,
   PointCloudLODParser,
-  PointCloudMeta
+  PointCloudMeta,
 } from "pcd-viewer";
 import { PNG } from "pngjs/browser";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -20,7 +20,11 @@ export type ContractFileProps = {
   referencePoint?: Vector3;
 };
 
-const ContractFileView = ({ file, meta, referencePoint }: ContractFileProps) => {
+const ContractFileView = ({
+  file,
+  meta,
+  referencePoint,
+}: ContractFileProps) => {
   const { client, project } = useClient();
   const [init, setInit] = useState(false);
   const [hasIntensity, setHasIntensity] = useState(false);
@@ -79,7 +83,9 @@ const ContractFileView = ({ file, meta, referencePoint }: ContractFileProps) => 
       if (meta?.version !== undefined) {
         try {
           // load initial position data and check for intensity
-          const { position: { data} } = await loader({
+          const {
+            position: { data },
+          } = await loader({
             address: {
               lod: 0,
               coordinate: {
@@ -113,8 +119,8 @@ const ContractFileView = ({ file, meta, referencePoint }: ContractFileProps) => 
       ...meta,
       bounds: {
         min: mi.toArray(),
-        max: ma.toArray()
-      }
+        max: ma.toArray(),
+      },
     };
   }, [meta, referencePoint]);
 
@@ -132,7 +138,7 @@ const ContractFileView = ({ file, meta, referencePoint }: ContractFileProps) => 
 
   // Generate a color scale
   const schema = useMemo(() => {
-    return chroma.scale('Spectral');
+    return chroma.scale("Spectral");
   }, []);
 
   // Interpolate color based on intensity
@@ -161,12 +167,46 @@ const ContractFileView = ({ file, meta, referencePoint }: ContractFileProps) => 
     [lerpIntensityColor, hasIntensity]
   );
 
+  const pointSize = useMemo(() => {
+    const bb = meta.bounds;
+    const x = bb.max[0] - bb.min[0];
+    const y = bb.max[1] - bb.min[1];
+    const z = bb.max[2] - bb.min[2];
+    return getDefaultPointCloudSize({ size: { x, y, z } });
+  }, [meta]);
+
+  const minPointSize = useMemo(() => {
+    return (pointSize ?? 1) * 1e-1;
+  }, [pointSize]);
+
   // Render the PointCloud if initialization is complete
-  return init ? <group>
-    <PointCloud meta={shiftedMeta} loader={loader} parser={parser}
+  return init ? (
+    <PointCloud
+      frustumCulled={false}
+      meta={shiftedMeta}
+      loader={loader}
+      parser={parser}
       pointColorHandler={pointCloudColor}
-     />
-  </group> : null;
+      pointSize={pointSize}
+      minPointSize={minPointSize}
+    />
+  ) : null;
+};
+
+function getDefaultPointCloudSize(props: {
+  size: { x: number; y: number; z: number };
+  min?: number;
+  max?: number;
+}): number {
+  const { x, y, z } = props.size;
+  const { min, max } = props;
+  const s = Math.max(x, y, z);
+  // CAUTION: default size is based on poisson disk sampling method
+  // in pcd-lod module, the maximum # of points in each unit cube is `2 ^ 14`,
+  // so radius of the poisson disk is `{side length of the unit} / sqrt(2 ^ 14)`.
+  // resulting radius multiplied by 3 is optimal size of the point cloud.
+  const ps = (s / 128) * 3;
+  return Math.min(Math.max(min ?? ps, ps), max ?? ps);
 }
 
 export { ContractFileView };
