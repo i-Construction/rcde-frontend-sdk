@@ -1,8 +1,8 @@
 import { FC } from "react";
-import { ContractFile } from "../contexts/contractFiles";
-import { GlobalStateContext } from "../contexts/state";
-import { ContractFileList } from "./right/ContractFileList";
-import { ReferencePoint } from "./right/ReferencePoint";
+import { ContractFile } from "../../contexts/contractFiles";
+import { GlobalStateContext } from "../../contexts/state";
+import { ContractFileList } from "./ContractFileList";
+import { ReferencePoint } from "./ReferencePoint";
 import { MenuList } from "@mui/material";
 
 export type RightSiderProps = {

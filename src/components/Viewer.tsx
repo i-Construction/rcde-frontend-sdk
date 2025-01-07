@@ -15,7 +15,7 @@ import { useReferencePoint } from "../contexts/referencePoint";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { LeftSider } from "./LeftSider";
 import { ReferencePointView } from "./ReferencePointView";
-import { RightSider } from "./RightSider";
+import { RightSider } from "./right/RightSider";
 
 export type ViewerProps = {
   constructionId: number;
