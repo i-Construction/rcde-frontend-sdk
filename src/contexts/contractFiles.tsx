@@ -64,6 +64,7 @@ export const ContractFilesProvider: FC<{ children: ReactNode }> = ({
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useContractFiles = (): ContractFilesContextType => {
   const context = useContext(ContractFilesContext);
   if (!context) {

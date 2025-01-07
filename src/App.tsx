@@ -2,6 +2,7 @@ import "./App.css";
 import { Root } from "./components/Root";
 import { ClientProvider } from "./contexts/client";
 import { ContractFilesProvider } from "./contexts/contractFiles";
+import { ReferencePointProvider } from "./contexts/referencePoint";
 import { GlobalStateContext } from "./contexts/state";
 
 function App() {
@@ -9,7 +10,9 @@ function App() {
     <GlobalStateContext.Provider>
       <ClientProvider>
         <ContractFilesProvider>
-          <Root />
+          <ReferencePointProvider>
+            <Root />
+          </ReferencePointProvider>
         </ContractFilesProvider>
       </ClientProvider>
     </GlobalStateContext.Provider>

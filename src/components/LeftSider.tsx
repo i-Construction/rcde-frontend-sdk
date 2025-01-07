@@ -57,6 +57,13 @@ const LeftSider: FC<LeftSiderProps> = ({
         icon: <Adjust />,
         text: "基準点",
         selected: state.matches("reference_point"),
+        onClick: () => {
+          if (state.matches("reference_point")) {
+            actor.send({ type: "IDLE" });
+          } else {
+            actor.send({ type: "REFERENCE_POINT" });
+          }
+        },
       },
       /*
       {
@@ -83,7 +90,7 @@ const LeftSider: FC<LeftSiderProps> = ({
       },
       */
     ];
-  }, [open, state]);
+  }, [state, actor]);
 
   return (
     <MenuList dense sx={{
@@ -91,7 +98,7 @@ const LeftSider: FC<LeftSiderProps> = ({
     }}>
       {menus.map((menu, index) => {
         return (
-          <MenuItem key={index} onClick={menu.onClick}>
+          <MenuItem key={index} onClick={menu.onClick} selected={menu.selected}>
             <ListItemIcon>{menu.icon}</ListItemIcon>
             <ListItemText primary={menu.text} />
           </MenuItem>

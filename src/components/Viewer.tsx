@@ -11,10 +11,11 @@ import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box3, Color, DoubleSide, Quaternion, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile, useContractFiles } from "../contexts/contractFiles";
+import { useReferencePoint } from "../contexts/referencePoint";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { LeftSider } from "./LeftSider";
-import { RightSider } from "./RightSider";
 import { ReferencePointView } from "./ReferencePointView";
+import { RightSider } from "./RightSider";
 
 export type ViewerProps = {
   constructionId: number;
@@ -25,6 +26,7 @@ const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
   const { constructionId, contractId } = props;
   const { client, project, setProject } = useClient();
+  const { point, onChange } = useReferencePoint();
   const [views, setViews] = useState<
     (ContractFileProps & { boundingBox: Box3 })[]
   >([]);
@@ -91,17 +93,13 @@ const Viewer: FC<ViewerProps> = (props) => {
     });
   }, [containers, project, client]);
 
-  const [referencePoint, setReferencePoint] = useState<Vector3 | undefined>(
-    undefined
-  );
-
   const handleFileFocus = useCallback((file: ContractFile) => {
     const view = views.find((v) => v.file.id === file.id);
     if (view === undefined) return;
     const { boundingBox } = view;
     const center = boundingBox.getCenter(new Vector3());
-    setReferencePoint(center.negate());
-  }, [views]);
+    onChange(center.negate());
+  }, [views, onChange]);
 
   return (
     <Box width={1} height={1} display="flex">
@@ -116,7 +114,7 @@ const Viewer: FC<ViewerProps> = (props) => {
                 key={view.file.id}
                 file={view.file}
                 meta={view.meta}
-                referencePoint={referencePoint}
+                referencePoint={point}
               />
             );
           })}
@@ -165,9 +163,7 @@ const Viewer: FC<ViewerProps> = (props) => {
             </Tooltip>
               */}
           {
-            referencePoint && (
-              <ReferencePointView point={referencePoint} />
-            )
+            <ReferencePointView point={point} />
           }
         </Box>
       </Box>

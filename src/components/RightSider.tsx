@@ -1,31 +1,16 @@
-import {
-  CenterFocusStrong,
-  MoreHoriz,
-  Visibility,
-  VisibilityOff,
-} from "@mui/icons-material";
-import {
-  Box,
-  IconButton,
-  ListItem,
-  MenuList,
-  Tooltip,
-  Typography,
-} from "@mui/material";
 import { FC } from "react";
-import { useContractFiles } from "../contexts/contractFiles";
+import { ContractFile } from "../contexts/contractFiles";
 import { GlobalStateContext } from "../contexts/state";
+import { ContractFileList } from "./right/ContractFileList";
+import { ReferencePoint } from "./right/ReferencePoint";
+import { MenuList } from "@mui/material";
 
 export type RightSiderProps = {
   onFileFocus: (file: ContractFile) => void;
 };
 
-const RightSider: FC<RightSiderProps> = ({
-  onFileFocus,
-}) => {
-  const { toggleVisibility, containers } = useContractFiles();
+const RightSider: FC<RightSiderProps> = ({ onFileFocus }) => {
   const state = GlobalStateContext.useSelector((s) => s);
-  const actor = GlobalStateContext.useActorRef();
 
   return (
     <MenuList
@@ -34,48 +19,11 @@ const RightSider: FC<RightSiderProps> = ({
         flex: "0 0 auto",
       }}
     >
-      {containers.map((container) => {
-        const { file, visible } = container;
-        return (
-          <ListItem key={file.id}>
-            <Typography variant="body2" marginRight={2}>
-              {file.name}
-            </Typography>
-            <Box>
-              <Tooltip title="ファイルを表示">
-                <IconButton
-                  size="small"
-                  // disabled={ file.category === ContractFileCategoryMap.PROGRESS}
-                  onClick={() => {
-                    toggleVisibility(container);
-                  }}
-                >
-                  {visible ? <Visibility /> : <VisibilityOff />}
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="ファイルの中心に移動">
-                <IconButton
-                  size="small"
-                  disabled={!visible}
-                  onClick={() => {
-                    onFileFocus(file);
-                  }}
-                >
-                  <CenterFocusStrong />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="ファイルの詳細">
-                <IconButton
-                  size="small"
-                  // onClick={handleContractFileMenuClick(targetFileContainer)}
-                >
-                  <MoreHoriz />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </ListItem>
-        );
-      })}
+      {state.matches("reference_point") ? (
+        <ReferencePoint />
+      ) : (
+        <ContractFileList onFileFocus={onFileFocus} />
+      )}
     </MenuList>
   );
 };
