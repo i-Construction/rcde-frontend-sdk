@@ -16,9 +16,13 @@ import { FC } from "react";
 import { useContractFiles } from "../contexts/contractFiles";
 import { GlobalStateContext } from "../contexts/state";
 
-export type RightSiderProps = {};
+export type RightSiderProps = {
+  onFileFocus: (file: ContractFile) => void;
+};
 
-const RightSider: FC<RightSiderProps> = () => {
+const RightSider: FC<RightSiderProps> = ({
+  onFileFocus,
+}) => {
   const { toggleVisibility, containers } = useContractFiles();
   const state = GlobalStateContext.useSelector((s) => s);
   const actor = GlobalStateContext.useActorRef();
@@ -53,7 +57,9 @@ const RightSider: FC<RightSiderProps> = () => {
                 <IconButton
                   size="small"
                   disabled={!visible}
-                  // onClick={handleFileFocus(targetFileContainer.file)}
+                  onClick={() => {
+                    onFileFocus(file);
+                  }}
                 >
                   <CenterFocusStrong />
                 </IconButton>
