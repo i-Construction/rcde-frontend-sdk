@@ -6,11 +6,12 @@ import {
   MapControls,
 } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { FC, useCallback, useEffect, useMemo } from "react";
-import { Color, DoubleSide, Quaternion, Vector3 } from "three";
+import { PointCloudMeta } from "pcd-viewer";
+import { FC, useCallback, useEffect, useMemo, useState } from "react";
+import { Box3, Color, DoubleSide, Quaternion, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { useContractFiles } from "../contexts/contractFiles";
-import { ContractFileView } from "./ContractFileView";
+import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { LeftSider } from "./LeftSider";
 import { RightSider } from "./RightSider";
 
@@ -22,7 +23,8 @@ export type ViewerProps = {
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
   const { constructionId, contractId } = props;
-  const { client, setProject } = useClient();
+  const { client, project, setProject } = useClient();
+  const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
 
   useEffect(() => {
     setProject({
@@ -55,6 +57,42 @@ const Viewer: FC<ViewerProps> = (props) => {
     };
   }, []);
 
+  useEffect(() => {
+    if (project === undefined) return;
+    const promises = containers.map((c) => {
+      const id = c.file.id;
+      if (id === undefined) return Promise.resolve(undefined);
+      return client
+        ?.getContractFileMetadata({
+          ...project,
+          contractFileId: id,
+        }).then((d) => {
+          const meta = d as unknown as PointCloudMeta;
+
+          const { min, max } = meta.bounds;
+          const boundingBox = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
+
+          return {
+            file: c.file,
+            meta,
+            boundingBox
+          };
+        })
+    });
+    Promise.all(promises).then((vs) => {
+      setViews(vs.filter((v) => v !== undefined));
+    });
+  }, [containers, project, client]);
+
+  const [referencePoint, setReferencePoint] = useState<Vector3 | undefined>(undefined);
+
+  useEffect(() => {
+    if (views.length === 0) return;
+    const { boundingBox } = views[0];
+    const center = boundingBox.getCenter(new Vector3());
+    setReferencePoint(center.negate());
+  }, [views]);
+
   return (
     <Box width={1} height={1} display="flex">
       <LeftSider constructionId={constructionId} contractId={contractId} />
@@ -64,8 +102,13 @@ const Viewer: FC<ViewerProps> = (props) => {
           <MapControls makeDefault screenSpacePanning />
           <ambientLight intensity={0.5} />
           {
-            containers?.filter((file) => file.visible).map(({ file }) => {
-              return <ContractFileView key={file.id} file={file} />;
+            views.map((view) => {
+              return <ContractFileView 
+                key={view.file.id} 
+                file={view.file}
+                meta={view.meta}
+                referencePoint={referencePoint}
+                />;
             })
           }
           <Grid

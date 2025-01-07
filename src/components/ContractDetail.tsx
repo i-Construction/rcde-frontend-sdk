@@ -1,5 +1,4 @@
 import { FC } from "react";
-import { useClient } from "../contexts/client";
 import { Viewer } from "./Viewer";
 
 export type ContractDetailProps = {
