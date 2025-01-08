@@ -2,6 +2,12 @@
   "name": "@i-con/frontend-sdk",
   "version": "0.0.0",
   "type": "module",
+  "main": "dist/index.umd.js",
+  "module": "dist/index.es.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite example",
     "build": "tsc -b && vite build",

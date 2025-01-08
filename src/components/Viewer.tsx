@@ -121,9 +121,8 @@ const Viewer: FC<ViewerProps> = (props) => {
     [views, onChange]
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleFileDelete = useCallback((file: ContractFile) => {
-    // console.log(file);
+    console.log(file);
   }, []);
 
   return (

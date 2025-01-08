@@ -16,19 +16,21 @@ import { RCDEClient } from "@i-con/api-sdk";
 export type FileUploadModalProps = {
   constructionId: number;
   contractId: number;
-  onUploaded?: (res: Awaited<ReturnType<RCDEClient["uploadContractFile"]>>) => void;
+  onUploaded?: (
+    res: Awaited<ReturnType<RCDEClient["uploadContractFile"]>>
+  ) => void;
 } & Omit<ModalBoxProps, "children">;
 
 const FileUploadModal: FC<FileUploadModalProps> = (props) => {
   const { client } = useClient();
 
-  const { constructionId, contractId, onUploaded, ...rest } = props;
+  const { contractId, onUploaded, ...rest } = props;
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [progresses, setProgresses] = useState<number[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [pointCloudAttribute, setPointCloudAttribute] = useState<PointCloudAttribute>({});
+  const [pointCloudAttribute, setPointCloudAttribute] =
+    useState<PointCloudAttribute>({});
 
   const accept = useMemo(() => {
     return ".las,.laz,.csv,.txt,.xyz,.e57";
@@ -50,35 +52,32 @@ const FileUploadModal: FC<FileUploadModalProps> = (props) => {
     []
   );
 
-  const onProgress = useCallback(
-    (completedNumber: number, totalNumber: number) => {
-      const currentPercent = Math.round((completedNumber * 100) / totalNumber);
-      setProgresses([currentPercent]);
-    },
-    []
-  );
-
   const handleUpload = useCallback(() => {
     if (file !== null) {
       setIsUploading(true);
-      file.arrayBuffer().then((buffer) => {
-        console.log(buffer);
-        return client?.uploadContractFile({
-          contractId,
-          name: file.name,
-          buffer,
+      file
+        .arrayBuffer()
+        .then((buffer) => {
+          return client?.uploadContractFile({
+            contractId,
+            name: file.name,
+            buffer,
+            pointCloudAttribute,
+          });
+        })
+        .then((res) => {
+          if (res !== undefined) {
+            onUploaded?.(res);
+          }
+        })
+        .catch((e) => {
+          console.error(e);
+        })
+        .finally(() => {
+          setIsUploading(false);
         });
-      }).then((res) => {
-        if (res !== undefined) {
-          onUploaded?.(res);
-        }
-      }).catch((e) => {
-        console.error(e);
-      }).finally(() => {
-        setIsUploading(false);
-      });
     }
-  }, [contractId, client, file, onUploaded]);
+  }, [contractId, client, file, pointCloudAttribute, onUploaded]);
 
   return (
     <ModalBox {...rest}>
@@ -153,7 +152,12 @@ const FileUploadModal: FC<FileUploadModalProps> = (props) => {
                 </Typography>
                 <PointCloudAttributeForm
                   value={pointCloudAttribute}
-                  onChange={(params) => {}}
+                  onChange={(params) => {
+                    setPointCloudAttribute((prev) => ({
+                      ...prev,
+                      [params.key]: params.value,
+                    }));
+                  }}
                 />
               </Box>
             )}

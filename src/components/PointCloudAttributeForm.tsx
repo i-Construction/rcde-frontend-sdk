@@ -1,37 +1,11 @@
 import { FormControl, FormLabel, TextField } from "@mui/material";
-import { ChangeEvent, useCallback } from "react";
+import { ChangeEvent, useCallback, useMemo } from "react";
 
 type FormItemKey = keyof PointCloudAttribute;
 type FormItem = {
   label: string;
   key: keyof PointCloudAttribute;
 };
-const FORM_ITEMS: FormItem[] = [
-  {
-    label: "スキャン番号",
-    key: "no",
-  },
-  {
-    label: "取得時間",
-    key: "time",
-  },
-  {
-    label: "取得方法",
-    key: "method",
-  },
-  {
-    label: "利用機器",
-    key: "equipment",
-  },
-  {
-    label: "作業者",
-    key: "person",
-  },
-  {
-    label: "対象構造物",
-    key: "crs",
-  },
-];
 
 export type OnChangeParams = {
   key: FormItemKey;
@@ -47,6 +21,37 @@ const PointCloudAttributeForm = ({
   value,
   onChange,
 }: PointCloudAttributeFormProps) => {
+
+  const formItems: FormItem[] = useMemo(
+    () => [
+      {
+        label: "スキャン番号",
+        key: "no",
+      },
+      {
+        label: "取得時間",
+        key: "time",
+      },
+      {
+        label: "取得方法",
+        key: "method",
+      },
+      {
+        label: "利用機器",
+        key: "equipment",
+      },
+      {
+        label: "作業者",
+        key: "person",
+      },
+      {
+        label: "対象構造物",
+        key: "crs",
+      },
+    ],
+    []
+  );
+
   const handleChange = useCallback(
     (
       event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -76,7 +81,7 @@ const PointCloudAttributeForm = ({
       >
         施工現場情報
       </FormLabel>
-      {FORM_ITEMS.map((item) => {
+      {formItems.map((item) => {
         return (
           <TextField
             key={`point-cloud-attribute-${item.key}`}

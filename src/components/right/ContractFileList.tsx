@@ -25,7 +25,6 @@ type ContractFileListProps = {
 
 const ContractFileList: FC<ContractFileListProps> = ({
   onFileFocus,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onFileDelete,
 }) => {
   const { client, project } = useClient();
@@ -118,19 +117,21 @@ const ContractFileList: FC<ContractFileListProps> = ({
           >
             ダウンロード
           </MenuItem>
-          {/*
-            <MenuItem
-              sx={{ color: "red" }}
-              onClick={() => {
-                if (focused !== null) {
-                  onFileDelete(focused.container.file);
-                }
-              }}
-            >
-              削除
-            </MenuItem>
-          </MenuList>
-          */}
+          {
+            // eslint-disable-next-line no-constant-binary-expression
+            false && (
+              <MenuItem
+                sx={{ color: "red" }}
+                onClick={() => {
+                  if (focused !== null) {
+                    onFileDelete(focused.container.file);
+                  }
+                }}
+              >
+                削除
+              </MenuItem>
+            )
+          }
         </MenuList>
       </Menu>
     </>

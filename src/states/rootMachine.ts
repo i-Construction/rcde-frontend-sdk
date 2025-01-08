@@ -1,16 +1,4 @@
-import { Vector3 } from "three";
 import { createMachine } from "xstate";
-
-type RootEvent =
-  | { type: "IDLE" }
-  | { type: "APPEARANCE" }
-  | { type: "REFERENCE_POINT" }
-  | { type: "CREATE_METRIC" }
-  | { type: "TRANSLATE_METRIC" }
-  | { type: "MODELING_SPHERE" }
-  | { type: "MODELING_CUBE" }
-  | { type: "TRANSFORM_POSITION" }
-  | { type: "TRANSFORM_ROTATION" };
 
 export const rootMachine = createMachine(
   {
@@ -43,7 +31,7 @@ export const rootMachine = createMachine(
           position: {},
           rotation: {},
         },
-      }
+      },
     },
     on: {
       IDLE: {
@@ -72,11 +60,10 @@ export const rootMachine = createMachine(
       },
       TRANSFORM_ROTATION: {
         target: ".transform.rotation",
-      }
+      },
     },
   },
   {
-    actions: {
-    },
+    actions: {},
   }
 );
