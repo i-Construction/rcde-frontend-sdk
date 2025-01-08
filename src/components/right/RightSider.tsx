@@ -7,9 +7,10 @@ import { MenuList } from "@mui/material";
 
 export type RightSiderProps = {
   onFileFocus: (file: ContractFile) => void;
+  onFileDelete: (file: ContractFile) => void;
 };
 
-const RightSider: FC<RightSiderProps> = ({ onFileFocus }) => {
+const RightSider: FC<RightSiderProps> = ({ onFileFocus, onFileDelete }) => {
   const state = GlobalStateContext.useSelector((s) => s);
 
   return (
@@ -22,7 +23,10 @@ const RightSider: FC<RightSiderProps> = ({ onFileFocus }) => {
       {state.matches("reference_point") ? (
         <ReferencePoint />
       ) : (
-        <ContractFileList onFileFocus={onFileFocus} />
+        <ContractFileList
+          onFileFocus={onFileFocus}
+          onFileDelete={onFileDelete}
+        />
       )}
     </MenuList>
   );

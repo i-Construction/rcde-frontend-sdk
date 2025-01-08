@@ -11,7 +11,7 @@ import React, { FC, useCallback, useMemo, useRef, useState } from "react";
 import { useClient } from "../contexts/client";
 import { ModalBox, ModalBoxProps } from "./ModalBox";
 import { PointCloudAttributeForm } from "./PointCloudAttributeForm";
-import { RCDEClient } from "@rcde/api-sdk";
+import { RCDEClient } from "@i-con/api-sdk";
 
 export type FileUploadModalProps = {
   constructionId: number;

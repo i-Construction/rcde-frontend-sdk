@@ -1,5 +1,5 @@
 {
-  "name": "rcde-sdk",
+  "name": "@i-con/frontend-sdk",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,10 +13,10 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@hookform/resolvers": "^3.9.1",
+    "@i-con/api-sdk": "^0.0.2",
     "@mui/icons-material": "^6.2.0",
     "@mui/material": "^6.1.10",
     "@mui/x-date-pickers": "^7.23.1",
-    "@rcde/api-sdk": "../rcde-api-sdk",
     "@react-three/drei": "^9.120.4",
     "@react-three/fiber": "^8.17.10",
     "@xstate/react": "^5.0.0",

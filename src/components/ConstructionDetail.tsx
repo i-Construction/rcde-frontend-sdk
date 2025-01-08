@@ -6,7 +6,7 @@ import {
   Modal,
   Typography
 } from "@mui/material";
-import { RCDEClient } from "@rcde/api-sdk";
+import { RCDEClient } from "@i-con/api-sdk";
 import { FC, useCallback, useEffect, useState } from "react";
 import { useClient } from "../contexts/client";
 import { CreateContractSchema } from "../schemas/contract";

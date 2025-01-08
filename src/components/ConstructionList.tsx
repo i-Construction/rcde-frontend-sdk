@@ -8,7 +8,7 @@ import {
 } from "@mui/material";
 import { FC, useCallback, useEffect, useState } from "react";
 import { useClient } from "../contexts/client";
-import { RCDEClient } from "@rcde/api-sdk";
+import { RCDEClient } from "@i-con/api-sdk";
 import { ConstructionForm } from "./ConstructionForm";
 import { CreateConstructionSchema } from "../schemas/construction";
 

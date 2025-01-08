@@ -1,8 +1,6 @@
 import {
   Adjust,
-  InsertDriveFile,
-  Palette,
-  SquareFoot
+  InsertDriveFile
 } from "@mui/icons-material";
 import { ListItemIcon, ListItemText, MenuItem, MenuList } from "@mui/material";
 import { FC, useCallback, useMemo, useState } from "react";
@@ -48,11 +46,13 @@ const LeftSider: FC<LeftSiderProps> = ({
           actor.send({ type: "IDLE" });
         },
       },
+      /*
       {
         icon: <Palette />,
         text: "外観",
         selected: state.matches("appearance"),
       },
+      */
       {
         icon: <Adjust />,
         text: "基準点",
@@ -76,13 +76,11 @@ const LeftSider: FC<LeftSiderProps> = ({
         text: "回転",
         selected: state.matches("transform.rotation"),
       },
-      */
       {
         icon: <SquareFoot />,
         text: "寸法",
         selected: state.matches("metric"),
       },
-      /*
       {
         icon: <ThreeDRotation />,
         text: "モデリング",

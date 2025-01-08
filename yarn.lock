@@ -402,6 +402,14 @@
   resolved "https://registry.npmjs.org/@humanwhocodes/retry/-/retry-0.4.1.tgz"
   integrity sha512-c7hNEllBlenFTHBky65mhq8WD2kbN9Q6gk0bTk8lSBvc554jpXSkST1iePudpt7+A/AQvuHs9EMqjHDXMY1lrA==
 
+"@i-con/api-sdk@^0.0.2":
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/@i-con/api-sdk/-/api-sdk-0.0.2.tgz#06c2ef28bfa885c6bda42a64b2ff7be94df9cbc0"
+  integrity sha512-+0zhEFz4cPzUJLyIfRURbGuBW4biZvg4REoSd8Pzf96ui8zjcA45eLeQ1TE7TD2mHwoRCNlcn6IeS5Ht7wIvHg==
+  dependencies:
+    axios "^1.7.7"
+    dotenv "^16.4.5"
+
 "@jridgewell/gen-mapping@^0.3.5":
   version "0.3.8"
   resolved "https://registry.yarnpkg.com/@jridgewell/gen-mapping/-/gen-mapping-0.3.8.tgz#4f0e06362e01362f823d348f1872b08f666d8142"
@@ -574,12 +582,6 @@
   version "2.11.8"
   resolved "https://registry.yarnpkg.com/@popperjs/core/-/core-2.11.8.tgz#6b79032e760a0899cd4204710beede972a3a185f"
   integrity sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==
-
-"@rcde/api-sdk@../rcde-api-sdk":
-  version "0.0.1"
-  dependencies:
-    axios "^1.7.7"
-    dotenv "^16.4.5"
 
 "@react-spring/animated@~9.7.5":
   version "9.7.5"

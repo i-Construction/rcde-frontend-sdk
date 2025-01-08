@@ -1,4 +1,4 @@
-import { RCDEClient } from "@rcde/api-sdk";
+import { RCDEClient } from "@i-con/api-sdk";
 import {
   createContext,
   Dispatch,

@@ -101,6 +101,10 @@ const Viewer: FC<ViewerProps> = (props) => {
     onChange(center.negate());
   }, [views, onChange]);
 
+  const handleFileDelete = useCallback((file: ContractFile) => {
+    console.log(file);
+  }, []);
+
   return (
     <Box width={1} height={1} display="flex">
       <LeftSider constructionId={constructionId} contractId={contractId} />
@@ -169,6 +173,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       </Box>
       <RightSider
         onFileFocus={handleFileFocus}
+        onFileDelete={handleFileDelete}
       />
     </Box>
   );
