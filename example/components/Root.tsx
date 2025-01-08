@@ -29,9 +29,9 @@ const Root: FC = () => {
 
   const app = useMemo(() => {
     return {
-      clientId: "3cjrVuN6DUQIaKhXgGnbV91wKVZa9Sou",
-      clientSecret: "ZLyJ1Pawmw9WqWF5",
-      baseUrl: "http://localhost:8000",
+      clientId: import.meta.env.VITE_CLIENT_ID,
+      clientSecret: import.meta.env.VITE_CLIENT_SECRET,
+      baseUrl: import.meta.env.VITE_API_BASE_URL,
     };
   }, []);
 
