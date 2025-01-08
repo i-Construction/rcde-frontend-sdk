@@ -30,6 +30,7 @@ const ContractFileList: FC<ContractFileListProps> = ({
 }) => {
   const { client, project } = useClient();
   const { toggleVisibility, containers } = useContractFiles();
+
   const [focused, setFocused] = useState<{
     el: HTMLElement;
     container: ContractFileContainer;

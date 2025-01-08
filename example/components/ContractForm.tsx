@@ -8,20 +8,15 @@ import {
   Typography,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
-import { FC, useCallback, useMemo, useState } from "react";
+import React, { FC, useCallback, useMemo, useState } from "react";
 import { Controller, SubmitHandler, useForm } from "react-hook-form";
-import {
-  CreateConstructionSchema,
-  createConstructionSchema,
-} from "../schemas/construction";
+import { createContractSchema, CreateContractSchema } from "../schemas/contract";
 
-export type ConstructionFormProps = {
-  onSubmit: (values: CreateConstructionSchema) => void;
+export type ContractFormProps = {
+  onSubmit: (values: CreateContractSchema) => void;
 };
 
-const ConstructionForm: FC<ConstructionFormProps> = ({
-  onSubmit
-}) => {
+const ContractForm: FC<ContractFormProps> = ({ onSubmit }) => {
   const [loading, setLoading] = useState(false);
 
   const {
@@ -29,12 +24,12 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
     register,
     formState: { errors, isValid, isSubmitting },
     handleSubmit,
-  } = useForm<CreateConstructionSchema>({
-    resolver: zodResolver(createConstructionSchema),
+  } = useForm<CreateContractSchema>({
+    resolver: zodResolver(createContractSchema),
     mode: "onChange",
   });
 
-  const submitHandler: SubmitHandler<CreateConstructionSchema> = useCallback(
+  const submitHandler: SubmitHandler<CreateContractSchema> = useCallback(
     (values) => {
       onSubmit(values);
       setLoading(true);
@@ -45,7 +40,7 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
   const items = useMemo(
     () => [
       {
-        label: "工事名称",
+        label: "契約項目名",
         key: "name",
         required: true,
         component: (
@@ -57,22 +52,6 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
             error={!!errors.name}
             helperText={errors.name && errors.name.message}
             {...register("name")}
-          />
-        ),
-      },
-      {
-        label: "住所",
-        key: "address",
-        required: true,
-        component: (
-          <TextField
-            size="small"
-            fullWidth
-            autoComplete="off"
-            type="text"
-            error={!!errors.address}
-            helperText={errors.address && errors.address.message}
-            {...register("address")}
           />
         ),
       },
@@ -107,37 +86,23 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
         ),
       },
       {
-        label: "完成期日",
-        key: "period",
+        label: "管理者メールアドレス",
+        key: "contractAmount",
         required: true,
         component: (
-          <Controller
-            name="period"
-            control={control}
-            render={({ field }) => (
-              <DatePicker
-                {...field}
-                slotProps={{
-                  textField: {
-                    size: "small",
-                    fullWidth: true,
-                    error: !!errors.period,
-                    helperText: errors.period && errors.period.message,
-                  },
-                }}
-                onChange={(value: Date | null) =>
-                  value === null
-                    ? field.onChange(undefined)
-                    : field.onChange(value)
-                }
-              />
-            )}
+          <TextField
+            size="small"
+            fullWidth
+            autoComplete="off"
+            error={!!errors.email}
+            helperText={errors.email && errors.email.message}
+            {...register("email", {})}
           />
         ),
       },
       {
-        label: "請負金額",
-        key: "contractAmount",
+        label: "単価",
+        key: "unitPrice",
         required: true,
         component: (
           <TextField
@@ -149,17 +114,17 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
               inputProps: { inputMode: "numeric", pattern: "[0-9]*", min: 0 },
               startAdornment: "¥",
             }}
-            error={!!errors.contractAmount}
-            helperText={errors.contractAmount && errors.contractAmount.message}
-            {...register("contractAmount", {
+            error={!!errors.unitPrice}
+            helperText={errors.unitPrice && errors.unitPrice.message}
+            {...register("unitPrice", {
               valueAsNumber: true,
             })}
           />
         ),
       },
       {
-        label: "前払い金額率",
-        key: "advancePaymentRate",
+        label: "契約数量",
+        key: "unitVolume",
         required: true,
         component: (
           <TextField
@@ -169,29 +134,17 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
             type="number"
             InputProps={{
               inputProps: { inputMode: "numeric", pattern: "[0-9]*", min: 0 },
-              endAdornment: "%",
             }}
-            error={!!errors.advancePaymentRate}
-            helperText={
-              errors.advancePaymentRate && errors.advancePaymentRate.message
-            }
-            {...register("advancePaymentRate", {
+            error={!!errors.unitVolume}
+            helperText={errors.unitVolume && errors.unitVolume.message}
+            {...register("unitVolume", {
               valueAsNumber: true,
             })}
           />
         ),
       },
     ],
-    [
-      control,
-      errors.address,
-      errors.advancePaymentRate,
-      errors.contractAmount,
-      errors.contractedAt,
-      errors.name,
-      errors.period,
-      register,
-    ]
+    [control, errors, register]
   );
 
   return (
@@ -221,7 +174,7 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
             style={{ width: "100%" }}
             disabled={!isValid || isSubmitting || loading}
           >
-            現場を作成する
+            契約を作成する
           </Button>
         </ListItem>
       </List>
@@ -229,4 +182,4 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
   );
 };
 
-export { ConstructionForm };
+export { ContractForm };

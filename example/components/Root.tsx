@@ -1,9 +1,9 @@
 import { Box, Button } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import ja from 'date-fns/locale/ja';
+import ja from "date-fns/locale/ja";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
-import { useClient } from "../contexts/client";
+import { useClient } from "../../src/contexts/client";
 import { ConstructionDetail } from "./ConstructionDetail";
 import { ConstructionList } from "./ConstructionList";
 import { ContractDetail } from "./ContractDetail";
@@ -27,16 +27,17 @@ const Root: FC = () => {
   const [page, setPage] = useState<Pages>({ variant: "root" });
   const { initialize } = useClient();
 
-  useEffect(() => {
-    const clientId = "3cjrVuN6DUQIaKhXgGnbV91wKVZa9Sou";
-    const clientSecret = "ZLyJ1Pawmw9WqWF5";
-    const baseUrl = "http://localhost:8000";
-    initialize({
-      clientId,
-      clientSecret,
-      baseUrl,
-    });
+  const app = useMemo(() => {
+    return {
+      clientId: "3cjrVuN6DUQIaKhXgGnbV91wKVZa9Sou",
+      clientSecret: "ZLyJ1Pawmw9WqWF5",
+      baseUrl: "http://localhost:8000",
+    };
   }, []);
+
+  useEffect(() => {
+    initialize(app);
+  }, [app, initialize]);
 
   const handleBack = useCallback(() => {
     switch (page.variant) {
@@ -48,7 +49,10 @@ const Root: FC = () => {
         break;
       }
       case "contract": {
-        setPage({ variant: "construction", constructionId: page.constructionId });
+        setPage({
+          variant: "construction",
+          constructionId: page.constructionId,
+        });
         break;
       }
       default: {
@@ -57,12 +61,12 @@ const Root: FC = () => {
     }
   }, [page]);
 
-  const handleSelectContract = useCallback((props: {
-    constructionId: number;
-    contractId: number;
-  }) => {
-    setPage({ variant: "contract", ...props });
-  }, []);
+  const handleSelectContract = useCallback(
+    (props: { constructionId: number; contractId: number }) => {
+      setPage({ variant: "contract", ...props });
+    },
+    []
+  );
 
   const p = useMemo(() => {
     switch (page.variant) {
@@ -76,16 +80,27 @@ const Root: FC = () => {
         );
       }
       case "construction": {
-        return <ConstructionDetail id={page.constructionId} onSelect={handleSelectContract} />;
+        return (
+          <ConstructionDetail
+            id={page.constructionId}
+            onSelect={handleSelectContract}
+          />
+        );
       }
       case "contract": {
-        return <ContractDetail constructionId={page.constructionId} contractId={page.contractId} />;
+        return (
+          <ContractDetail
+            app={app}
+            constructionId={page.constructionId}
+            contractId={page.contractId}
+          />
+        );
       }
       default: {
         return null;
       }
     }
-  }, [page]);
+  }, [page, app, handleSelectContract]);
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>

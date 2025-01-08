@@ -7,8 +7,8 @@ import {
   Typography
 } from "@mui/material";
 import { RCDEClient } from "@i-con/api-sdk";
-import { FC, useCallback, useEffect, useState } from "react";
-import { useClient } from "../contexts/client";
+import React, { FC, useCallback, useEffect, useState } from "react";
+import { useClient } from "../../src/contexts/client";
 import { CreateContractSchema } from "../schemas/contract";
 import { ContractForm } from "./ContractForm";
 

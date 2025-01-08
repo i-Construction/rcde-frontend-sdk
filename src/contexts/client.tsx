@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 
-type ClientContextType = {
+export type ClientContextType = {
   client?: RCDEClient;
   initialize: (props: ConstructorParameters<typeof RCDEClient>[0]) => void;
   project?: {
@@ -46,6 +46,7 @@ export const ClientProvider: FC<{ children: ReactNode }> = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useClient = (): ClientContextType => {
   const context = useContext(ClientContext);
   if (!context) {
