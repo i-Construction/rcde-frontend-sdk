@@ -1,9 +1,15 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
+import dts from "vite-plugin-dts";
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
-  plugins: [react({})],
+  plugins: [
+    react({}),
+    dts({
+      tsconfigPath: "./tsconfig.json",
+    }),
+  ],
   build: {
     lib: {
       entry: "src/index.ts",
