@@ -29,6 +29,9 @@ export default defineConfig(({ command }) => ({
         globals: {
           react: "React",
           "react-dom": "ReactDOM",
+          "@react-three/fiber": "fiber",
+          "@react-three/drei": "drei",
+          three: "three",
         },
       },
     },
