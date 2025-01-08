@@ -14,7 +14,6 @@ import { PointCloudAttributeForm } from "./PointCloudAttributeForm";
 import { RCDEClient } from "@i-con/api-sdk";
 
 export type FileUploadModalProps = {
-  constructionId: number;
   contractId: number;
   onUploaded?: (
     res: Awaited<ReturnType<RCDEClient["uploadContractFile"]>>

@@ -15,12 +15,10 @@ type Menu = {
 };
 
 export type LeftSiderProps = {
-  constructionId: number;
   contractId: number;
 };
 
 const LeftSider: FC<LeftSiderProps> = ({
-  constructionId,
   contractId,
 }) => {
   const state = GlobalStateContext.useSelector((s) => s);
@@ -103,7 +101,6 @@ const LeftSider: FC<LeftSiderProps> = ({
         );
       })}
       <FileUploadModal
-        constructionId={constructionId}
         contractId={contractId}
         open={open.file ?? false}
         onUploaded={handleOnClose("file")}
