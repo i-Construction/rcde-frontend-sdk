@@ -125,9 +125,13 @@ const Viewer: FC<ViewerProps> = (props) => {
     console.log(file);
   }, []);
 
+  const handleUploaded = useCallback(() => {
+    fetchContractFiles();
+  }, [fetchContractFiles]);
+
   return (
     <Box width={1} height={1} display="flex">
-      <LeftSider contractId={contractId} />
+      <LeftSider contractId={contractId} onUploaded={handleUploaded} />
       <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
         <Canvas camera={camera} {...r3f?.canvas}>
           {r3f?.map !== false && <MapControls makeDefault screenSpacePanning />}
