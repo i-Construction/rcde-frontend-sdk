@@ -25,19 +25,29 @@ type R3FProps = {
   gizmo?: boolean;
 };
 
+/**
+ * Viewer component props
+ */
 export type ViewerProps = {
   app: Parameters<ClientContextType["initialize"]>[0];
   constructionId: number;
   contractId: number;
   r3f?: R3FProps;
+  /**
+   * Component to display in the viewer scene
+   */
   children?: React.ReactNode;
+  /**
+   * Component to display at the position offset in the viewer scene
+   */
+  positionOffsetComponent?: React.ReactNode;
 };
 
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
-  const { app, constructionId, contractId, r3f, children } = props;
+  const { app, constructionId, contractId, r3f, children, positionOffsetComponent } = props;
   const { initialize, client, project, setProject } = useClient();
-  const { point, onChange } = useReferencePoint();
+  const { point, change: changeReferencePoint } = useReferencePoint();
   const [views, setViews] = useState<
     (ContractFileProps & { boundingBox: Box3 })[]
   >([]);
@@ -103,6 +113,9 @@ const Viewer: FC<ViewerProps> = (props) => {
               meta,
               boundingBox,
             };
+          }).catch((e) => {
+            console.error(e);
+            return undefined;
           });
       });
     Promise.all(promises).then((vs) => {
@@ -116,9 +129,9 @@ const Viewer: FC<ViewerProps> = (props) => {
       if (view === undefined) return;
       const { boundingBox } = view;
       const center = boundingBox.getCenter(new Vector3());
-      onChange(center.negate());
+      changeReferencePoint(center.negate());
     },
-    [views, onChange]
+    [views, changeReferencePoint]
   );
 
   const handleFileDelete = useCallback((file: ContractFile) => {
@@ -170,7 +183,12 @@ const Viewer: FC<ViewerProps> = (props) => {
               />
             );
           })}
-          {children}
+          <group position={point}>
+            {positionOffsetComponent}
+          </group>
+          <group>
+            {children}
+          </group>
         </Canvas>
         <Box
           component="div"

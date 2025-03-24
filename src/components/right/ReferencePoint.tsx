@@ -13,7 +13,7 @@ import { GlobalStateContext } from '../../contexts/state';
 
 const ReferencePoint: FC = () => {
   const actor = GlobalStateContext.useActorRef();
-  const { point, onChange, onSave } = useReferencePoint();
+  const { point, change, save } = useReferencePoint();
 
   const handleChange = useCallback(
     (component: number) => {
@@ -25,16 +25,16 @@ const ReferencePoint: FC = () => {
         if (!Number.isNaN(n)) {
           const p = point.clone();
           p.setComponent(component, n);
-          onChange(p);
+          change(p);
         }
       };
     },
-    [point, onChange]
+    [point, change]
   );
 
   const handleSaveClick = useCallback(() => {
-    onSave(point);
-  }, [point, onSave]);
+    save(point);
+  }, [point, save]);
 
   const handleCloseClick = useCallback(() => {
     actor.send({ type: "IDLE" });
