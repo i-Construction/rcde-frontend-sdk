@@ -402,10 +402,10 @@
   resolved "https://registry.npmjs.org/@humanwhocodes/retry/-/retry-0.4.1.tgz"
   integrity sha512-c7hNEllBlenFTHBky65mhq8WD2kbN9Q6gk0bTk8lSBvc554jpXSkST1iePudpt7+A/AQvuHs9EMqjHDXMY1lrA==
 
-"@i-con/api-sdk@^0.0.2":
-  version "0.0.2"
-  resolved "https://registry.yarnpkg.com/@i-con/api-sdk/-/api-sdk-0.0.2.tgz#06c2ef28bfa885c6bda42a64b2ff7be94df9cbc0"
-  integrity sha512-+0zhEFz4cPzUJLyIfRURbGuBW4biZvg4REoSd8Pzf96ui8zjcA45eLeQ1TE7TD2mHwoRCNlcn6IeS5Ht7wIvHg==
+"@i-con/api-sdk@^0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@i-con/api-sdk/-/api-sdk-0.0.5.tgz#5a39cc58dfc0f337e79af38b36ee2cbc8618e242"
+  integrity sha512-+yz5+7VJg23MMGvtOSOgiKWUZSKpLhmC2+3NCjcR6CT5s+gnGw4JmkovZUBDf0jjyKmD1RQrBQ7kjmjZZTZC5A==
   dependencies:
     axios "^1.7.7"
     dotenv "^16.4.5"
