@@ -70,7 +70,7 @@ const ContractFileList: FC<ContractFileListProps> = ({
               {file.name}
             </Typography>
             <Box>
-              <Tooltip title="ファイルを表示">
+              <Tooltip title="ファイルを表示" disableInteractive>
                 <IconButton
                   size="small"
                   // disabled={ file.category === ContractFileCategoryMap.PROGRESS}
@@ -81,7 +81,7 @@ const ContractFileList: FC<ContractFileListProps> = ({
                   {visible ? <Visibility /> : <VisibilityOff />}
                 </IconButton>
               </Tooltip>
-              <Tooltip title="ファイルの中心に移動">
+              <Tooltip title="ファイルの中心に移動" disableInteractive>
                 <IconButton
                   size="small"
                   disabled={!visible}

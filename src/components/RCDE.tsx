@@ -1,10 +1,20 @@
 import { FC } from "react";
-import { GlobalStateContext } from "../contexts/state";
+import { ClientProvider } from "../contexts/client";
 import { ContractFilesProvider } from "../contexts/contractFiles";
 import { ReferencePointProvider } from "../contexts/referencePoint";
-import { ClientProvider } from "../contexts/client";
+import { GlobalStateContext } from "../contexts/state";
 import { Viewer, ViewerProps } from "./Viewer";
 
+/**
+ * Root component for RCDE
+ * 
+ * @example
+ * ```tsx
+ * <RCDE constructionId={1} contractId={1} app={app}>
+ *   <YourR3FComponentInTheViewerScene />
+ * </RCDE>
+ * ```
+ */
 const RCDE: FC<ViewerProps> = (props) => {
   return (
     <GlobalStateContext.Provider>
