@@ -284,15 +284,6 @@ const App = () => {
 
 ---
 
-## 認証（RCDE OAuth）
-
-本SDKは RCDE の 3-legged OAuth 認証 に対応しており、
-`/api/auth/rcde-access-token` エンドポイント経由で Token-on-Demand 方式を採用しています。
-
-詳細仕様は `FNC001_認証機能.md` を参照してください。
-
----
-
 ## Three.js／R3F統合に関する注意
 
 - Three.js オブジェクトは React Reconciler 18.3.1 に依存します。
