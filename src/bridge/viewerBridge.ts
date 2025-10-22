@@ -1,4 +1,3 @@
-// packages/@i-con/frontend-sdk/src/bridge/viewerBridge.ts
 export type UpAxis = 'Y' | 'Z';
 
 export type ViewerTransform = {
@@ -7,9 +6,9 @@ export type ViewerTransform = {
 };
 
 export type ViewerAppearance = {
-  pointSize: number;   // px 相当（範囲制限なし）
-  opacity: number;     // 0..1 を想定するが範囲制限なし
-  upAxis: UpAxis;      // 'Y' | 'Z'（カメラ系のみ切替）
+  pointSize: number;
+  opacity: number;
+  upAxis: UpAxis;
 };
 
 const CHANNEL = 'RCDE_VIEWER_CMD';
