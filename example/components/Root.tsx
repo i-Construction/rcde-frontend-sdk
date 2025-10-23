@@ -1,4 +1,6 @@
 import { Box, Button } from "@mui/material";
+import { ViewerPanel } from "./ViewerPanel";
+
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import ja from "date-fns/locale/ja";
@@ -21,7 +23,7 @@ type ContractDetail = Page<"contract"> & {
   contractId: number;
 };
 
-type Pages = Page<"root"> | ConstructionDetail | ContractDetail;
+type Pages = Page<"root"> | ConstructionDetail | ContractDetail | Page<"viewer">;
 
 const Root: FC = () => {
   const [page, setPage] = useState<Pages>({ variant: "root" });
@@ -116,7 +118,12 @@ const Root: FC = () => {
         </Box>
         {p}
       </Box>
-    </LocalizationProvider>
+    <Box sx={{ p:2, display:'flex', gap:1 }}>
+  <Button variant="outlined" onClick={() => setPage({ variant: "root" })}>Home</Button>
+  <Button variant="outlined" onClick={() => setPage({ variant: "viewer" })}>Viewer</Button>
+</Box>
+</LocalizationProvider>
+
   );
 };
 
