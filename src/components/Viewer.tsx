@@ -17,6 +17,8 @@ import { LeftSider } from "./LeftSider";
 import { ReferencePointView } from "./ReferencePointView";
 import { RightSider } from "./right/RightSider";
 
+import axios, { AxiosError, AxiosResponse } from "axios";
+
 // === UI → Viewer メッセージ ===
 type UpAxis = 'Y' | 'Z';
 type ViewerTransform = {
@@ -53,6 +55,32 @@ export type ViewerProps = {
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
+let _axiosSafePatched = false;
+function ensureAxiosSafeOnce() {
+  if (_axiosSafePatched) return;
+  _axiosSafePatched = true;
+  axios.defaults.validateStatus = () => true;
+  axios.interceptors.response.use(
+    (resp: AxiosResponse) => resp,
+    (error: AxiosError) => {
+      const resp = error.response;
+      if (resp) {
+        return Promise.resolve(resp);
+      }
+      return Promise.resolve({
+        status: 0,
+        statusText: "AxiosNetworkError",
+        data: {
+          error: "network_error",
+          message: error.message ?? "Network error",
+        },
+        headers: {},
+        config: (error as any).config,
+      } as AxiosResponse);
+    }
+  );
+}
+
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
   const { app, constructionId, contractId, r3f, children, positionOffsetComponent } = props;
@@ -64,18 +92,26 @@ const Viewer: FC<ViewerProps> = (props) => {
   const cameraRef = useRef<PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
 
-  // 外観（初期値）
   const [appearance, setAppearance] = useState<{ pointSize: number; opacity: number }>({
-    pointSize: 2,   // 0..5 のスケールに合わせ適度な既定
-    opacity: 100,   // %
+    pointSize: 2,
+    opacity: 100,
   });
 
-  useEffect(() => { initialize(app); }, [app, initialize]);
+  useEffect(() => {
+    ensureAxiosSafeOnce();
+    initialize(app);
+  }, [app, initialize]);
 
   useEffect(() => { setProject({ constructionId, contractId }); }, [constructionId, contractId, setProject]);
-
-  const fetchContractFiles = useCallback(() => {
-    client?.getContractFileList({ contractId }).then(({ contractFiles }) => load(contractFiles ?? []));
+  const fetchContractFiles = useCallback(async () => {
+    try {
+      const res = await client?.getContractFileList({ contractId });
+      const contractFiles = (res as any)?.contractFiles ?? [];
+      load(contractFiles);
+    } catch (err) {
+      console.warn("[Viewer] getContractFileList threw:", err);
+      load([]);
+    }
   }, [client, contractId, load]);
 
   useEffect(() => { fetchContractFiles(); }, [fetchContractFiles]);
@@ -95,16 +131,23 @@ const Viewer: FC<ViewerProps> = (props) => {
       .map((c) => {
         const id = c.file.id;
         if (id === undefined) return Promise.resolve(undefined);
-        return client?.getContractFileMetadata({ ...project, contractFileId: id })
+        return client
+          ?.getContractFileMetadata({ ...project, contractFileId: id })
           .then((d) => {
             const meta = d as unknown as PointCloudMeta;
             const { min, max } = meta.bounds;
             const boundingBox = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
             return { file: c.file, meta, boundingBox };
           })
-          .catch((e) => { console.error(e); return undefined; });
+          .catch((e) => {
+            console.error(e);
+            return undefined;
+          });
       });
-    Promise.all(promises).then((vs) => { setViews(vs.filter((v) => v !== undefined) as any); });
+
+    Promise.all(promises).then((vs) => {
+      setViews(vs.filter((v) => v !== undefined) as any);
+    });
   }, [containers, project, client]);
 
   const handleFileFocus = useCallback((file: ContractFile) => {
@@ -117,7 +160,6 @@ const Viewer: FC<ViewerProps> = (props) => {
   const handleFileDelete = useCallback((file: ContractFile) => { console.log(file); }, []);
   const handleUploaded = useCallback(() => { fetchContractFiles(); }, [fetchContractFiles]);
 
-  // pointSize / opacity の適用（0..5 / 0..100%）
   const applyAppearanceToScene = useCallback((root: Group | null, ps: number, opPercent: number) => {
     if (!root) return;
     const pointSize = clamp(ps, 0, 5);
@@ -127,21 +169,14 @@ const Viewer: FC<ViewerProps> = (props) => {
       const mat = obj?.material;
       if (!mat) return;
 
-      // PointsMaterial など
       if (typeof mat.size === "number") {
         mat.size = pointSize;
         mat.needsUpdate = true;
       }
-      // ShaderMaterial の uniforms
       if (mat.uniforms) {
-        if (mat.uniforms.pointSize?.value !== undefined) {
-          mat.uniforms.pointSize.value = pointSize;
-        }
-        if (mat.uniforms.opacity?.value !== undefined) {
-          mat.uniforms.opacity.value = opacity01;
-        }
+        if (mat.uniforms.pointSize?.value !== undefined) mat.uniforms.pointSize.value = pointSize;
+        if (mat.uniforms.opacity?.value !== undefined) mat.uniforms.opacity.value = opacity01;
       }
-      // 共通の透明度
       if (typeof mat.opacity === "number") {
         mat.opacity = opacity01;
         if (opacity01 < 1 && mat.transparent !== true) mat.transparent = true;
@@ -154,7 +189,6 @@ const Viewer: FC<ViewerProps> = (props) => {
     applyAppearanceToScene(transformRootRef.current, appearance.pointSize, appearance.opacity);
   }, [appearance, applyAppearanceToScene]);
 
-  // メッセージ受信（安全にガード）
   useEffect(() => {
     const listener = (e: MessageEvent) => {
       if (!e?.data || e.data.channel !== CHANNEL) return;
@@ -174,7 +208,6 @@ const Viewer: FC<ViewerProps> = (props) => {
         setAppearance({ pointSize: nextPointSize, opacity: nextOpacity });
 
         if (up) {
-          // カメラの up のみ変更（controls の up には触れない）
           const cam = cameraRef.current;
           if (cam) {
             if (up === 'Y') cam.up.set(0, 1, 0);
