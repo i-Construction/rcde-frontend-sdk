@@ -48,6 +48,7 @@ export type ViewerProps = {
   app: Parameters<ClientContextType["initialize"]>[0];
   constructionId: number;
   contractId: number;
+  contractFileIds?: number[];
   r3f?: R3FProps;
   children?: React.ReactNode;
   positionOffsetComponent?: React.ReactNode;
@@ -83,7 +84,7 @@ function ensureAxiosSafeOnce() {
 
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
-  const { app, constructionId, contractId, r3f, children, positionOffsetComponent } = props;
+  const { app, constructionId, contractId, contractFileIds, r3f, children, positionOffsetComponent } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point, change: changeReferencePoint } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
@@ -107,12 +108,12 @@ const Viewer: FC<ViewerProps> = (props) => {
     try {
       const res = await client?.getContractFileList({ contractId });
       const contractFiles = (res as any)?.contractFiles ?? [];
-      load(contractFiles);
+      load(contractFiles, contractFileIds);
     } catch (err) {
       console.warn("[Viewer] getContractFileList threw:", err);
-      load([]);
+      load([], contractFileIds);
     }
-  }, [client, contractId, load]);
+  }, [client, contractId, contractFileIds, load]);
 
   useEffect(() => { fetchContractFiles(); }, [fetchContractFiles]);
 

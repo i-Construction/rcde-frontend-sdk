@@ -20,7 +20,7 @@ export type ContractFileContainer = {
 
 type ContractFilesContextType = {
   containers: ContractFileContainer[];
-  load: (files: ContractFiles) => void;
+  load: (files: ContractFiles, visibleIds?: number[]) => void;
   toggleVisibility: (container: ContractFileContainer) => void;
 };
 
@@ -33,11 +33,11 @@ export const ContractFilesProvider: FC<{ children: ReactNode }> = ({
 }) => {
   const [containers, setContainers] = useState<ContractFileContainer[]>([]);
 
-  const load = useCallback((files: ContractFiles) => {
+  const load = useCallback((files: ContractFiles, visibleIds?: number[]) => {
     setContainers(
       files.map((file) => ({
         file,
-        visible: true,
+        visible: visibleIds === undefined ? true : (file.id !== undefined && visibleIds.includes(file.id)),
       }))
     );
   }, []);
