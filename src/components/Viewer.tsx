@@ -58,6 +58,8 @@ export type ViewerProps = {
   r3f?: R3FProps;
   children?: React.ReactNode;
   positionOffsetComponent?: React.ReactNode;
+  showLeftSider?: boolean;
+  showRightSider?: boolean;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -90,7 +92,7 @@ function ensureAxiosSafeOnce() {
 
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
-  const { app, constructionId, contractId, contractFileIds, r3f, children, positionOffsetComponent } = props;
+  const { app, constructionId, contractId, contractFileIds, r3f, children, positionOffsetComponent, showLeftSider = true, showRightSider = true } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point, change: changeReferencePoint } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
@@ -246,7 +248,7 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   return (
     <Box width={1} height={1} display="flex">
-      <LeftSider contractId={contractId} onUploaded={handleUploaded} />
+      {showLeftSider && <LeftSider contractId={contractId} onUploaded={handleUploaded} />}
       <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
         <Canvas camera={camera} {...r3f?.canvas}>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -300,7 +302,7 @@ const Viewer: FC<ViewerProps> = (props) => {
           <ReferencePointView point={point} />
         </Box>
       </Box>
-      <RightSider onFileFocus={handleFileFocus} onFileDelete={handleFileDelete} />
+      {showRightSider && <RightSider onFileFocus={handleFileFocus} onFileDelete={handleFileDelete} />}
     </Box>
   );
 };
