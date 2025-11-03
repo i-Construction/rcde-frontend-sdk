@@ -36,11 +36,13 @@ npm run dev
 ```env
 VITE_CLIENT_ID=
 VITE_CLIENT_SECRET=
-VITE_API_BASE_URL=http://localhost:8000
+VITE_API_BASE_URL=https://api.rcde.jp
+VITE_AUTH_TYPE=2legged
 ```
 
-> ※ 認証エンドポイント `/api/auth/rcde-access-token` をバックエンド側に用意している場合、
-> ここで指定した `VITE_*` 環境変数を `useClient()` 初期化に使用できます。
+> ※ `VITE_CLIENT_ID` と `VITE_CLIENT_SECRET` は、RCDEの企業管理画面で払い出された値を設定してください。
+> ※ アプリケーション起動時に自動的にアクセストークンを取得します。
+> ※ `VITE_AUTH_TYPE` は `2legged` または `3legged` を指定します（デフォルトは `2legged`、現在は2leggedのみサポート）。
 
 ## 注意点
 - three は Vite の `optimizeDeps.include` に含めています。

@@ -1,4 +1,4 @@
-import { RCDEClient } from "@i-con/api-sdk";
+import { RCDEClient } from "../lib/rcde-client";
 import {
   createContext,
   FC,

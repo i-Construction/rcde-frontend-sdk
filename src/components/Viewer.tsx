@@ -8,8 +8,8 @@ import {
 import { Canvas, CanvasProps } from "@react-three/fiber";
 import { PointCloudMeta } from "pcd-viewer";
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box3, Color, DoubleSide, Quaternion, Vector3, Group, PerspectiveCamera } from "three";
-import { ClientContextType, useClient } from "../contexts/client";
+import { Box3, Color, DoubleSide, Quaternion, Vector3, Group, PerspectiveCamera, Object3D } from "three";
+import { useClient } from "../contexts/client";
 import { ContractFile, useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
@@ -44,8 +44,14 @@ type R3FProps = {
   gizmo?: boolean;
 };
 
+export type RCDEAppConfig = {
+  token: string;
+  baseUrl?: string;
+  authType?: '2legged' | '3legged';
+};
+
 export type ViewerProps = {
-  app: Parameters<ClientContextType["initialize"]>[0];
+  app: RCDEAppConfig;
   constructionId: number;
   contractId: number;
   contractFileIds?: number[];
@@ -76,7 +82,7 @@ function ensureAxiosSafeOnce() {
           message: error.message ?? "Network error",
         },
         headers: {},
-        config: (error as any).config,
+        config: error.config ?? {},
       } as AxiosResponse);
     }
   );
@@ -91,6 +97,7 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   const transformRootRef = useRef<Group>(null);
   const cameraRef = useRef<PerspectiveCamera>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
   const [appearance, setAppearance] = useState<{ pointSize: number; opacity: number }>({
@@ -107,7 +114,7 @@ const Viewer: FC<ViewerProps> = (props) => {
   const fetchContractFiles = useCallback(async () => {
     try {
       const res = await client?.getContractFileList({ contractId });
-      const contractFiles = (res as any)?.contractFiles ?? [];
+      const contractFiles = res?.contractFiles ?? [];
       load(contractFiles, contractFileIds);
     } catch (err) {
       console.warn("[Viewer] getContractFileList threw:", err);
@@ -147,7 +154,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       });
 
     Promise.all(promises).then((vs) => {
-      setViews(vs.filter((v) => v !== undefined) as any);
+      setViews(vs.filter((v): v is ContractFileProps & { boundingBox: Box3 } => v !== undefined));
     });
   }, [containers, project, client]);
 
@@ -166,8 +173,8 @@ const Viewer: FC<ViewerProps> = (props) => {
     const pointSize = clamp(ps, 0, 5);
     const opacity01 = clamp(opPercent, 0, 100) / 100;
 
-    root.traverse((obj: any) => {
-      const mat = obj?.material;
+    root.traverse((obj: Object3D) => {
+      const mat = (obj as { material?: { size?: number; uniforms?: Record<string, { value?: number }>; opacity?: number; transparent?: boolean; needsUpdate?: boolean } }).material;
       if (!mat) return;
 
       if (typeof mat.size === "number") {
@@ -242,6 +249,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       <LeftSider contractId={contractId} onUploaded={handleUploaded} />
       <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
         <Canvas camera={camera} {...r3f?.canvas}>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <perspectiveCamera ref={cameraRef as any} />
           {r3f?.map !== false && <MapControls ref={controlsRef} makeDefault screenSpacePanning />}
           {r3f?.light !== false && <ambientLight intensity={0.5} />}

@@ -6,7 +6,7 @@ import {
   Modal,
   Typography
 } from "@mui/material";
-import { RCDEClient } from "@i-con/api-sdk";
+import { RCDEClient } from "../../src/lib/rcde-client";
 import { FC, useCallback, useEffect, useState } from "react";
 import { useClient } from "../../src/contexts/client";
 import { CreateContractSchema } from "../schemas/contract";
@@ -61,7 +61,8 @@ const ConstructionDetail: FC<ConstructionDetailProps> = ({ id: constructionId, o
       client
         ?.createContract({
           constructionId: constructionId,
-          ...contract,
+          name: contract.name,
+          contractedAt: contract.contractedAt.toISOString(),
         })
         .then(() => {
           fetchContracts();
