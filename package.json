@@ -19,7 +19,8 @@
   },
   "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "types"
   ],
   "scripts": {
     "dev": "vite example",
