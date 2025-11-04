@@ -5,10 +5,10 @@ import {
   Grid,
   MapControls,
 } from "@react-three/drei";
-import { Canvas, CanvasProps } from "@react-three/fiber";
+import { Canvas, CanvasProps, useThree } from "@react-three/fiber";
 import { PointCloudMeta } from "pcd-viewer";
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box3, Color, DoubleSide, Quaternion, Vector3, Group, PerspectiveCamera, Object3D } from "three";
+import { Box3, Color, DoubleSide, Quaternion, Vector2, Vector3, Group, PerspectiveCamera, Object3D, Raycaster } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile, useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
@@ -61,6 +61,7 @@ export type ViewerProps = {
   showLeftSider?: boolean;
   showRightSider?: boolean;
   selectedFileId?: number;
+  onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -91,9 +92,84 @@ function ensureAxiosSafeOnce() {
   );
 }
 
+// Helper function to check if a ray intersects with a Box3
+const rayIntersectBox = (ray: { origin: Vector3; direction: Vector3 }, box: Box3): Vector3 | null => {
+  const invDir = new Vector3(1 / ray.direction.x, 1 / ray.direction.y, 1 / ray.direction.z);
+  const t1 = (box.min.x - ray.origin.x) * invDir.x;
+  const t2 = (box.max.x - ray.origin.x) * invDir.x;
+  const t3 = (box.min.y - ray.origin.y) * invDir.y;
+  const t4 = (box.max.y - ray.origin.y) * invDir.y;
+  const t5 = (box.min.z - ray.origin.z) * invDir.z;
+  const t6 = (box.max.z - ray.origin.z) * invDir.z;
+
+  const tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
+  const tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
+
+  if (tmax < 0 || tmin > tmax) {
+    return null;
+  }
+
+  const t = tmin > 0 ? tmin : tmax;
+  return ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
+};
+
+// Component to handle click events inside Canvas
+const ClickHandler: FC<{
+  views: (ContractFileProps & { boundingBox: Box3 })[];
+  referencePoint: Vector3;
+  onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
+}> = ({ views, referencePoint, onContractFileClick }) => {
+  const { camera, gl } = useThree();
+  const raycaster = useMemo(() => new Raycaster(), []);
+
+  const handleClick = useCallback((event: MouseEvent) => {
+    if (!onContractFileClick) return;
+
+    const rect = gl.domElement.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(new Vector2(x, y), camera);
+    const ray = raycaster.ray;
+
+    // Find the closest bounding box that intersects with the ray
+    let closestIntersection: { view: ContractFileProps & { boundingBox: Box3 }; distance: number } | null = null;
+
+    for (const view of views) {
+      // Apply reference point offset to bounding box
+      const offsetBoundingBox = view.boundingBox.clone();
+      offsetBoundingBox.translate(referencePoint);
+      
+      const intersection = rayIntersectBox(ray, offsetBoundingBox);
+      if (intersection) {
+        const distance = ray.origin.distanceTo(intersection);
+        if (!closestIntersection || distance < closestIntersection.distance) {
+          closestIntersection = { view, distance };
+        }
+      }
+    }
+
+    if (closestIntersection) {
+      onContractFileClick(closestIntersection.view.file, closestIntersection.view.boundingBox);
+    } else {
+      onContractFileClick(undefined, undefined);
+    }
+  }, [views, referencePoint, onContractFileClick, camera, gl, raycaster]);
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    canvas.addEventListener('click', handleClick);
+    return () => {
+      canvas.removeEventListener('click', handleClick);
+    };
+  }, [gl, handleClick]);
+
+  return null;
+};
+
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
-  const { app, constructionId, contractId, contractFileIds, r3f, children, positionOffsetComponent, showLeftSider = true, showRightSider = true, selectedFileId } = props;
+  const { app, constructionId, contractId, contractFileIds, r3f, children, positionOffsetComponent, showLeftSider = true, showRightSider = true, selectedFileId, onContractFileClick } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point, change: changeReferencePoint } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
@@ -300,6 +376,7 @@ const Viewer: FC<ViewerProps> = (props) => {
             ))}
             <group position={point}>{positionOffsetComponent}</group>
             <group>{children}</group>
+            {onContractFileClick && <ClickHandler views={views} referencePoint={point} onContractFileClick={onContractFileClick} />}
           </group>
         </Canvas>
 
