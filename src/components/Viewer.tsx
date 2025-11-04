@@ -107,24 +107,37 @@ const Viewer: FC<ViewerProps> = (props) => {
     opacity: 100,
   });
 
+  // Memoize contractFileIds to prevent unnecessary re-renders
+  // Use JSON.stringify to compare array contents rather than reference
+  const contractFileIdsKey = contractFileIds ? JSON.stringify(contractFileIds) : undefined;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const memoizedContractFileIds = useMemo(() => contractFileIds, [contractFileIdsKey]);
+
   useEffect(() => {
     ensureAxiosSafeOnce();
     initialize(app);
   }, [app, initialize]);
 
   useEffect(() => { setProject({ constructionId, contractId }); }, [constructionId, contractId, setProject]);
+  
   const fetchContractFiles = useCallback(async () => {
+    if (!client || !contractId) return;
+    
     try {
-      const res = await client?.getContractFileList({ contractId });
+      const res = await client.getContractFileList({ contractId });
       const contractFiles = res?.contractFiles ?? [];
-      load(contractFiles, contractFileIds);
+      load(contractFiles, memoizedContractFileIds);
     } catch (err) {
       console.warn("[Viewer] getContractFileList threw:", err);
-      load([], contractFileIds);
+      load([], memoizedContractFileIds);
     }
-  }, [client, contractId, contractFileIds, load]);
+  }, [client, contractId, memoizedContractFileIds, load]);
 
-  useEffect(() => { fetchContractFiles(); }, [fetchContractFiles]);
+  useEffect(() => { 
+    if (client && contractId) {
+      fetchContractFiles(); 
+    }
+  }, [client, contractId, fetchContractFiles]);
 
   const camera = useMemo(() => ({
     fov: 40,

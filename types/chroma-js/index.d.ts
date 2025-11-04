@@ -25,7 +25,7 @@ declare module 'chroma-js' {
     rgb(r: number, g: number, b: number): ChromaInstance;
     hsl(h: number, s: number, l: number): ChromaInstance;
     hex(color: string): ChromaInstance;
-    valid(color: any): boolean;
+    valid(color: unknown): boolean;
     mix(color1: ChromaInstance | string, color2: ChromaInstance | string, ratio?: number, mode?: string): ChromaInstance;
     interpolate(color1: ChromaInstance | string, color2: ChromaInstance | string, f: number, mode?: string): ChromaInstance;
   }
