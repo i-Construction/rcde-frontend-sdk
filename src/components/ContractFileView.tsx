@@ -18,12 +18,14 @@ export type ContractFileProps = {
   file: ContractFile;
   meta: PointCloudMeta;
   referencePoint?: Vector3;
+  selected?: boolean;
 };
 
 const ContractFileView = ({
   file,
   meta,
   referencePoint,
+  selected = false,
 }: ContractFileProps) => {
   const { client, project } = useClient();
   const [init, setInit] = useState(false);
@@ -155,16 +157,36 @@ const ContractFileView = ({
   const pointCloudColor: PointCloudColor = useCallback(
     ({ point }) => {
       const { color: c } = point;
+      let baseColor: [number, number, number];
+      
       if (c !== undefined) {
         const { r, g, b, a } = c;
         if (hasIntensity) {
-          return lerpIntensityColor(a / 255);
+          baseColor = lerpIntensityColor(a / 255);
+        } else {
+          baseColor = [r / 255, g / 255, b / 255];
         }
-        return [r / 255, g / 255, b / 255];
+      } else {
+        baseColor = [1, 1, 1];
       }
-      return [1, 1, 1];
+
+      // If selected, blend with blue overlay
+      if (selected) {
+        const blueColor = [0x21 / 255, 0x96 / 255, 0xf3 / 255] as [number, number, number];
+        const blendFactor = 0.3; // 30% blue, 70% original color
+        
+        // Linear interpolation (lerp) between base color and blue
+        const blendedColor: [number, number, number] = [
+          baseColor[0] * (1 - blendFactor) + blueColor[0] * blendFactor,
+          baseColor[1] * (1 - blendFactor) + blueColor[1] * blendFactor,
+          baseColor[2] * (1 - blendFactor) + blueColor[2] * blendFactor,
+        ];
+        return blendedColor;
+      }
+
+      return baseColor;
     },
-    [lerpIntensityColor, hasIntensity]
+    [lerpIntensityColor, hasIntensity, selected]
   );
 
   const pointSize = useMemo(() => {

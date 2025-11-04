@@ -60,6 +60,7 @@ export type ViewerProps = {
   positionOffsetComponent?: React.ReactNode;
   showLeftSider?: boolean;
   showRightSider?: boolean;
+  selectedFileId?: number;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -92,7 +93,7 @@ function ensureAxiosSafeOnce() {
 
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
-  const { app, constructionId, contractId, contractFileIds, r3f, children, positionOffsetComponent, showLeftSider = true, showRightSider = true } = props;
+  const { app, constructionId, contractId, contractFileIds, r3f, children, positionOffsetComponent, showLeftSider = true, showRightSider = true, selectedFileId } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point, change: changeReferencePoint } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
@@ -294,6 +295,7 @@ const Viewer: FC<ViewerProps> = (props) => {
                 file={view.file}
                 meta={view.meta}
                 referencePoint={point}
+                selected={view.file.id === selectedFileId}
               />
             ))}
             <group position={point}>{positionOffsetComponent}</group>
