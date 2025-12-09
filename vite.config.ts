@@ -8,6 +8,8 @@ export default defineConfig(({ command }) => ({
     react({}),
     dts({
       tsconfigPath: "./tsconfig.json",
+      insertTypesEntry: true,
+      rollupTypes: true,
     }),
   ],
   build: {
