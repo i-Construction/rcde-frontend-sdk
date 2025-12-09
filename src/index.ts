@@ -8,3 +8,5 @@ export { ContractFilesProvider, useContractFiles, type ContractFiles, type Contr
 export { GlobalStateContext } from "./contexts/state";
 export { ContractFileView } from "./components/ContractFileView";
 export type { ContractFileProps } from "./components/ContractFileView";
+export { ReferencePointAxis } from "./components/ReferencePointAxis";
+export type { ReferencePointAxisProps } from "./components/ReferencePointAxis";
