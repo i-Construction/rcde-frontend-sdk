@@ -10,3 +10,5 @@ export { ContractFilesProvider, useContractFiles, type ContractFiles, type Contr
 export { GlobalStateContext } from "./contexts/state";
 export { ContractFileView } from "./components/ContractFileView";
 export type { ContractFileProps } from "./components/ContractFileView";
+export { CrossSectionHandler, CrossSectionPlane } from './components/CrossSectionHandler';
+export { ClippingPlanesProvider, useClippingPlanes, ClippingPlanesContext, type ClippingPlanesContextProps } from './contexts/clippingPlanes';
