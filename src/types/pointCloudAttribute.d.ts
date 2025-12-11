@@ -5,4 +5,5 @@ declare interface PointCloudAttribute {
   equipment?: string;
   person?: string;
   crs?: string;
+  [key: string]: unknown;
 }

@@ -1,20 +1,26 @@
 import { createContext, FC, ReactNode, useCallback, useContext, useState } from "react";
-import { Vector3 } from "three";
+import { Box3, Vector3 } from "three";
+import { PointCloudMeta } from "pcd-viewer";
+import { useClient } from "./client";
+import { useContractFiles } from "./contractFiles";
 
 /**
  * Context provider props for reference point.
  * `Reference point` is the positional offset to the center of the selected point cloud.
  */
-type ReferencePointContextType = {
+export type ReferencePointContextType = {
   point: Vector3;
   change: (point: Vector3) => void;
   save: (point: Vector3) => void;
+  focusFileById: (fileId: number) => Promise<void>;
 };
 
 const ReferencePointContext = createContext<ReferencePointContextType | undefined>(undefined);
 
 export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [point, setPoint] = useState(new Vector3());
+  const { client, project } = useClient();
+  const { containers } = useContractFiles();
 
   const change = useCallback((point: Vector3) => {
     setPoint(point);
@@ -24,8 +30,34 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
     setPoint(point);
   }, [setPoint]);
 
+  const focusFileById = useCallback(async (fileId: number) => {
+    if (!client || !project) return;
+
+    // Find the container with the matching file ID
+    const container = containers.find((c) => c.file.id === fileId);
+    if (!container) return;
+
+    try {
+      // Get file metadata to calculate bounding box
+      const metaData = await client.getContractFileMetadata({
+        ...project,
+        contractFileId: fileId,
+      });
+      const meta = metaData as unknown as PointCloudMeta;
+      const { min, max } = meta.bounds;
+      const boundingBox = new Box3(
+        new Vector3().fromArray(min),
+        new Vector3().fromArray(max)
+      );
+      const center = boundingBox.getCenter(new Vector3());
+      change(center.negate());
+    } catch (err) {
+      console.error("[useReferencePoint] Failed to focus file:", err);
+    }
+  }, [client, project, containers, change]);
+
   return (
-    <ReferencePointContext.Provider value={{ point, change, save }}>
+    <ReferencePointContext.Provider value={{ point, change, save, focusFileById }}>
       {children}
     </ReferencePointContext.Provider>
   );
@@ -36,7 +68,7 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
  * 
  * @example
  * ```tsx
- * const { point, change, save } = useReferencePoint();
+ * const { point, change, save, focusFileById } = useReferencePoint();
  * ```
  * 
  * @returns Reference point context

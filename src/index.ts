@@ -1,2 +1,10 @@
 export * from "./components/RCDE";
-export { useReferencePoint } from "./contexts/referencePoint";
+export * from './bridge/viewerBridge';
+export { RCDEClient, type AuthType, type RCDEClientOptions } from './lib/rcde-client';
+export { Viewer, type RCDEAppConfig, type ViewerProps } from './components/Viewer';
+export { ReferencePointProvider, useReferencePoint } from "./contexts/referencePoint";
+export { ClientProvider, useClient, type ClientContextType } from "./contexts/client";
+export { ContractFilesProvider, useContractFiles, type ContractFiles, type ContractFile, type ContractFileContainer } from "./contexts/contractFiles";
+export { GlobalStateContext } from "./contexts/state";
+export { ContractFileView } from "./components/ContractFileView";
+export type { ContractFileProps } from "./components/ContractFileView";
