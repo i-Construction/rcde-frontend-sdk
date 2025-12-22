@@ -13,17 +13,30 @@ const buildTree = (props: {
 
   const map = new Map<string, Point>();
   const precision = 1e4;
+  let insertedCount = 0;
+  let outOfBoundsCount = 0;
+
   points.forEach((p, id) => {
     const proj = p.clone().project(camera);
     const x = Math.round(proj.x * precision) / precision;
     const y = Math.round(proj.y * precision) / precision;
+
+    // NDC範囲外の点をスキップ
+    if (x < -1 || x > 1 || y < -1 || y > 1) {
+      outOfBoundsCount++;
+      return;
+    }
+
     const key = `${x},${y}`;
     if (!map.has(key)) {
       const pt = new Point(x, y, { id });
       map.set(key, pt);
       tree.insert(pt);
+      insertedCount++;
     }
   });
+
+  console.log(`[Picking] buildTree: ${points.length} points, ${insertedCount} inserted, ${outOfBoundsCount} out of bounds`);
 
   return {
     tree,
@@ -38,7 +51,8 @@ const pick = (
   tree: QuadTree,
   points: Vector3[]
 ): Vector3 | undefined => {
-  const results = tree.query(new Circle(position.x, position.y, 0.01));
+  // 半径を大きくして検出しやすくする
+  const results = tree.query(new Circle(position.x, position.y, 0.05));
   if (results.length > 0) {
     const point = closest(position, results);
     const { id } = point.data;

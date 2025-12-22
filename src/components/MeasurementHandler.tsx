@@ -100,10 +100,16 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange }) => {
   const pickPoint = useCallback(
     (uv: { x: number; y: number }): Vector3 | undefined => {
       if (!treeRef.current || pointsRef.current.length === 0) {
+        console.log(`[MeasurementHandler] pickPoint: tree=${!!treeRef.current}, points=${pointsRef.current.length}`);
         return undefined;
       }
 
-      return pick(uv, treeRef.current, pointsRef.current);
+      const result = pick(uv, treeRef.current, pointsRef.current);
+      // デバッグ（頻度を下げる）
+      if (Math.random() < 0.05) {
+        console.log(`[MeasurementHandler] pickPoint: uv=(${uv.x.toFixed(3)}, ${uv.y.toFixed(3)}), result=${result ? 'found' : 'undefined'}`);
+      }
+      return result;
     },
     []
   );

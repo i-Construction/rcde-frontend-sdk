@@ -42459,17 +42459,23 @@ class Qn {
 }
 const sp = (e) => {
   const { points: t, camera: r } = e, o = new Qn(new Zo(-1, -1, 2, 2)), n = /* @__PURE__ */ new Map(), i = 1e4;
-  return t.forEach((a, s) => {
-    const c = a.clone().project(r), p = Math.round(c.x * i) / i, l = Math.round(c.y * i) / i, d = `${p},${l}`;
-    if (!n.has(d)) {
-      const u = new UA(p, l, { id: s });
-      n.set(d, u), o.insert(u);
+  let a = 0, s = 0;
+  return t.forEach((c, p) => {
+    const l = c.clone().project(r), d = Math.round(l.x * i) / i, u = Math.round(l.y * i) / i;
+    if (d < -1 || d > 1 || u < -1 || u > 1) {
+      s++;
+      return;
     }
-  }), {
+    const h = `${d},${u}`;
+    if (!n.has(h)) {
+      const y = new UA(d, u, { id: p });
+      n.set(h, y), o.insert(y), a++;
+    }
+  }), console.log(`[Picking] buildTree: ${t.length} points, ${a} inserted, ${s} out of bounds`), {
     tree: o
   };
 }, HA = (e, t, r) => {
-  const o = t.query(new $A(e.x, e.y, 0.01));
+  const o = t.query(new $A(e.x, e.y, 0.05));
   if (o.length > 0) {
     const n = WA(e, o), { id: i } = n.data;
     return r[i].clone();
@@ -42725,8 +42731,12 @@ const sp = (e) => {
   }, [l, u]);
   const f = ft(
     (w) => {
-      if (!(!s.current || c.current.length === 0))
-        return HA(w, s.current, c.current);
+      if (!s.current || c.current.length === 0) {
+        console.log(`[MeasurementHandler] pickPoint: tree=${!!s.current}, points=${c.current.length}`);
+        return;
+      }
+      const T = HA(w, s.current, c.current);
+      return Math.random() < 0.05 && console.log(`[MeasurementHandler] pickPoint: uv=(${w.x.toFixed(3)}, ${w.y.toFixed(3)}), result=${T ? "found" : "undefined"}`), T;
     },
     []
   );
