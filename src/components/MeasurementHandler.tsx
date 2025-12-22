@@ -1,5 +1,5 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { BufferGeometry, Matrix4, Points, Scene, Vector3 } from 'three';
 import { buildTree, pick } from '../services/Picking';
 import { useMouseUVPosition } from '../hooks/useMouseUVPosition';
@@ -55,7 +55,7 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange }) => {
   const [head, setHead] = useState<Vector3 | null>(null);
   // ローカルstateを使用（R3F Context問題を回避）
   const [points, setPoints] = useState<Vector3[]>([]);
-  const { point: referencePoint } = useReferencePoint();
+  useReferencePoint(); // コンテキスト接続を維持
   const treeRef = useRef<ReturnType<typeof buildTree>['tree'] | null>(null);
   const pointsRef = useRef<Vector3[]>([]);
   const prevCameraMatrix = useRef<Matrix4>(new Matrix4());
@@ -183,19 +183,11 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange }) => {
     };
   }, [canvas, getUV, pickPoint, points, setPoints, onChange]);
 
-  // referencePointを反転して表示用に使用
-  const displayReferencePoint = useMemo(() => {
-    if (referencePoint) {
-      return referencePoint.clone().negate();
-    }
-    return undefined;
-  }, [referencePoint]);
-
   return (
     <MeasurementView
       edit
       points={head !== null ? [...points, head] : [...points]}
-      referencePoint={displayReferencePoint}
+      // referencePointは渡さない（ピックした点は既にワールド座標）
     />
   );
 };
