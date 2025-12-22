@@ -56,13 +56,26 @@ const MeasurementView: FC<MeasurementViewProps> = ({
       const transformedPoints = pts.map((pt) => {
         return pt.clone().add(offset);
       });
+
+      console.log(`[MeasurementView] updateMetrics: pts=${pts.length}, edit=${edit}, div=${div !== null}`);
+
       if (div === null || transformedPoints.length < 1) return [];
 
-      const viewPoints = transformedPoints.map((p) => {
+      const { width, height } = div.getBoundingClientRect();
+      console.log(`[MeasurementView] div size: ${width}x${height}`);
+
+      const viewPoints = transformedPoints.map((p, i) => {
         const viewPoint = getViewMetricPoints(div, c, p);
+        console.log(`[MeasurementView] point[${i}]: world=(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}) -> screen=(${viewPoint.x.toFixed(2)}, ${viewPoint.y.toFixed(2)})`);
         return viewPoint;
       });
-      if (edit) setEditMetricPoints(viewPoints);
+
+      if (edit) {
+        console.log(`[MeasurementView] setEditMetricPoints: ${viewPoints.length} points`);
+        setEditMetricPoints(viewPoints);
+      } else {
+        console.log(`[MeasurementView] edit is false, skipping setEditMetricPoints`);
+      }
 
       const viewMetrics = Array.from(Array(viewPoints.length - 1).keys()).map(
         (i) => {
