@@ -13,14 +13,22 @@ export type MeasurementHandlerProps = {
 // シーンから点群データを抽出
 const extractPointsFromScene = (scene: Scene, sampleRate = 10): Vector3[] => {
   const allPoints: Vector3[] = [];
+  let pointsObjectCount = 0;
 
   scene.traverse((obj) => {
-    // Points オブジェクト、または type が 'Points' のオブジェクトを検索
-    if (obj instanceof Points || obj.type === 'Points') {
+    // デバッグ: オブジェクトタイプを確認（Points関連のみ）
+    if (obj.type === 'Points' || obj.type === 'points' || obj instanceof Points) {
+      console.log(`[MeasurementHandler] Found Points: type=${obj.type}, instanceof=${obj instanceof Points}, name=${obj.name}`);
+    }
+
+    // Points オブジェクト、または type が 'Points' または 'points' のオブジェクトを検索
+    if (obj instanceof Points || obj.type === 'Points' || obj.type === 'points') {
+      pointsObjectCount++;
       const geometry = (obj as Points).geometry as BufferGeometry;
       const positions = geometry.getAttribute('position');
 
       if (positions) {
+        console.log(`[MeasurementHandler] Points positions count: ${positions.count}`);
         // パフォーマンスのためサンプリング
         for (let i = 0; i < positions.count; i += sampleRate) {
           const point = new Vector3(
@@ -32,10 +40,13 @@ const extractPointsFromScene = (scene: Scene, sampleRate = 10): Vector3[] => {
           point.applyMatrix4(obj.matrixWorld);
           allPoints.push(point);
         }
+      } else {
+        console.log(`[MeasurementHandler] Points has no position attribute`);
       }
     }
   });
 
+  console.log(`[MeasurementHandler] extractPointsFromScene: found ${pointsObjectCount} Points objects, ${allPoints.length} total points`);
   return allPoints;
 };
 
