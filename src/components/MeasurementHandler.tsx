@@ -144,14 +144,22 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange }) => {
       lastRef.current = null;
     };
 
+    // clickイベントの伝播を防ぐ（Viewer.ClickHandlerによるファイル選択を防ぐ）
+    const handleClick = (e: MouseEvent) => {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    };
+
     // capture: true でイベントを先に捕捉
     canvas.addEventListener('mousedown', handleMouseDown, { capture: true });
+    canvas.addEventListener('click', handleClick, { capture: true });
     canvas.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('keydown', handleKeyDown);
     canvas.addEventListener('contextmenu', handleContextMenu, { capture: true });
 
     return () => {
       canvas.removeEventListener('mousedown', handleMouseDown, { capture: true });
+      canvas.removeEventListener('click', handleClick, { capture: true });
       canvas.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('keydown', handleKeyDown);
       canvas.removeEventListener('contextmenu', handleContextMenu, { capture: true });

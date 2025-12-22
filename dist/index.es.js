@@ -42726,25 +42726,27 @@ const ap = (e) => {
     []
   );
   rr(() => {
-    const w = (P) => {
-      P.stopPropagation();
-      const R = t.current;
-      if (R !== null) {
-        const A = [...n, R];
-        i(A), e == null || e(A), t.current = null, A.length >= 2 && setTimeout(() => {
+    const w = (R) => {
+      R.stopPropagation();
+      const A = t.current;
+      if (A !== null) {
+        const j = [...n, A];
+        i(j), e == null || e(j), t.current = null, j.length >= 2 && setTimeout(() => {
           i([]);
         }, 2e3);
       }
-    }, T = (P) => {
-      const R = y(P), A = f({ x: R.x, y: R.y });
-      A !== void 0 && (t.current = A, o(A));
-    }, E = (P) => {
-      P.key === "Escape" && (i([]), o(null), t.current = null);
-    }, x = (P) => {
-      P.preventDefault(), P.stopPropagation(), i([]), o(null), t.current = null;
+    }, T = (R) => {
+      const A = y(R), j = f({ x: A.x, y: A.y });
+      j !== void 0 && (t.current = j, o(j));
+    }, E = (R) => {
+      R.key === "Escape" && (i([]), o(null), t.current = null);
+    }, x = (R) => {
+      R.preventDefault(), R.stopPropagation(), i([]), o(null), t.current = null;
+    }, P = (R) => {
+      R.stopPropagation(), R.stopImmediatePropagation();
     };
-    return h.addEventListener("mousedown", w, { capture: !0 }), h.addEventListener("mousemove", T), window.addEventListener("keydown", E), h.addEventListener("contextmenu", x, { capture: !0 }), () => {
-      h.removeEventListener("mousedown", w, { capture: !0 }), h.removeEventListener("mousemove", T), window.removeEventListener("keydown", E), h.removeEventListener("contextmenu", x, { capture: !0 });
+    return h.addEventListener("mousedown", w, { capture: !0 }), h.addEventListener("click", P, { capture: !0 }), h.addEventListener("mousemove", T), window.addEventListener("keydown", E), h.addEventListener("contextmenu", x, { capture: !0 }), () => {
+      h.removeEventListener("mousedown", w, { capture: !0 }), h.removeEventListener("click", P, { capture: !0 }), h.removeEventListener("mousemove", T), window.removeEventListener("keydown", E), h.removeEventListener("contextmenu", x, { capture: !0 });
     };
   }, [h, y, f, n, i, e]);
   const b = kt(() => {
