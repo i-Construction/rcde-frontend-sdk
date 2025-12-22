@@ -1,6 +1,6 @@
 import { Html } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
-import { FC, useCallback, useMemo, useRef, useState } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Matrix4, Vector2, Vector3 } from 'three';
 import { RAD2DEG } from 'three/src/math/MathUtils.js';
 
@@ -26,6 +26,7 @@ const MeasurementView: FC<MeasurementViewProps> = ({
   referencePoint,
   edit,
 }) => {
+  const { camera } = useThree();
   const [div, setDiv] = useState<HTMLDivElement | null>(null);
 
   const [editMetricPoints, setEditMetricPoints] = useState<Vector3[]>([]);
@@ -37,6 +38,7 @@ const MeasurementView: FC<MeasurementViewProps> = ({
     }[]
   >([]);
   const prev = useRef<Matrix4>(new Matrix4());
+  const prevPtsLength = useRef(0);
 
   const pts = useMemo(() => {
     if (points !== undefined) {
@@ -79,9 +81,19 @@ const MeasurementView: FC<MeasurementViewProps> = ({
     [div, edit, offset, pts]
   );
 
+  // 点群が変更されたときにも更新
+  useEffect(() => {
+    if (div !== null && pts.length > 0) {
+      console.log(`[MeasurementView] pts changed: ${pts.length} points`);
+      updateMetrics(camera);
+    }
+  }, [pts, div, camera, updateMetrics]);
+
   useFrame(({ camera: c }) => {
-    if (!prev.current.equals(c.matrixWorld) && div !== null) {
+    const ptsChanged = prevPtsLength.current !== pts.length;
+    if ((!prev.current.equals(c.matrixWorld) || ptsChanged) && div !== null) {
       prev.current.copy(c.matrixWorld);
+      prevPtsLength.current = pts.length;
       updateMetrics(c);
     }
   });
