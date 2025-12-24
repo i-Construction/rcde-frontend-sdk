@@ -1,5 +1,5 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BufferGeometry, Matrix4, Points, Scene, Vector3 } from 'three';
 import { buildTree, pick } from '../services/Picking';
 import { useMouseUVPosition } from '../hooks/useMouseUVPosition';
@@ -8,6 +8,8 @@ import { useReferencePoint } from '../contexts/referencePoint';
 
 export type MeasurementHandlerProps = {
   onChange?: (points: Vector3[]) => void;
+  // 外部から制御する測定点（座標編集時に更新）
+  externalPoints?: Vector3[];
 };
 
 // シーンから点群データを抽出
@@ -50,7 +52,7 @@ const extractPointsFromScene = (scene: Scene, sampleRate = 10): Vector3[] => {
   return allPoints;
 };
 
-const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange }) => {
+const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalPoints }) => {
   const lastRef = useRef<Vector3 | null>(null);
   const [head, setHead] = useState<Vector3 | null>(null);
   // ローカルstateを使用（R3F Context問題を回避）
@@ -64,6 +66,15 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange }) => {
   const canvas = gl.domElement;
 
   const getUV = useMouseUVPosition({ canvas });
+
+  // MeasurementView に渡す points を決定
+  // externalPoints が渡されている場合はそちらを優先
+  const displayPoints = useMemo(() => {
+    if (externalPoints && externalPoints.length > 0) {
+      return externalPoints;
+    }
+    return head !== null ? [...points, head] : [...points];
+  }, [externalPoints, points, head]);
 
   // カメラが移動したらQuadTreeを再構築
   useFrame(() => {
@@ -186,8 +197,7 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange }) => {
   return (
     <MeasurementView
       edit
-      points={head !== null ? [...points, head] : [...points]}
-      // referencePointは渡さない（ピックした点は既にワールド座標）
+      points={displayPoints}
     />
   );
 };
