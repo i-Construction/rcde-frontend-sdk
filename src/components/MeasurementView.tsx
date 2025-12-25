@@ -39,6 +39,7 @@ const MeasurementView: FC<MeasurementViewProps> = ({
   >([]);
   const prev = useRef<Matrix4>(new Matrix4());
   const prevPtsLength = useRef(0);
+  const prevPointsHash = useRef<string>('');
 
   const memoCachedPoints = useMemo(() => {
     if (points !== undefined) {
@@ -92,11 +93,19 @@ const MeasurementView: FC<MeasurementViewProps> = ({
     }
   }, [memoCachedPoints, div, camera, updateMetrics]);
 
-  useFrame(({ camera: c }) => {
+  useFrame(({ camera: camera }) => {
     const ptsChanged = prevPtsLength.current !== memoCachedPoints.length;
-    if ((!prev.current.equals(c.matrixWorld) || ptsChanged) && div !== null) {
+
+    // 座標値のハッシュを計算（点数が同じでも座標値が変わったら検知）
+    const currentHash = memoCachedPoints
+      .map((memoCachedPoint) => `${memoCachedPoint.x.toFixed(3)},${memoCachedPoint.y.toFixed(3)},${memoCachedPoint.z.toFixed(3)}`)
+      .join('|');
+    const coordsChanged = prevPointsHash.current !== currentHash;
+
+    if ((!prev.current.equals(camera.matrixWorld) || ptsChanged || coordsChanged) && div !== null) {
       prev.current.copy(c.matrixWorld);
       prevPtsLength.current = memoCachedPoints.length;
+      prevPointsHash.current = currentHash;
       updateMetrics(c);
     }
   });
