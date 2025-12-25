@@ -8,3 +8,4 @@ export { ContractFilesProvider, useContractFiles, type ContractFiles, type Contr
 export { GlobalStateContext } from "./contexts/state";
 export { ContractFileView } from "./components/ContractFileView";
 export type { ContractFileProps } from "./components/ContractFileView";
+export { MeasurementView } from './components/MeasurementView';
