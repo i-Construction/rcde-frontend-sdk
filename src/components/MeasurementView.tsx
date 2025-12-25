@@ -103,10 +103,10 @@ const MeasurementView: FC<MeasurementViewProps> = ({
     const coordsChanged = prevPointsHash.current !== currentHash;
 
     if ((!prev.current.equals(camera.matrixWorld) || ptsChanged || coordsChanged) && div !== null) {
-      prev.current.copy(c.matrixWorld);
+      prev.current.copy(camera.matrixWorld);
       prevPtsLength.current = memoCachedPoints.length;
       prevPointsHash.current = currentHash;
-      updateMetrics(c);
+      updateMetrics(camera);
     }
   });
 
