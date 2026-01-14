@@ -25,7 +25,7 @@ export class RCDEClient {
     this.baseUrl = opts.baseUrl ?? '';
     this.token = opts.accessToken;
     this.authType = opts.authType ?? '2legged';
-    this.fetchImpl = opts.fetchImpl ?? fetch;
+    this.fetchImpl = opts.fetchImpl ?? fetch.bind(globalThis);
   }
 
   private headers(): Record<string, string> {
@@ -143,14 +143,14 @@ export class RCDEClient {
     });
     if (!uploadRes.ok) throw new Error(`HTTP ${uploadRes.status}`);
     const uploadData = (await uploadRes.json()) as { presignedURL: string; contractFileId: number };
-    
+
     // presignedURLにファイルをアップロード
     const uploadFileRes = await this.fetchImpl(uploadData.presignedURL, {
       method: 'PUT',
       body: buffer,
     });
     if (!uploadFileRes.ok) throw new Error(`Upload failed: HTTP ${uploadFileRes.status}`);
-    
+
     // アップロード完了を通知
     const completeUrl = this.getApiPath(`/contractFile/uploaded/${uploadData.contractFileId}`);
     const completeRes = await this.fetchImpl(completeUrl, {
