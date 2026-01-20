@@ -12,3 +12,6 @@ export { ReferencePointAxis } from "./components/ReferencePointAxis";
 export type { ReferencePointAxisProps } from "./components/ReferencePointAxis";
 export { CrossSectionHandler, CrossSectionPlane } from './components/CrossSectionHandler';
 export { ClippingPlanesProvider, useClippingPlanes, ClippingPlanesContext, type ClippingPlanesContextProps } from './contexts/clippingPlanes';
+export { MeasurementProvider, useMeasurement, MeasurementContext, type MeasurementContextProps } from './contexts/measurement';
+export { MeasurementHandler, type MeasurementHandlerProps } from './components/MeasurementHandler';
+export { MeasurementView } from './components/MeasurementView';
