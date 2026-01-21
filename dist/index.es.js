@@ -2,7 +2,7 @@ var Rm = Object.defineProperty;
 var xm = (e, t, r) => t in e ? Rm(e, t, { enumerable: !0, configurable: !0, writable: !0, value: r }) : e[t] = r;
 var Gr = (e, t, r) => xm(e, typeof t != "symbol" ? t + "" : t, r);
 import * as be from "react";
-import Yt, { createContext as Wa, useState as jt, useCallback as dt, useContext as hi, useLayoutEffect as Om, useEffect as cr, forwardRef as Am, Children as km, isValidElement as oa, cloneElement as ia, useMemo as kt, useRef as Wo } from "react";
+import Yt, { createContext as Wa, useState as jt, useCallback as dt, useContext as hi, useLayoutEffect as Om, useEffect as cr, forwardRef as Am, Children as km, isValidElement as oa, cloneElement as ia, useMemo as Ct, useRef as Wo } from "react";
 import { Box3 as On, Vector3 as et, Color as tp, Quaternion as rp, DoubleSide as Cm, Raycaster as Pm, Vector2 as Im, Plane as _u } from "three";
 import { Box as Nm, Points as Lm, MapControls as jm, Grid as Mm, GizmoHelper as Fm, GizmoViewport as Dm, PivotControls as Bm, Line as Is } from "@react-three/drei";
 import { useFrame as $m, Canvas as Um, useThree as zm } from "@react-three/fiber";
@@ -7808,10 +7808,10 @@ function R_(e, t) {
   });
 }
 const x_ = 0.2, O_ = 0.14, A_ = 0.12;
-function Ct(...e) {
+function kt(...e) {
   return [`${e[0]}px ${e[1]}px ${e[2]}px ${e[3]}px rgba(0,0,0,${x_})`, `${e[4]}px ${e[5]}px ${e[6]}px ${e[7]}px rgba(0,0,0,${O_})`, `${e[8]}px ${e[9]}px ${e[10]}px ${e[11]}px rgba(0,0,0,${A_})`].join(",");
 }
-const k_ = ["none", Ct(0, 2, 1, -1, 0, 1, 1, 0, 0, 1, 3, 0), Ct(0, 3, 1, -2, 0, 2, 2, 0, 0, 1, 5, 0), Ct(0, 3, 3, -2, 0, 3, 4, 0, 0, 1, 8, 0), Ct(0, 2, 4, -1, 0, 4, 5, 0, 0, 1, 10, 0), Ct(0, 3, 5, -1, 0, 5, 8, 0, 0, 1, 14, 0), Ct(0, 3, 5, -1, 0, 6, 10, 0, 0, 1, 18, 0), Ct(0, 4, 5, -2, 0, 7, 10, 1, 0, 2, 16, 1), Ct(0, 5, 5, -3, 0, 8, 10, 1, 0, 3, 14, 2), Ct(0, 5, 6, -3, 0, 9, 12, 1, 0, 3, 16, 2), Ct(0, 6, 6, -3, 0, 10, 14, 1, 0, 4, 18, 3), Ct(0, 6, 7, -4, 0, 11, 15, 1, 0, 4, 20, 3), Ct(0, 7, 8, -4, 0, 12, 17, 2, 0, 5, 22, 4), Ct(0, 7, 8, -4, 0, 13, 19, 2, 0, 5, 24, 4), Ct(0, 7, 9, -4, 0, 14, 21, 2, 0, 5, 26, 4), Ct(0, 8, 9, -5, 0, 15, 22, 2, 0, 6, 28, 5), Ct(0, 8, 10, -5, 0, 16, 24, 2, 0, 6, 30, 5), Ct(0, 8, 11, -5, 0, 17, 26, 2, 0, 6, 32, 5), Ct(0, 9, 11, -5, 0, 18, 28, 2, 0, 7, 34, 6), Ct(0, 9, 12, -6, 0, 19, 29, 2, 0, 7, 36, 6), Ct(0, 10, 13, -6, 0, 20, 31, 3, 0, 8, 38, 7), Ct(0, 10, 13, -6, 0, 21, 33, 3, 0, 8, 40, 7), Ct(0, 10, 14, -6, 0, 22, 35, 3, 0, 8, 42, 7), Ct(0, 11, 14, -7, 0, 23, 36, 3, 0, 9, 44, 8), Ct(0, 11, 15, -7, 0, 24, 38, 3, 0, 9, 46, 8)], C_ = {
+const k_ = ["none", kt(0, 2, 1, -1, 0, 1, 1, 0, 0, 1, 3, 0), kt(0, 3, 1, -2, 0, 2, 2, 0, 0, 1, 5, 0), kt(0, 3, 3, -2, 0, 3, 4, 0, 0, 1, 8, 0), kt(0, 2, 4, -1, 0, 4, 5, 0, 0, 1, 10, 0), kt(0, 3, 5, -1, 0, 5, 8, 0, 0, 1, 14, 0), kt(0, 3, 5, -1, 0, 6, 10, 0, 0, 1, 18, 0), kt(0, 4, 5, -2, 0, 7, 10, 1, 0, 2, 16, 1), kt(0, 5, 5, -3, 0, 8, 10, 1, 0, 3, 14, 2), kt(0, 5, 6, -3, 0, 9, 12, 1, 0, 3, 16, 2), kt(0, 6, 6, -3, 0, 10, 14, 1, 0, 4, 18, 3), kt(0, 6, 7, -4, 0, 11, 15, 1, 0, 4, 20, 3), kt(0, 7, 8, -4, 0, 12, 17, 2, 0, 5, 22, 4), kt(0, 7, 8, -4, 0, 13, 19, 2, 0, 5, 24, 4), kt(0, 7, 9, -4, 0, 14, 21, 2, 0, 5, 26, 4), kt(0, 8, 9, -5, 0, 15, 22, 2, 0, 6, 28, 5), kt(0, 8, 10, -5, 0, 16, 24, 2, 0, 6, 30, 5), kt(0, 8, 11, -5, 0, 17, 26, 2, 0, 6, 32, 5), kt(0, 9, 11, -5, 0, 18, 28, 2, 0, 7, 34, 6), kt(0, 9, 12, -6, 0, 19, 29, 2, 0, 7, 36, 6), kt(0, 10, 13, -6, 0, 20, 31, 3, 0, 8, 38, 7), kt(0, 10, 13, -6, 0, 21, 33, 3, 0, 8, 40, 7), kt(0, 10, 14, -6, 0, 22, 35, 3, 0, 8, 42, 7), kt(0, 11, 14, -7, 0, 23, 36, 3, 0, 9, 44, 8), kt(0, 11, 15, -7, 0, 24, 38, 3, 0, 9, 46, 8)], C_ = {
   // This is the most common easing curve.
   easeInOut: "cubic-bezier(0.4, 0, 0.2, 1)",
   // Objects enter the screen at full velocity from off-screen and
@@ -31851,7 +31851,7 @@ function Xy(e) {
     circle: y,
     lodHelper: f,
     frustumCulled: b
-  } = e, w = Wo(null), [T, E] = jt(!1), [R, P] = jt(ea.Default), [O, A] = jt({}), j = kt(() => `${a.x}-${a.y}-${a.z}`, [a]), N = kt(() => {
+  } = e, w = Wo(null), [T, E] = jt(!1), [R, P] = jt(ea.Default), [O, A] = jt({}), j = Ct(() => `${a.x}-${a.y}-${a.z}`, [a]), N = Ct(() => {
     const de = t.coordinates[i][j], { min: ae, max: z } = de, Z = new et(ae[0], ae[1], ae[2]), oe = new et(z[0], z[1], z[2]), ye = oe.clone().sub(Z);
     return {
       min: Z,
@@ -31865,7 +31865,7 @@ function Xy(e) {
       state: R
     });
   }, [a, R, c]);
-  const x = kt(() => l.getSize(new et()), [l]), D = dt(
+  const x = Ct(() => l.getSize(new et()), [l]), D = dt(
     (de, ae, z) => {
       const Z = a.clone().multiplyScalar(2).clone().add(new et(de, ae, z)), oe = `${Z.x}-${Z.y}-${Z.z}`;
       return {
@@ -31885,7 +31885,7 @@ function Xy(e) {
           ue[Te] = new On(q, se);
         }
     return ue;
-  }, [l, i, D]), G = kt(() => {
+  }, [l, i, D]), G = Ct(() => {
     const de = W(), ae = i + 1, z = [];
     for (let Z = 0; Z <= 1; Z += 1)
       for (let oe = 0; oe <= 1; oe += 1)
@@ -31981,14 +31981,14 @@ function Xy(e) {
       }));
     },
     []
-  ), $ = kt(() => {
+  ), $ = Ct(() => {
     const de = d ?? 5;
     if (h !== !1) {
       const ae = 2 ** (G.filter((z) => z.exists).length > 0 ? i : i - 1);
       return de / ae;
     }
     return de;
-  }, [t, d, h, i, G]), ne = kt(() => p ?? new tp("white"), [p]), te = dt((de) => {
+  }, [t, d, h, i, G]), ne = Ct(() => p ?? new tp("white"), [p]), te = dt((de) => {
     const { vertexShader: ae, fragmentShader: z } = de;
     {
       const Z = ae.split(`
@@ -32054,7 +32054,7 @@ function Xy(e) {
   ] });
 }
 function kx(e) {
-  const { meta: t, loader: r, parser: o, pointColorHandler: n, ...i } = e, a = kt(() => {
+  const { meta: t, loader: r, parser: o, pointColorHandler: n, ...i } = e, a = Ct(() => {
     if (t !== null) {
       const { min: p, max: s } = t.bounds, d = new On(new et().fromArray(p), new et().fromArray(s)), u = new et();
       d.getSize(u);
@@ -32062,10 +32062,10 @@ function kx(e) {
       return new On(d.min.clone(), d.min.clone().add(y));
     }
     return new On();
-  }, [t]), l = kt(() => {
+  }, [t]), l = Ct(() => {
     const p = a.getSize(new et());
     return [p.x, p.y, p.z, 1, 1, 1];
-  }, [a]), c = kt(() => new et(), []);
+  }, [a]), c = Ct(() => new et(), []);
   return /* @__PURE__ */ Lr.jsxs("group", { children: [
     /* @__PURE__ */ Lr.jsx(Nm, { position: a.getCenter(new et()), args: l, visible: !1, children: /* @__PURE__ */ Lr.jsx("meshStandardMaterial", { color: "tomato", transparent: !0, opacity: 0.2 }) }),
     /* @__PURE__ */ Lr.jsx(
@@ -39617,7 +39617,7 @@ const Px = ({
       l(!0);
     })();
   }, [t, s]);
-  const d = kt(() => {
+  const d = Ct(() => {
     if (r == null) return t;
     const { min: T, max: E } = t.bounds, R = new et().fromArray(T).add(r), P = new et().fromArray(E).add(r);
     return {
@@ -39633,7 +39633,7 @@ const Px = ({
       return xx(T).map((P) => (P.position.add(E), P));
     },
     [r]
-  ), h = kt(() => ft.scale("Spectral"), []), y = dt(
+  ), h = Ct(() => ft.scale("Spectral"), []), y = dt(
     (T) => {
       const E = h(T), [R, P, O] = E.rgb(!1);
       return [R / 255, P / 255, O / 255];
@@ -39659,10 +39659,10 @@ const Px = ({
       return R;
     },
     [y, c, o]
-  ), b = kt(() => {
+  ), b = Ct(() => {
     const T = t.bounds, E = T.max[0] - T.min[0], R = T.max[1] - T.min[1], P = T.max[2] - T.min[2];
     return Ix({ size: { x: E, y: R, z: P } });
-  }, [t]), w = kt(() => (b ?? 1) * 0.1, [b]);
+  }, [t]), w = Ct(() => (b ?? 1) * 0.1, [b]);
   return a ? /* @__PURE__ */ we.jsx(
     kx,
     {
@@ -39717,7 +39717,7 @@ const Nx = Vr(/* @__PURE__ */ we.jsx("path", {
   value: e,
   onChange: t
 }) => {
-  const r = kt(
+  const r = Ct(
     () => [
       {
         label: "スキャン番号",
@@ -39791,7 +39791,7 @@ const Nx = Vr(/* @__PURE__ */ we.jsx("path", {
     }
   );
 }, Vx = (e) => {
-  const { client: t } = yi(), { contractId: r, onUploaded: o, ...n } = e, i = Wo(null), [a, l] = jt(null), [c, p] = jt(!1), [s, d] = jt(""), [u, h] = jt({}), y = kt(() => ".las,.laz,.csv,.txt,.xyz,.e57", []), f = dt(
+  const { client: t } = yi(), { contractId: r, onUploaded: o, ...n } = e, i = Wo(null), [a, l] = jt(null), [c, p] = jt(!1), [s, d] = jt(""), [u, h] = jt({}), y = Ct(() => ".las,.laz,.csv,.txt,.xyz,.e57", []), f = dt(
     (w) => {
       const { files: T } = w.target;
       if (T !== null) {
@@ -39968,7 +39968,7 @@ const Nx = Vr(/* @__PURE__ */ we.jsx("path", {
       i((s) => ({ ...s, [p]: !1 }));
     },
     []
-  ), l = kt(() => [
+  ), l = Ct(() => [
     {
       icon: /* @__PURE__ */ we.jsx(Fx, {}),
       text: "ファイル",
@@ -42059,7 +42059,7 @@ const OA = (e, t) => {
   const d = p > 0 ? p : s;
   return e.origin.clone().add(e.direction.clone().multiplyScalar(d));
 }, AA = ({ views: e, referencePoint: t, onContractFileClick: r }) => {
-  const { camera: o, gl: n } = zm(), i = kt(() => new Pm(), []), a = dt((l) => {
+  const { camera: o, gl: n } = zm(), i = Ct(() => new Pm(), []), a = dt((l) => {
     if (!r) return;
     const c = n.domElement.getBoundingClientRect(), p = (l.clientX - c.left) / c.width * 2 - 1, s = -((l.clientY - c.top) / c.height) * 2 + 1;
     i.setFromCamera(new Im(p, s), o);
@@ -42086,7 +42086,7 @@ const OA = (e, t) => {
   const { load: t, containers: r } = tc(), { app: o, constructionId: n, contractId: i, contractFileIds: a, r3f: l, children: c, positionOffsetComponent: p, showLeftSider: s = !0, showRightSider: d = !0, selectedFileId: u, onContractFileClick: h } = e, { initialize: y, client: f, project: b, setProject: w } = yi(), { point: T, change: E } = ap(), [R, P] = jt([]), O = Wo(null), A = Wo(null), j = Wo(null), [N, x] = jt({
     pointSize: 2,
     opacity: 100
-  }), D = a ? JSON.stringify(a) : void 0, W = kt(() => a, [D]);
+  }), D = a ? JSON.stringify(a) : void 0, W = Ct(() => a, [D]);
   cr(() => {
     xA(), y(o);
   }, [o, y]), cr(() => {
@@ -42104,7 +42104,7 @@ const OA = (e, t) => {
   cr(() => {
     f && i && G();
   }, [f, i, G]);
-  const X = kt(() => ({
+  const X = Ct(() => ({
     fov: 40,
     position: new et(1, 2, 1).multiplyScalar(100),
     up: new et(0, 0, 1),
@@ -42234,14 +42234,7 @@ const OA = (e, t) => {
   visible: r = !0,
   point: o
 }) => {
-  fetch("http://127.0.0.1:7243/ingest/6eab1057-cfff-4b64-add2-7a6caa163cfb", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "ReferencePointAxis.tsx:MOUNT", message: "component function called", data: { point: o ? { x: o.x, y: o.y, z: o.z } : null, visible: r, length: e, width: t }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "G" }) }).catch(() => {
-  });
-  const n = kt(() => o ? o instanceof et ? o : new et(o.x, o.y, o.z) : null, [o]);
-  kt(() => {
-    fetch("http://127.0.0.1:7243/ingest/6eab1057-cfff-4b64-add2-7a6caa163cfb", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "ReferencePointAxis.tsx", message: "internal state", data: { point: o ? { x: o.x, y: o.y, z: o.z } : null, position: n ? { x: n.x, y: n.y, z: n.z } : null, visible: r, willRender: !!(r && n) }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "F" }) }).catch(() => {
-    });
-  }, [o, n, r]);
-  const i = kt(
+  const n = Ct(() => o ? o instanceof et ? o : new et(o.x, o.y, o.z) : null, [o]), i = Ct(
     () => [
       { direction: new et(1, 0, 0), color: "#ff0000", label: "X" },
       // Red for X
@@ -42322,7 +42315,7 @@ const $A = {
   }, []);
   return /* @__PURE__ */ we.jsx(Bm, { scale: 50, fixed: !0, disableScaling: !0, onDrag: o, children: /* @__PURE__ */ we.jsx(PA, { size: 100 }) });
 }, PA = ({ size: e, color: t = "yellow", opacity: r = 0.85 }) => {
-  const o = kt(() => {
+  const o = Ct(() => {
     const a = [
       new et(-e / 2, -e / 2, 0),
       new et(e / 2, -e / 2, 0),
@@ -42330,10 +42323,10 @@ const $A = {
       new et(-e / 2, e / 2, 0)
     ];
     return [...a, a[0]];
-  }, [e]), n = kt(() => [
+  }, [e]), n = Ct(() => [
     new et(-e / 2, -e / 2, 0),
     new et(e / 2, e / 2, 0)
-  ], [e]), i = kt(() => [
+  ], [e]), i = Ct(() => [
     new et(e / 2, -e / 2, 0),
     new et(-e / 2, e / 2, 0)
   ], [e]);

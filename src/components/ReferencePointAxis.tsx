@@ -46,21 +46,12 @@ const ReferencePointAxis: FC<ReferencePointAxisProps> = ({
   visible = true,
   point,
 }) => {
-  // #region agent log - immediate
-  fetch('http://127.0.0.1:7243/ingest/6eab1057-cfff-4b64-add2-7a6caa163cfb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ReferencePointAxis.tsx:MOUNT',message:'component function called',data:{point:point?{x:(point as any).x,y:(point as any).y,z:(point as any).z}:null,visible,length,width},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'G'})}).catch(()=>{});
-  // #endregion
   // Convert point to Vector3 if needed
   const position = useMemo(() => {
     if (!point) return null;
     if (point instanceof Vector3) return point;
     return new Vector3(point.x, point.y, point.z);
   }, [point]);
-
-  // #region agent log
-  useMemo(() => {
-    fetch('http://127.0.0.1:7243/ingest/6eab1057-cfff-4b64-add2-7a6caa163cfb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ReferencePointAxis.tsx',message:'internal state',data:{point:point?{x:point.x,y:point.y,z:point.z}:null,position:position?{x:position.x,y:position.y,z:position.z}:null,visible,willRender:!!(visible && position)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
-  }, [point, position, visible]);
-  // #endregion
 
   // Define axis directions and colors
   const axes = useMemo(
