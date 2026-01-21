@@ -18,6 +18,7 @@ const ReferencePoint: FC = () => {
   const handleChange = useCallback(
     (component: number) => {
       return (e: ChangeEvent<HTMLInputElement>) => {
+        if (!point) return;
         const {
           target: { value },
         } = e;
@@ -33,6 +34,7 @@ const ReferencePoint: FC = () => {
   );
 
   const handleSaveClick = useCallback(() => {
+    if (!point) return;
     save(point);
   }, [point, save]);
 
@@ -64,7 +66,7 @@ const ReferencePoint: FC = () => {
                 marginBottom: 1,
               }}
               type="number"
-              value={point.x}
+              value={point?.x ?? 0}
               onChange={handleChange(0)}
             />
             <TextField
@@ -76,7 +78,7 @@ const ReferencePoint: FC = () => {
                 marginBottom: 1,
               }}
               type="number"
-              value={point.y}
+              value={point?.y ?? 0}
               onChange={handleChange(1)}
             />
             <TextField
@@ -85,7 +87,7 @@ const ReferencePoint: FC = () => {
               size="small"
               fullWidth
               type="number"
-              value={point.z}
+              value={point?.z ?? 0}
               onChange={handleChange(2)}
             />
           </FormControl>
