@@ -53,7 +53,7 @@ const ReferencePointAxis: FC<ReferencePointAxisProps> = ({
     []
   );
 
-  if (!visible) {
+  if (!visible || !point) {
     return null;
   }
 
