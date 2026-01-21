@@ -1,5 +1,4 @@
 import { FC, useMemo } from 'react';
-import { useReferencePoint } from '../contexts/referencePoint';
 import { Vector3 } from 'three';
 
 /**
@@ -21,6 +20,11 @@ export type ReferencePointAxisProps = {
    * @default true
    */
   visible?: boolean;
+  /**
+   * Reference point position to display the axis at
+   * If not provided, the axis will not be displayed
+   */
+  point?: Vector3 | { x: number; y: number; z: number } | null;
 };
 
 /**
@@ -33,15 +37,21 @@ export type ReferencePointAxisProps = {
  *
  * @example
  * ```tsx
- * <ReferencePointAxis length={15} width={0.3} />
+ * <ReferencePointAxis length={15} width={0.3} point={new Vector3(0, 0, 0)} />
  * ```
  */
 const ReferencePointAxis: FC<ReferencePointAxisProps> = ({
   length = 10,
   width = 0.2,
   visible = true,
+  point,
 }) => {
-  const { point } = useReferencePoint();
+  // Convert point to Vector3 if needed
+  const position = useMemo(() => {
+    if (!point) return null;
+    if (point instanceof Vector3) return point;
+    return new Vector3(point.x, point.y, point.z);
+  }, [point]);
 
   // Define axis directions and colors
   const axes = useMemo(
@@ -53,12 +63,12 @@ const ReferencePointAxis: FC<ReferencePointAxisProps> = ({
     []
   );
 
-  if (!visible || !point) {
+  if (!visible || !position) {
     return null;
   }
 
   return (
-    <group position={point}>
+    <group position={position}>
       {axes.map((axis) => (
         <arrowHelper
           key={axis.label}
