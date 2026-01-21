@@ -46,6 +46,9 @@ const ReferencePointAxis: FC<ReferencePointAxisProps> = ({
   visible = true,
   point,
 }) => {
+  // #region agent log - immediate
+  fetch('http://127.0.0.1:7243/ingest/6eab1057-cfff-4b64-add2-7a6caa163cfb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ReferencePointAxis.tsx:MOUNT',message:'component function called',data:{point:point?{x:(point as any).x,y:(point as any).y,z:(point as any).z}:null,visible,length,width},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'G'})}).catch(()=>{});
+  // #endregion
   // Convert point to Vector3 if needed
   const position = useMemo(() => {
     if (!point) return null;
