@@ -139,7 +139,7 @@ const ClickHandler: FC<{
       // Apply reference point offset to bounding box
       const offsetBoundingBox = view.boundingBox.clone();
       offsetBoundingBox.translate(referencePoint);
-      
+
       const intersection = rayIntersectBox(ray, offsetBoundingBox);
       if (intersection) {
         const distance = ray.origin.distanceTo(intersection);
@@ -196,10 +196,10 @@ const Viewer: FC<ViewerProps> = (props) => {
   }, [app, initialize]);
 
   useEffect(() => { setProject({ constructionId, contractId }); }, [constructionId, contractId, setProject]);
-  
+
   const fetchContractFiles = useCallback(async () => {
     if (!client || !contractId) return;
-    
+
     try {
       const res = await client.getContractFileList({ contractId });
       const contractFiles = res?.contractFiles ?? [];
@@ -210,9 +210,9 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
   }, [client, contractId, memoizedContractFileIds, load]);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (client && contractId) {
-      fetchContractFiles(); 
+      fetchContractFiles();
     }
   }, [client, contractId, fetchContractFiles]);
 
@@ -370,29 +370,31 @@ const Viewer: FC<ViewerProps> = (props) => {
                 key={view.file.id}
                 file={view.file}
                 meta={view.meta}
-                referencePoint={point}
+                referencePoint={point ?? undefined}
                 selected={view.file.id === selectedFileId}
               />
             ))}
-            <group position={point}>{positionOffsetComponent}</group>
+            <group position={point ?? undefined}>{positionOffsetComponent}</group>
             <group>{children}</group>
-            {onContractFileClick && <ClickHandler views={views} referencePoint={point} onContractFileClick={onContractFileClick} />}
+            {onContractFileClick && <ClickHandler views={views} referencePoint={point ?? new Vector3()} onContractFileClick={onContractFileClick} />}
           </group>
         </Canvas>
 
-        <Box
-          component="div"
-          sx={{
-            position: "absolute",
-            bottom: 10,
-            left: 0,
-            right: 0,
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
-          <ReferencePointView point={point} />
-        </Box>
+        {point && (
+          <Box
+            component="div"
+            sx={{
+              position: "absolute",
+              bottom: 10,
+              left: 0,
+              right: 0,
+              display: "flex",
+              justifyContent: "center",
+            }}
+          >
+            <ReferencePointView point={point} />
+          </Box>
+        )}
       </Box>
       {showRightSider && <RightSider onFileFocus={handleFileFocus} onFileDelete={handleFileDelete} />}
     </Box>

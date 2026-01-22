@@ -113,7 +113,7 @@ const ContractFileView = ({
 
   // Shift metadata considering the reference point
   const shiftedMeta = useMemo(() => {
-    if (referencePoint === undefined) return meta;
+    if (referencePoint === undefined || referencePoint === null) return meta;
     const { min, max } = meta.bounds;
     const mi = new Vector3().fromArray(min).add(referencePoint);
     const ma = new Vector3().fromArray(max).add(referencePoint);
@@ -158,7 +158,7 @@ const ContractFileView = ({
     ({ point }) => {
       const { color: c } = point;
       let baseColor: [number, number, number];
-      
+
       if (c !== undefined) {
         const { r, g, b, a } = c;
         if (hasIntensity) {
@@ -174,7 +174,7 @@ const ContractFileView = ({
       if (selected) {
         const blueColor = [0x21 / 255, 0x96 / 255, 0xf3 / 255] as [number, number, number];
         const blendFactor = 0.3; // 30% blue, 70% original color
-        
+
         // Linear interpolation (lerp) between base color and blue
         const blendedColor: [number, number, number] = [
           baseColor[0] * (1 - blendFactor) + blueColor[0] * blendFactor,
