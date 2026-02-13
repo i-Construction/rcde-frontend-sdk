@@ -8,6 +8,8 @@ export { ContractFilesProvider, useContractFiles, type ContractFiles, type Contr
 export { GlobalStateContext } from "./contexts/state";
 export { ContractFileView } from "./components/ContractFileView";
 export type { ContractFileProps } from "./components/ContractFileView";
+export { MeasurementProvider, useMeasurement, MeasurementContext, type MeasurementContextProps } from './contexts/measurement';
+export { MeasurementHandler, type MeasurementHandlerProps } from './components/MeasurementHandler';
 export { MeasurementView } from './components/MeasurementView';
 export { ReferencePointAxis } from "./components/ReferencePointAxis";
 export type { ReferencePointAxisProps } from "./components/ReferencePointAxis";
