@@ -1,4 +1,6 @@
 export * from "./components/RCDE";
+export { ReferencePointAxis } from "./components/ReferencePointAxis";
+export type { ReferencePointAxisProps } from "./components/ReferencePointAxis";
 export * from './bridge/viewerBridge';
 export { RCDEClient, type AuthType, type RCDEClientOptions } from './lib/rcde-client';
 export { Viewer, type RCDEAppConfig, type ViewerProps } from './components/Viewer';
@@ -8,8 +10,6 @@ export { ContractFilesProvider, useContractFiles, type ContractFiles, type Contr
 export { GlobalStateContext } from "./contexts/state";
 export { ContractFileView } from "./components/ContractFileView";
 export type { ContractFileProps } from "./components/ContractFileView";
-export { ReferencePointAxis } from "./components/ReferencePointAxis";
-export type { ReferencePointAxisProps } from "./components/ReferencePointAxis";
 export { CrossSectionHandler, CrossSectionPlane } from './components/CrossSectionHandler';
 export { ClippingPlanesProvider, useClippingPlanes, ClippingPlanesContext, type ClippingPlanesContextProps } from './contexts/clippingPlanes';
 export { MeasurementProvider, useMeasurement, MeasurementContext, type MeasurementContextProps } from './contexts/measurement';

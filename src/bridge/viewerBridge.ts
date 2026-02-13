@@ -1,14 +1,25 @@
 export type UpAxis = 'Y' | 'Z';
 
+export type CoordinateSystemType =
+  | 'RIGHT_HANDED_X_UP'
+  | 'LEFT_HANDED_X_UP'
+  | 'RIGHT_HANDED_Y_UP'
+  | 'LEFT_HANDED_Y_UP'
+  | 'RIGHT_HANDED_Z_UP'
+  | 'LEFT_HANDED_Z_UP';
+
 export type ViewerTransform = {
   translation: { x: number; y: number; z: number };
   rotation: { x: number; y: number; z: number }; // degree
+  fileId?: number; // RCDE契約ファイルID（rcdeFileId）
 };
 
 export type ViewerAppearance = {
   pointSize: number;
   opacity: number;
-  upAxis: UpAxis;
+  upAxis?: UpAxis; // 後方互換性のため残す
+  coordinateSystem?: CoordinateSystemType;
+  fileId?: number; // RCDE契約ファイルID（rcdeFileId）
 };
 
 const CHANNEL = 'RCDE_VIEWER_CMD';

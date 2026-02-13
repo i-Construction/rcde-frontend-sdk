@@ -9,16 +9,27 @@ import {
   PointCloudMeta,
 } from "pcd-viewer";
 import { PNG } from "pngjs/browser";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Vector3 } from "three";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Group, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile } from "../contexts/contractFiles";
+import { CoordinateSystemType } from "../bridge/viewerBridge";
+import { getCoordinateTransformMatrix } from "../utils/coordinateSystem";
 
 export type ContractFileProps = {
   file: ContractFile;
   meta: PointCloudMeta;
   referencePoint?: Vector3;
   selected?: boolean;
+  transform?: {
+    translation: { x: number; y: number; z: number };
+    rotation: { x: number; y: number; z: number };
+  };
+  appearance?: {
+    pointSize: number;
+    opacity: number;
+    coordinateSystem: CoordinateSystemType;
+  };
 };
 
 const ContractFileView = ({
@@ -26,10 +37,33 @@ const ContractFileView = ({
   meta,
   referencePoint,
   selected = false,
+  transform,
+  appearance,
 }: ContractFileProps) => {
   const { client, project } = useClient();
   const [init, setInit] = useState(false);
   const [hasIntensity, setHasIntensity] = useState(false);
+  const groupRef = useRef<Group>(null);
+
+  // Groupにtransformを適用
+  useEffect(() => {
+    if (!transform || !groupRef.current) return;
+    const { translation, rotation } = transform;
+    groupRef.current.position.set(translation.x, translation.y, translation.z);
+    const toRad = Math.PI / 180;
+    groupRef.current.rotation.set(
+      rotation.x * toRad,
+      rotation.y * toRad,
+      rotation.z * toRad,
+      'XYZ'
+    );
+  }, [transform]);
+
+  // 座標系に応じた変換行列を計算
+  const coordinateTransformMatrix = useMemo(() => {
+    if (!appearance?.coordinateSystem) return null;
+    return getCoordinateTransformMatrix(appearance.coordinateSystem);
+  }, [appearance?.coordinateSystem]);
 
   const loader: PointCloudLODLoader<PngBuffer> = useCallback(
     (props) => {
@@ -158,7 +192,7 @@ const ContractFileView = ({
     ({ point }) => {
       const { color: c } = point;
       let baseColor: [number, number, number];
-      
+
       if (c !== undefined) {
         const { r, g, b, a } = c;
         if (hasIntensity) {
@@ -174,7 +208,7 @@ const ContractFileView = ({
       if (selected) {
         const blueColor = [0x21 / 255, 0x96 / 255, 0xf3 / 255] as [number, number, number];
         const blendFactor = 0.3; // 30% blue, 70% original color
-        
+
         // Linear interpolation (lerp) between base color and blue
         const blendedColor: [number, number, number] = [
           baseColor[0] * (1 - blendFactor) + blueColor[0] * blendFactor,
@@ -190,12 +224,16 @@ const ContractFileView = ({
   );
 
   const pointSize = useMemo(() => {
+    // appearanceが指定されている場合はそちらを使用
+    if (appearance?.pointSize !== undefined) {
+      return appearance.pointSize;
+    }
     const bb = meta.bounds;
     const x = bb.max[0] - bb.min[0];
     const y = bb.max[1] - bb.min[1];
     const z = bb.max[2] - bb.min[2];
     return getDefaultPointCloudSize({ size: { x, y, z } });
-  }, [meta]);
+  }, [meta, appearance?.pointSize]);
 
   const minPointSize = useMemo(() => {
     return (pointSize ?? 1) * 1e-1;
@@ -203,15 +241,18 @@ const ContractFileView = ({
 
   // Render the PointCloud if initialization is complete
   return init ? (
-    <PointCloud
-      frustumCulled={false}
-      meta={shiftedMeta}
-      loader={loader}
-      parser={parser}
-      pointColorHandler={pointCloudColor}
-      pointSize={pointSize}
-      minPointSize={minPointSize}
-    />
+    <group ref={groupRef}>
+      {coordinateTransformMatrix && <primitive object={coordinateTransformMatrix} />}
+      <PointCloud
+        frustumCulled={false}
+        meta={shiftedMeta}
+        loader={loader}
+        parser={parser}
+        pointColorHandler={pointCloudColor}
+        pointSize={pointSize}
+        minPointSize={minPointSize}
+      />
+    </group>
   ) : null;
 };
 

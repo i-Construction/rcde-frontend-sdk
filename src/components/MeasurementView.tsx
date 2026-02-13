@@ -243,6 +243,7 @@ const MeasurementLine: FC<{
           style={{
             stroke: 'black',
             strokeWidth: 2,
+            mixBlendMode: 'difference',
           }}
         >
           <line
@@ -284,6 +285,7 @@ const MeasurementLine: FC<{
           top: `${data.labelPosition.y}px`,
           transform: `translate(-50%, -50%) rotate(${data.angle}deg)`,
           color: 'black',
+          mixBlendMode: 'difference',
           fontSize: '14px',
           fontWeight: 'bold',
         }}
