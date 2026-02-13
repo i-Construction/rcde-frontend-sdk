@@ -139,7 +139,7 @@ const ClickHandler: FC<{
       // Apply reference point offset to bounding box
       const offsetBoundingBox = view.boundingBox.clone();
       offsetBoundingBox.translate(referencePoint);
-      
+
       const intersection = rayIntersectBox(ray, offsetBoundingBox);
       if (intersection) {
         const distance = ray.origin.distanceTo(intersection);
@@ -196,10 +196,10 @@ const Viewer: FC<ViewerProps> = (props) => {
   }, [app, initialize]);
 
   useEffect(() => { setProject({ constructionId, contractId }); }, [constructionId, contractId, setProject]);
-  
+
   const fetchContractFiles = useCallback(async () => {
     if (!client || !contractId) return;
-    
+
     try {
       const res = await client.getContractFileList({ contractId });
       const contractFiles = res?.contractFiles ?? [];
@@ -210,9 +210,9 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
   }, [client, contractId, memoizedContractFileIds, load]);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (client && contractId) {
-      fetchContractFiles(); 
+      fetchContractFiles();
     }
   }, [client, contractId, fetchContractFiles]);
 

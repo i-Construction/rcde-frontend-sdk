@@ -18,7 +18,7 @@ export type ReferencePointContextType = {
 const ReferencePointContext = createContext<ReferencePointContextType | undefined>(undefined);
 
 export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }) => {
-  const [point, setPoint] = useState(new Vector3());
+  const [point, setPoint] = useState<Vector3>(new Vector3(0, 0, 0));
   const { client, project } = useClient();
   const { containers } = useContractFiles();
 
@@ -65,12 +65,12 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
 
 /**
  * Hooks to use reference point
- * 
+ *
  * @example
  * ```tsx
  * const { point, change, save, focusFileById } = useReferencePoint();
  * ```
- * 
+ *
  * @returns Reference point context
  */
 // eslint-disable-next-line react-refresh/only-export-components
