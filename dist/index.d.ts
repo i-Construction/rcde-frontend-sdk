@@ -312,7 +312,7 @@ export declare type ReferencePointAxisProps = {
  * `Reference point` is the positional offset to the center of the selected point cloud.
  */
 declare type ReferencePointContextType = {
-    point: Vector3 | null;
+    point: Vector3;
     change: (point: Vector3) => void;
     save: (point: Vector3) => void;
     focusFileById: (fileId: number) => Promise<void>;

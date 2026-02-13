@@ -3,7 +3,7 @@ var jm = (e, t, r) => t in e ? Lm(e, t, { enumerable: !0, configurable: !0, writ
 var Kr = (e, t, r) => jm(e, typeof t != "symbol" ? t + "" : t, r);
 import * as be from "react";
 import qt, { createContext as bi, useState as Ot, useCallback as ft, useContext as mo, useLayoutEffect as Mm, useEffect as Xt, forwardRef as Fm, Children as Dm, isValidElement as la, cloneElement as ca, useMemo as Rt, useRef as gr } from "react";
-import { Box3 as An, Vector3 as Qe, Color as cp, Quaternion as up, DoubleSide as Bm, Raycaster as $m, Vector2 as qo, Matrix4 as fp, Points as Um, Plane as Ru } from "three";
+import { Vector3 as Qe, Box3 as An, Color as cp, Quaternion as up, DoubleSide as Bm, Raycaster as $m, Vector2 as qo, Matrix4 as fp, Points as Um, Plane as Ru } from "three";
 import { Box as zm, Points as Wm, MapControls as Hm, Grid as Vm, GizmoHelper as Zm, GizmoViewport as qm, Html as Ym, PivotControls as Gm, Line as js } from "@react-three/drei";
 import { useFrame as oc, Canvas as Km, useThree as ic } from "@react-three/fiber";
 import * as Xm from "react-dom";
@@ -853,7 +853,7 @@ const dp = bi(void 0), ng = ({ children: e }) => {
     );
   return e;
 }, hp = bi(void 0), ig = ({ children: e }) => {
-  const [t, r] = Ot(null), { client: o, project: n } = vi(), { containers: i } = ac(), a = ft((p) => {
+  const [t, r] = Ot(new Qe(0, 0, 0)), { client: o, project: n } = vi(), { containers: i } = ac(), a = ft((p) => {
     r(p);
   }, [r]), l = ft((p) => {
     r(p);
@@ -40160,7 +40160,6 @@ const UR = Zr(/* @__PURE__ */ _e.jsx("path", {
 }, nO = () => {
   const e = ti.useActorRef(), { point: t, change: r, save: o } = sc(), n = ft(
     (l) => (c) => {
-      if (!t) return;
       const {
         target: { value: p }
       } = c, s = Number(p);
@@ -40171,7 +40170,7 @@ const UR = Zr(/* @__PURE__ */ _e.jsx("path", {
     },
     [t, r]
   ), i = ft(() => {
-    t && o(t);
+    o(t);
   }, [t, o]), a = ft(() => {
     e.send({ type: "IDLE" });
   }, [e]);
@@ -40202,7 +40201,7 @@ const UR = Zr(/* @__PURE__ */ _e.jsx("path", {
                     marginBottom: 1
                   },
                   type: "number",
-                  value: (t == null ? void 0 : t.x) ?? 0,
+                  value: t.x,
                   onChange: n(0)
                 }
               ),
@@ -40217,7 +40216,7 @@ const UR = Zr(/* @__PURE__ */ _e.jsx("path", {
                     marginBottom: 1
                   },
                   type: "number",
-                  value: (t == null ? void 0 : t.y) ?? 0,
+                  value: t.y,
                   onChange: n(1)
                 }
               ),
@@ -40229,7 +40228,7 @@ const UR = Zr(/* @__PURE__ */ _e.jsx("path", {
                   size: "small",
                   fullWidth: !0,
                   type: "number",
-                  value: (t == null ? void 0 : t.z) ?? 0,
+                  value: t.z,
                   onChange: n(2)
                 }
               )
@@ -42200,17 +42199,17 @@ const jA = (e, t) => {
             {
               file: ne.file,
               meta: ne.meta,
-              referencePoint: T ?? void 0,
+              referencePoint: T,
               selected: ne.file.id === u
             },
             ne.file.id
           )),
-          /* @__PURE__ */ _e.jsx("group", { position: T ?? void 0, children: p }),
+          /* @__PURE__ */ _e.jsx("group", { position: T, children: p }),
           /* @__PURE__ */ _e.jsx("group", { children: c }),
-          h && /* @__PURE__ */ _e.jsx(MA, { views: x, referencePoint: T ?? new Qe(), onContractFileClick: h })
+          h && /* @__PURE__ */ _e.jsx(MA, { views: x, referencePoint: T, onContractFileClick: h })
         ] })
       ] }),
-      T && /* @__PURE__ */ _e.jsx(
+      /* @__PURE__ */ _e.jsx(
         fr,
         {
           component: "div",

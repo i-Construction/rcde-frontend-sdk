@@ -9,7 +9,7 @@ import { useContractFiles } from "./contractFiles";
  * `Reference point` is the positional offset to the center of the selected point cloud.
  */
 export type ReferencePointContextType = {
-  point: Vector3 | null;
+  point: Vector3;
   change: (point: Vector3) => void;
   save: (point: Vector3) => void;
   focusFileById: (fileId: number) => Promise<void>;
@@ -18,7 +18,7 @@ export type ReferencePointContextType = {
 const ReferencePointContext = createContext<ReferencePointContextType | undefined>(undefined);
 
 export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }) => {
-  const [point, setPoint] = useState<Vector3 | null>(null);
+  const [point, setPoint] = useState<Vector3>(new Vector3(0, 0, 0));
   const { client, project } = useClient();
   const { containers } = useContractFiles();
 

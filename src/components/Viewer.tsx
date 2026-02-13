@@ -370,31 +370,29 @@ const Viewer: FC<ViewerProps> = (props) => {
                 key={view.file.id}
                 file={view.file}
                 meta={view.meta}
-                referencePoint={point ?? undefined}
+                referencePoint={point}
                 selected={view.file.id === selectedFileId}
               />
             ))}
-            <group position={point ?? undefined}>{positionOffsetComponent}</group>
+            <group position={point}>{positionOffsetComponent}</group>
             <group>{children}</group>
-            {onContractFileClick && <ClickHandler views={views} referencePoint={point ?? new Vector3()} onContractFileClick={onContractFileClick} />}
+            {onContractFileClick && <ClickHandler views={views} referencePoint={point} onContractFileClick={onContractFileClick} />}
           </group>
         </Canvas>
 
-        {point && (
-          <Box
-            component="div"
-            sx={{
-              position: "absolute",
-              bottom: 10,
-              left: 0,
-              right: 0,
-              display: "flex",
-              justifyContent: "center",
-            }}
-          >
-            <ReferencePointView point={point} />
-          </Box>
-        )}
+        <Box
+          component="div"
+          sx={{
+            position: "absolute",
+            bottom: 10,
+            left: 0,
+            right: 0,
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <ReferencePointView point={point} />
+        </Box>
       </Box>
       {showRightSider && <RightSider onFileFocus={handleFileFocus} onFileDelete={handleFileDelete} />}
     </Box>
