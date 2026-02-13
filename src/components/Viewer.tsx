@@ -20,7 +20,7 @@ import { RightSider } from "./right/RightSider";
 import axios, { AxiosError, AxiosResponse } from "axios";
 
 // === UI → Viewer メッセージ ===
-import { ViewerTransform, ViewerAppearance, CoordinateSystemType, Command as BridgeCommand } from '../bridge/viewerBridge';
+import { Command as BridgeCommand } from '../bridge/viewerBridge';
 
 type Command = BridgeCommand;
 const CHANNEL = 'RCDE_VIEWER_CMD';
@@ -173,21 +173,6 @@ const Viewer: FC<ViewerProps> = (props) => {
     opacity: 100,
   });
 
-  // ファイルIDごとの変換・外観設定を保持するMap
-  const fileTransformsRef = useRef<Map<number, {
-    translation: { x: number; y: number; z: number };
-    rotation: { x: number; y: number; z: number };
-  }>>(new Map());
-
-  const fileAppearancesRef = useRef<Map<number, {
-    pointSize: number;
-    opacity: number;
-    coordinateSystem: any; // CoordinateSystemType
-  }>>(new Map());
-
-  // ファイルごとの設定変更時の再レンダリング用
-  const [fileTransformVersion, setFileTransformVersion] = useState(0);
-  const [fileAppearanceVersion, setFileAppearanceVersion] = useState(0);
 
   // Memoize contractFileIds to prevent unnecessary re-renders
   // Use JSON.stringify to compare array contents rather than reference
@@ -300,56 +285,32 @@ const Viewer: FC<ViewerProps> = (props) => {
       const cmd = e.data.cmd as Command;
 
       if (cmd.type === 'SET_TRANSFORM') {
-        const { translation, rotation, fileId } = cmd.payload;
+        const { translation, rotation } = cmd.payload;
 
-        if (fileId !== undefined) {
-          // ファイルIDが指定されている場合、そのファイルの設定を保存
-          fileTransformsRef.current.set(fileId, { translation, rotation });
-          // ContractFileViewの再レンダリングをトリガー
-          setFileTransformVersion(v => v + 1);
-        } else {
-          // ファイルIDがない場合は全体のtransformRootに適用（後方互換性）
-          const g = transformRootRef.current;
-          if (!g) return;
-          g.position.set(translation.x, translation.y, translation.z);
-          const toRad = Math.PI / 180;
-          g.rotation.set(rotation.x * toRad, rotation.y * toRad, rotation.z * toRad, 'XYZ');
-        }
+        const g = transformRootRef.current;
+        if (!g) return;
+        g.position.set(translation.x, translation.y, translation.z);
+        const toRad = Math.PI / 180;
+        g.rotation.set(rotation.x * toRad, rotation.y * toRad, rotation.z * toRad, 'XYZ');
       } else if (cmd.type === 'SET_APPEARANCE') {
-        const { pointSize, opacity, upAxis, coordinateSystem, fileId } = cmd.payload;
+        const { pointSize, opacity, upAxis, coordinateSystem } = cmd.payload;
 
-        if (fileId !== undefined) {
-          // ファイルIDが指定されている場合、そのファイルの設定を保存
-          const currentAppearance = fileAppearancesRef.current.get(fileId) || {
-            pointSize: 2.0,
-            opacity: 100,
-            coordinateSystem: 'RIGHT_HANDED_Z_UP' as any,
-          };
-          fileAppearancesRef.current.set(fileId, {
-            pointSize: pointSize ?? currentAppearance.pointSize,
-            opacity: opacity ?? currentAppearance.opacity,
-            coordinateSystem: coordinateSystem ?? currentAppearance.coordinateSystem,
-          });
-          setFileAppearanceVersion(v => v + 1);
-        } else {
-          // ファイルIDがない場合は全体に適用（後方互換性）
-          const nextPointSize = clamp(pointSize ?? appearance.pointSize, 0, 5);
-          const nextOpacity = clamp(opacity ?? appearance.opacity, 0, 100);
-          setAppearance({ pointSize: nextPointSize, opacity: nextOpacity });
+        const nextPointSize = clamp(pointSize ?? appearance.pointSize, 0, 5);
+        const nextOpacity = clamp(opacity ?? appearance.opacity, 0, 100);
+        setAppearance({ pointSize: nextPointSize, opacity: nextOpacity });
 
-          // coordinateSystemまたはupAxisの処理
-          const cs = coordinateSystem || (upAxis ? (upAxis === 'Y' ? 'RIGHT_HANDED_Y_UP' : 'RIGHT_HANDED_Z_UP') as any : undefined);
-          if (cs) {
-            const cam = cameraRef.current;
-            if (cam) {
-              const upAxisValue = (cs as string).includes('X_UP') ? 'X' : (cs as string).includes('Y_UP') ? 'Y' : 'Z';
-              if (upAxisValue === 'Y') cam.up.set(0, 1, 0);
-              else if (upAxisValue === 'Z') cam.up.set(0, 0, 1);
-              else if (upAxisValue === 'X') cam.up.set(1, 0, 0);
-              cam.updateProjectionMatrix?.();
-            }
-            controlsRef.current?.update?.();
+        // coordinateSystemまたはupAxisの処理
+        const cs = coordinateSystem || (upAxis ? (upAxis === 'Y' ? 'RIGHT_HANDED_Y_UP' : 'RIGHT_HANDED_Z_UP') as any : undefined);
+        if (cs) {
+          const cam = cameraRef.current;
+          if (cam) {
+            const upAxisValue = (cs as string).includes('X_UP') ? 'X' : (cs as string).includes('Y_UP') ? 'Y' : 'Z';
+            if (upAxisValue === 'Y') cam.up.set(0, 1, 0);
+            else if (upAxisValue === 'Z') cam.up.set(0, 0, 1);
+            else if (upAxisValue === 'X') cam.up.set(1, 0, 0);
+            cam.updateProjectionMatrix?.();
           }
+          controlsRef.current?.update?.();
         }
       } else if (cmd.type === 'RESET') {
         const g = transformRootRef.current;
@@ -358,12 +319,6 @@ const Viewer: FC<ViewerProps> = (props) => {
           g.rotation.set(0, 0, 0, 'XYZ');
         }
         setAppearance({ pointSize: 2, opacity: 100 });
-
-        // ファイルごとの設定もクリア
-        fileTransformsRef.current.clear();
-        fileAppearancesRef.current.clear();
-        setFileTransformVersion(v => v + 1);
-        setFileAppearanceVersion(v => v + 1);
 
         const cam = cameraRef.current;
         if (cam) {
@@ -413,8 +368,6 @@ const Viewer: FC<ViewerProps> = (props) => {
                 meta={view.meta}
                 referencePoint={point}
                 selected={view.file.id === selectedFileId}
-                transform={fileTransformsRef.current.get(view.file.id)}
-                appearance={fileAppearancesRef.current.get(view.file.id)}
               />
             ))}
             <group position={point}>{positionOffsetComponent}</group>
