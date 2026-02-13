@@ -241,9 +241,8 @@ const MeasurementLine: FC<{
       <svg width="100%" height="100%">
         <g
           style={{
-            stroke: 'white',
+            stroke: 'black',
             strokeWidth: 2,
-            mixBlendMode: 'difference',
           }}
         >
           <line
@@ -284,8 +283,7 @@ const MeasurementLine: FC<{
           left: `${data.labelPosition.x}px`,
           top: `${data.labelPosition.y}px`,
           transform: `translate(-50%, -50%) rotate(${data.angle}deg)`,
-          color: 'white',
-          mixBlendMode: 'difference',
+          color: 'black',
           fontSize: '14px',
           fontWeight: 'bold',
         }}
