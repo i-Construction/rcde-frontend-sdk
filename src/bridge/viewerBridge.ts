@@ -3,6 +3,7 @@ export type UpAxis = 'Y' | 'Z';
 export type ViewerTransform = {
   translation: { x: number; y: number; z: number };
   rotation: { x: number; y: number; z: number }; // degree
+  fileId: number; // RCDE DB ID (number)
 };
 
 export type ViewerAppearance = {

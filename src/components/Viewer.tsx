@@ -24,6 +24,7 @@ type UpAxis = 'Y' | 'Z';
 type ViewerTransform = {
   translation: { x: number; y: number; z: number };
   rotation: { x: number; y: number; z: number }; // degree
+  fileId: number; // RCDE DB ID
 };
 type ViewerAppearance = {
   pointSize: number; // 0..5
@@ -184,6 +185,9 @@ const Viewer: FC<ViewerProps> = (props) => {
     opacity: 100,
   });
 
+  // File-specific transforms (fileId -> translation)
+  const [fileTransforms, setFileTransforms] = useState<Record<number, { x: number; y: number; z: number }>>({});
+
   // Memoize contractFileIds to prevent unnecessary re-renders
   // Use JSON.stringify to compare array contents rather than reference
   const contractFileIdsKey = contractFileIds ? JSON.stringify(contractFileIds) : undefined;
@@ -295,12 +299,12 @@ const Viewer: FC<ViewerProps> = (props) => {
       const cmd = e.data.cmd as Command;
 
       if (cmd.type === 'SET_TRANSFORM') {
-        const g = transformRootRef.current;
-        if (!g) return;
-        const { translation, rotation } = cmd.payload;
-        g.position.set(translation.x, translation.y, translation.z);
-        const toRad = Math.PI / 180;
-        g.rotation.set(rotation.x * toRad, rotation.y * toRad, rotation.z * toRad, 'XYZ');
+        const { fileId, translation } = cmd.payload;
+        // Store file-specific transform
+        setFileTransforms(prev => ({
+          ...prev,
+          [fileId]: translation
+        }));
       } else if (cmd.type === 'SET_APPEARANCE') {
         const up = cmd.payload.upAxis;
         const nextPointSize = clamp(cmd.payload.pointSize ?? appearance.pointSize, 0, 5);
@@ -372,6 +376,7 @@ const Viewer: FC<ViewerProps> = (props) => {
                 meta={view.meta}
                 referencePoint={point}
                 selected={view.file.id === selectedFileId}
+                translation={fileTransforms[view.file.id] ?? { x: 0, y: 0, z: 0 }}
               />
             ))}
             <group position={point}>{positionOffsetComponent}</group>

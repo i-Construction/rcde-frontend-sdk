@@ -19,6 +19,7 @@ export type ContractFileProps = {
   meta: PointCloudMeta;
   referencePoint?: Vector3;
   selected?: boolean;
+  translation: { x: number; y: number; z: number };
 };
 
 const ContractFileView = ({
@@ -26,6 +27,7 @@ const ContractFileView = ({
   meta,
   referencePoint,
   selected = false,
+  translation,
 }: ContractFileProps) => {
   const { client, project } = useClient();
   const [init, setInit] = useState(false);
@@ -202,16 +204,19 @@ const ContractFileView = ({
   }, [pointSize]);
 
   // Render the PointCloud if initialization is complete
+  // Wrap in group to apply file-specific translation
   return init ? (
-    <PointCloud
-      frustumCulled={false}
-      meta={shiftedMeta}
-      loader={loader}
-      parser={parser}
-      pointColorHandler={pointCloudColor}
-      pointSize={pointSize}
-      minPointSize={minPointSize}
-    />
+    <group position={[translation.x, translation.y, translation.z]}>
+      <PointCloud
+        frustumCulled={false}
+        meta={shiftedMeta}
+        loader={loader}
+        parser={parser}
+        pointColorHandler={pointCloudColor}
+        pointSize={pointSize}
+        minPointSize={minPointSize}
+      />
+    </group>
   ) : null;
 };
 
