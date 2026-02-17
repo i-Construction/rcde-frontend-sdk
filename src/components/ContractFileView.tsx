@@ -20,6 +20,7 @@ export type ContractFileProps = {
   referencePoint?: Vector3;
   selected?: boolean;
   translation: { x: number; y: number; z: number };
+  rotation: { x: number; y: number; z: number };  // degree
 };
 
 const ContractFileView = ({
@@ -28,6 +29,7 @@ const ContractFileView = ({
   referencePoint,
   selected = false,
   translation,
+  rotation,
 }: ContractFileProps) => {
   const { client, project } = useClient();
   const [init, setInit] = useState(false);
@@ -204,9 +206,17 @@ const ContractFileView = ({
   }, [pointSize]);
 
   // Render the PointCloud if initialization is complete
-  // Wrap in group to apply file-specific translation
+  // Wrap in group to apply file-specific translation and rotation
   return init ? (
-    <group position={[translation.x, translation.y, translation.z]}>
+    <group
+      position={[translation.x, translation.y, translation.z]}
+      rotation={[
+        rotation.x * (Math.PI / 180),
+        rotation.y * (Math.PI / 180),
+        rotation.z * (Math.PI / 180),
+        'XYZ'
+      ]}
+    >
       <PointCloud
         frustumCulled={false}
         meta={shiftedMeta}

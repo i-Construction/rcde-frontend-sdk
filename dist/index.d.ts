@@ -96,6 +96,16 @@ export declare type ContractFileProps = {
     meta: PointCloudMeta;
     referencePoint?: Vector3;
     selected?: boolean;
+    translation: {
+        x: number;
+        y: number;
+        z: number;
+    };
+    rotation: {
+        x: number;
+        y: number;
+        z: number;
+    };
 };
 
 export declare type ContractFiles = NonNullable<Awaited<ReturnType<RCDEClient["getContractFileList"]>>["contractFiles"]>;
@@ -110,7 +120,7 @@ export declare const ContractFilesProvider: FC<{
     children: ReactNode;
 }>;
 
-export declare const ContractFileView: ({ file, meta, referencePoint, selected, }: ContractFileProps) => JSX_2.Element | null;
+export declare const ContractFileView: ({ file, meta, referencePoint, selected, translation, rotation, }: ContractFileProps) => JSX_2.Element | null;
 
 declare type CreateConstructionParams = {
     name: string;
@@ -384,6 +394,7 @@ export declare type ViewerTransform = {
         y: number;
         z: number;
     };
+    fileId: number;
 };
 
 export { }

@@ -185,8 +185,11 @@ const Viewer: FC<ViewerProps> = (props) => {
     opacity: 100,
   });
 
-  // File-specific transforms (fileId -> translation)
-  const [fileTransforms, setFileTransforms] = useState<Record<number, { x: number; y: number; z: number }>>({});
+  // File-specific transforms (fileId -> translation + rotation)
+  const [fileTransforms, setFileTransforms] = useState<Record<number, {
+    translation: { x: number; y: number; z: number };
+    rotation: { x: number; y: number; z: number };
+  }>>({});
 
   // Memoize contractFileIds to prevent unnecessary re-renders
   // Use JSON.stringify to compare array contents rather than reference
@@ -299,11 +302,14 @@ const Viewer: FC<ViewerProps> = (props) => {
       const cmd = e.data.cmd as Command;
 
       if (cmd.type === 'SET_TRANSFORM') {
-        const { fileId, translation } = cmd.payload;
-        // Store file-specific transform
+        const { fileId, translation, rotation } = cmd.payload;
+        // Store file-specific transform (translation + rotation)
         setFileTransforms(prev => ({
           ...prev,
-          [fileId]: translation
+          [fileId]: {
+            translation,
+            rotation
+          }
         }));
       } else if (cmd.type === 'SET_APPEARANCE') {
         const up = cmd.payload.upAxis;
@@ -376,7 +382,8 @@ const Viewer: FC<ViewerProps> = (props) => {
                 meta={view.meta}
                 referencePoint={point}
                 selected={view.file.id === selectedFileId}
-                translation={fileTransforms[view.file.id] ?? { x: 0, y: 0, z: 0 }}
+                translation={fileTransforms[view.file.id]?.translation ?? { x: 0, y: 0, z: 0 }}
+                rotation={fileTransforms[view.file.id]?.rotation ?? { x: 0, y: 0, z: 0 }}
               />
             ))}
             <group position={point}>{positionOffsetComponent}</group>
