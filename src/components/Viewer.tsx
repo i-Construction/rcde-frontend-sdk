@@ -19,8 +19,16 @@ import { RightSider } from "./right/RightSider";
 
 import axios, { AxiosError, AxiosResponse } from "axios";
 
-// === UI → Viewer メッセージ ===
 type UpAxis = 'Y' | 'Z';
+
+type CoordinateSystemType =
+  | 'RIGHT_HANDED_X_UP'
+  | 'LEFT_HANDED_X_UP'
+  | 'RIGHT_HANDED_Y_UP'
+  | 'LEFT_HANDED_Y_UP'
+  | 'RIGHT_HANDED_Z_UP'
+  | 'LEFT_HANDED_Z_UP';
+
 type ViewerTransform = {
   translation: { x: number; y: number; z: number };
   rotation: { x: number; y: number; z: number }; // degree
@@ -29,8 +37,9 @@ type ViewerTransform = {
 type ViewerAppearance = {
   pointSize: number; // 0..5
   opacity: number;   // 0..100
-  upAxis?: UpAxis;   // カメラUpのみ
-  fileId?: number;   // RCDE DB ID - if present, applies to specific file
+  upAxis?: UpAxis;   // カメラUp
+  coordinateSystem?: CoordinateSystemType; // ファイル単位の座標系
+  fileId?: number;   // R-CDEのデータベースに登録されているファイルID
 };
 type Command =
   | { type: 'SET_TRANSFORM'; payload: ViewerTransform }
@@ -192,10 +201,11 @@ const Viewer: FC<ViewerProps> = (props) => {
     rotation: { x: number; y: number; z: number };
   }>>({});
 
-  // File-specific appearances (fileId -> pointSize + opacity)
+  // File-specific appearances (fileId -> pointSize + opacity + coordinateSystem)
   const [fileAppearances, setFileAppearances] = useState<Record<number, {
     pointSize: number;
     opacity: number;
+    coordinateSystem?: CoordinateSystemType;
   }>>({});
 
   // Memoize contractFileIds to prevent unnecessary re-renders
@@ -320,6 +330,7 @@ const Viewer: FC<ViewerProps> = (props) => {
         }));
       } else if (cmd.type === 'SET_APPEARANCE') {
         const up = cmd.payload.upAxis;
+        const cs = cmd.payload.coordinateSystem;
         const nextPointSize = clamp(cmd.payload.pointSize ?? appearance.pointSize, 0, 5);
         const nextOpacity   = clamp(cmd.payload.opacity   ?? appearance.opacity,   0, 100);
 
@@ -328,13 +339,18 @@ const Viewer: FC<ViewerProps> = (props) => {
         if (fileId !== undefined) {
           setFileAppearances(prev => ({
             ...prev,
-            [fileId]: { pointSize: nextPointSize, opacity: nextOpacity },
+            [fileId]: {
+              pointSize: nextPointSize,
+              opacity: nextOpacity,
+              coordinateSystem: cs ?? prev[fileId]?.coordinateSystem,
+            },
           }));
         } else {
           // fileId がない場合はグローバル（後方互換）
           setAppearance({ pointSize: nextPointSize, opacity: nextOpacity });
         }
 
+        // upAxis は後方互換のためカメラレベルで適用
         if (up) {
           const cam = cameraRef.current;
           if (cam) {
@@ -410,6 +426,7 @@ const Viewer: FC<ViewerProps> = (props) => {
                   rotation={transform?.rotation ?? { x: 0, y: 0, z: 0 }}
                   inspectorPointSize={fileAppearance?.pointSize}
                   inspectorOpacity={fileAppearance?.opacity}
+                  inspectorCoordinateSystem={fileAppearance?.coordinateSystem}
                 />
               );
             })}

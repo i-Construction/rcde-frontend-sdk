@@ -10,9 +10,37 @@ import {
 } from "pcd-viewer";
 import { PNG } from "pngjs/browser";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Group, Object3D, Vector3 } from "three";
+import { Euler, Group, Object3D, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile } from "../contexts/contractFiles";
+
+// 座標系の型定義
+type CoordinateSystemType =
+  | 'RIGHT_HANDED_X_UP'
+  | 'LEFT_HANDED_X_UP'
+  | 'RIGHT_HANDED_Y_UP'
+  | 'LEFT_HANDED_Y_UP'
+  | 'RIGHT_HANDED_Z_UP'
+  | 'LEFT_HANDED_Z_UP';
+
+// 座標系ごとの変換定義
+const COORDINATE_SYSTEM_TRANSFORMS: Record<CoordinateSystemType, {
+  rotation: [number, number, number]; // Euler angles [x, y, z] (radians)
+  scale: [number, number, number];
+}> = {
+  // 右手系 Z Up → 変換不要
+  'RIGHT_HANDED_Z_UP': { rotation: [0, 0, 0], scale: [1, 1, 1] },
+  // 右手系 Y Up → X軸周りに +90° 回転して Y→Z へ
+  'RIGHT_HANDED_Y_UP': { rotation: [Math.PI / 2, 0, 0], scale: [1, 1, 1] },
+  // 右手系 X Up → Y軸周りに -90° 回転して X→Z へ
+  'RIGHT_HANDED_X_UP': { rotation: [0, -Math.PI / 2, 0], scale: [1, 1, 1] },
+  // 左手系 Z Up → X軸ミラーで右手系に変換
+  'LEFT_HANDED_Z_UP': { rotation: [0, 0, 0], scale: [-1, 1, 1] },
+  // 左手系 Y Up → X軸周りに +90° 回転 + X軸ミラー
+  'LEFT_HANDED_Y_UP': { rotation: [Math.PI / 2, 0, 0], scale: [-1, 1, 1] },
+  // 左手系 X Up → Y軸周りに -90° 回転 + X軸ミラー
+  'LEFT_HANDED_X_UP': { rotation: [0, -Math.PI / 2, 0], scale: [-1, 1, 1] },
+};
 
 export type ContractFileProps = {
   file: ContractFile;
@@ -21,8 +49,9 @@ export type ContractFileProps = {
   selected?: boolean;
   translation: { x: number; y: number; z: number };
   rotation: { x: number; y: number; z: number };  // degree
-  inspectorPointSize?: number; // 0..5 from inspector (per-file)
-  inspectorOpacity?: number;   // 0..100 from inspector (per-file)
+  inspectorPointSize?: number;
+  inspectorOpacity?: number;
+  inspectorCoordinateSystem?: CoordinateSystemType;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -36,6 +65,7 @@ const ContractFileView = ({
   rotation,
   inspectorPointSize,
   inspectorOpacity,
+  inspectorCoordinateSystem,
 }: ContractFileProps) => {
   const { client, project } = useClient();
   const [init, setInit] = useState(false);
@@ -247,8 +277,16 @@ const ContractFileView = ({
     });
   }, [inspectorPointSize, inspectorOpacity]);
 
+  // 座標系に基づく変換を計算
+  const csTransform = useMemo(() => {
+    if (!inspectorCoordinateSystem) return undefined;
+    return COORDINATE_SYSTEM_TRANSFORMS[inspectorCoordinateSystem];
+  }, [inspectorCoordinateSystem]);
+
   // Render the PointCloud if initialization is complete
   // Wrap in group to apply file-specific translation, rotation, and appearance
+  // 外側 group: ユーザーが設定した座標・角度
+  // 内側 group: 座標系変換（データの座標系 → ビューアの座標系）
   return init ? (
     <group
       ref={groupRef}
@@ -260,15 +298,20 @@ const ContractFileView = ({
         'XYZ'
       ]}
     >
-      <PointCloud
-        frustumCulled={false}
-        meta={shiftedMeta}
-        loader={loader}
-        parser={parser}
-        pointColorHandler={pointCloudColor}
-        pointSize={pointSize}
-        minPointSize={minPointSize}
-      />
+      <group
+        rotation={csTransform ? new Euler(csTransform.rotation[0], csTransform.rotation[1], csTransform.rotation[2], 'XYZ') : undefined}
+        scale={csTransform ? csTransform.scale : undefined}
+      >
+        <PointCloud
+          frustumCulled={false}
+          meta={shiftedMeta}
+          loader={loader}
+          parser={parser}
+          pointColorHandler={pointCloudColor}
+          pointSize={pointSize}
+          minPointSize={minPointSize}
+        />
+      </group>
     </group>
   ) : null;
 };

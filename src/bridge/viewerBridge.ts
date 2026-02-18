@@ -1,5 +1,17 @@
 export type UpAxis = 'Y' | 'Z';
 
+// 座標系の定義
+export const CoordinateSystem = {
+  RightHandedXUp: 'RIGHT_HANDED_X_UP',
+  LeftHandedXUp: 'LEFT_HANDED_X_UP',
+  RightHandedYUp: 'RIGHT_HANDED_Y_UP',
+  LeftHandedYUp: 'LEFT_HANDED_Y_UP',
+  RightHandedZUp: 'RIGHT_HANDED_Z_UP',
+  LeftHandedZUp: 'LEFT_HANDED_Z_UP',
+} as const;
+
+export type CoordinateSystemType = (typeof CoordinateSystem)[keyof typeof CoordinateSystem];
+
 export type ViewerTransform = {
   translation: { x: number; y: number; z: number };
   rotation: { x: number; y: number; z: number }; // degree
@@ -10,7 +22,8 @@ export type ViewerAppearance = {
   pointSize: number;
   opacity: number;
   upAxis?: UpAxis;
-  fileId?: number; // RCDE DB ID (number) - if present, applies to specific file
+  coordinateSystem?: CoordinateSystemType; // ファイル単位の座標系
+  fileId?: number; // R-CDEのデータベースに登録されているファイルID
 };
 
 const CHANNEL = 'RCDE_VIEWER_CMD';
