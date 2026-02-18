@@ -19,16 +19,27 @@ import { RightSider } from "./right/RightSider";
 
 import axios, { AxiosError, AxiosResponse } from "axios";
 
-// === UI → Viewer メッセージ ===
 type UpAxis = 'Y' | 'Z';
+
+type CoordinateSystemType =
+  | 'RIGHT_HANDED_X_UP'
+  | 'LEFT_HANDED_X_UP'
+  | 'RIGHT_HANDED_Y_UP'
+  | 'LEFT_HANDED_Y_UP'
+  | 'RIGHT_HANDED_Z_UP'
+  | 'LEFT_HANDED_Z_UP';
+
 type ViewerTransform = {
   translation: { x: number; y: number; z: number };
   rotation: { x: number; y: number; z: number }; // degree
+  fileId: number; // RCDE DB ID
 };
 type ViewerAppearance = {
   pointSize: number; // 0..5
   opacity: number;   // 0..100
-  upAxis?: UpAxis;   // カメラUpのみ
+  upAxis?: UpAxis;   // カメラUp
+  coordinateSystem?: CoordinateSystemType; // ファイル単位の座標系
+  fileId?: number;   // R-CDEのデータベースに登録されているファイルID
 };
 type Command =
   | { type: 'SET_TRANSFORM'; payload: ViewerTransform }
@@ -184,6 +195,19 @@ const Viewer: FC<ViewerProps> = (props) => {
     opacity: 100,
   });
 
+  // File-specific transforms (fileId -> translation + rotation)
+  const [fileTransforms, setFileTransforms] = useState<Record<number, {
+    translation: { x: number; y: number; z: number };
+    rotation: { x: number; y: number; z: number };
+  }>>({});
+
+  // File-specific appearances (fileId -> pointSize + opacity + coordinateSystem)
+  const [fileAppearances, setFileAppearances] = useState<Record<number, {
+    pointSize: number;
+    opacity: number;
+    coordinateSystem?: CoordinateSystemType;
+  }>>({});
+
   // Memoize contractFileIds to prevent unnecessary re-renders
   // Use JSON.stringify to compare array contents rather than reference
   const contractFileIdsKey = contractFileIds ? JSON.stringify(contractFileIds) : undefined;
@@ -295,18 +319,38 @@ const Viewer: FC<ViewerProps> = (props) => {
       const cmd = e.data.cmd as Command;
 
       if (cmd.type === 'SET_TRANSFORM') {
-        const g = transformRootRef.current;
-        if (!g) return;
-        const { translation, rotation } = cmd.payload;
-        g.position.set(translation.x, translation.y, translation.z);
-        const toRad = Math.PI / 180;
-        g.rotation.set(rotation.x * toRad, rotation.y * toRad, rotation.z * toRad, 'XYZ');
+        const { fileId, translation, rotation } = cmd.payload;
+        // Store file-specific transform (translation + rotation)
+        setFileTransforms(prev => ({
+          ...prev,
+          [fileId]: {
+            translation,
+            rotation
+          }
+        }));
       } else if (cmd.type === 'SET_APPEARANCE') {
         const up = cmd.payload.upAxis;
+        const cs = cmd.payload.coordinateSystem;
         const nextPointSize = clamp(cmd.payload.pointSize ?? appearance.pointSize, 0, 5);
         const nextOpacity   = clamp(cmd.payload.opacity   ?? appearance.opacity,   0, 100);
-        setAppearance({ pointSize: nextPointSize, opacity: nextOpacity });
 
+        // fileId が指定されている場合はファイル単位で保存
+        const fileId = cmd.payload.fileId;
+        if (fileId !== undefined) {
+          setFileAppearances(prev => ({
+            ...prev,
+            [fileId]: {
+              pointSize: nextPointSize,
+              opacity: nextOpacity,
+              coordinateSystem: cs ?? prev[fileId]?.coordinateSystem,
+            },
+          }));
+        } else {
+          // fileId がない場合はグローバル（後方互換）
+          setAppearance({ pointSize: nextPointSize, opacity: nextOpacity });
+        }
+
+        // upAxis は後方互換のためカメラレベルで適用
         if (up) {
           const cam = cameraRef.current;
           if (cam) {
@@ -323,6 +367,8 @@ const Viewer: FC<ViewerProps> = (props) => {
           g.rotation.set(0, 0, 0, 'XYZ');
         }
         setAppearance({ pointSize: 2, opacity: 100 });
+        setFileAppearances({});
+        setFileTransforms({});
 
         const cam = cameraRef.current;
         if (cam) {
@@ -365,15 +411,25 @@ const Viewer: FC<ViewerProps> = (props) => {
           )}
 
           <group ref={transformRootRef}>
-            {views.map((view) => (
-              <ContractFileView
-                key={view.file.id}
-                file={view.file}
-                meta={view.meta}
-                referencePoint={point}
-                selected={view.file.id === selectedFileId}
-              />
-            ))}
+            {views.map((view) => {
+              const fId = view.file.id;
+              const transform = fId !== undefined ? fileTransforms[fId] : undefined;
+              const fileAppearance = fId !== undefined ? fileAppearances[fId] : undefined;
+              return (
+                <ContractFileView
+                  key={fId}
+                  file={view.file}
+                  meta={view.meta}
+                  referencePoint={point}
+                  selected={fId === selectedFileId}
+                  translation={transform?.translation ?? { x: 0, y: 0, z: 0 }}
+                  rotation={transform?.rotation ?? { x: 0, y: 0, z: 0 }}
+                  inspectorPointSize={fileAppearance?.pointSize}
+                  inspectorOpacity={fileAppearance?.opacity}
+                  inspectorCoordinateSystem={fileAppearance?.coordinateSystem}
+                />
+              );
+            })}
             <group position={point}>{positionOffsetComponent}</group>
             <group>{children}</group>
             {onContractFileClick && <ClickHandler views={views} referencePoint={point} onContractFileClick={onContractFileClick} />}
