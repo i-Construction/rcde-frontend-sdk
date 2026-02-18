@@ -9,8 +9,8 @@ import {
   PointCloudMeta,
 } from "pcd-viewer";
 import { PNG } from "pngjs/browser";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Vector3 } from "three";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Group, Object3D, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile } from "../contexts/contractFiles";
 
@@ -21,7 +21,11 @@ export type ContractFileProps = {
   selected?: boolean;
   translation: { x: number; y: number; z: number };
   rotation: { x: number; y: number; z: number };  // degree
+  inspectorPointSize?: number; // 0..5 from inspector (per-file)
+  inspectorOpacity?: number;   // 0..100 from inspector (per-file)
 };
+
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 const ContractFileView = ({
   file,
@@ -30,10 +34,13 @@ const ContractFileView = ({
   selected = false,
   translation,
   rotation,
+  inspectorPointSize,
+  inspectorOpacity,
 }: ContractFileProps) => {
   const { client, project } = useClient();
   const [init, setInit] = useState(false);
   const [hasIntensity, setHasIntensity] = useState(false);
+  const groupRef = useRef<Group>(null);
 
   const loader: PointCloudLODLoader<PngBuffer> = useCallback(
     (props) => {
@@ -205,10 +212,46 @@ const ContractFileView = ({
     return (pointSize ?? 1) * 1e-1;
   }, [pointSize]);
 
+  // Apply inspector appearance settings to this file's materials
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    if (inspectorPointSize === undefined && inspectorOpacity === undefined) return;
+
+    group.traverse((obj: Object3D) => {
+      const mat = (obj as { material?: { size?: number; uniforms?: Record<string, { value?: number }>; opacity?: number; transparent?: boolean; needsUpdate?: boolean } }).material;
+      if (!mat) return;
+
+      if (inspectorPointSize !== undefined) {
+        const ps = clamp(inspectorPointSize, 0, 5);
+        if (typeof mat.size === "number") {
+          mat.size = ps;
+          mat.needsUpdate = true;
+        }
+        if (mat.uniforms?.pointSize?.value !== undefined) {
+          mat.uniforms.pointSize.value = ps;
+        }
+      }
+
+      if (inspectorOpacity !== undefined) {
+        const opacity01 = clamp(inspectorOpacity, 0, 100) / 100;
+        if (mat.uniforms?.opacity?.value !== undefined) {
+          mat.uniforms.opacity.value = opacity01;
+        }
+        if (typeof mat.opacity === "number") {
+          mat.opacity = opacity01;
+          if (opacity01 < 1 && mat.transparent !== true) mat.transparent = true;
+          mat.needsUpdate = true;
+        }
+      }
+    });
+  }, [inspectorPointSize, inspectorOpacity]);
+
   // Render the PointCloud if initialization is complete
-  // Wrap in group to apply file-specific translation and rotation
+  // Wrap in group to apply file-specific translation, rotation, and appearance
   return init ? (
     <group
+      ref={groupRef}
       position={[translation.x, translation.y, translation.z]}
       rotation={[
         rotation.x * (Math.PI / 180),

@@ -30,6 +30,7 @@ type ViewerAppearance = {
   pointSize: number; // 0..5
   opacity: number;   // 0..100
   upAxis?: UpAxis;   // カメラUpのみ
+  fileId?: number;   // RCDE DB ID - if present, applies to specific file
 };
 type Command =
   | { type: 'SET_TRANSFORM'; payload: ViewerTransform }
@@ -191,6 +192,12 @@ const Viewer: FC<ViewerProps> = (props) => {
     rotation: { x: number; y: number; z: number };
   }>>({});
 
+  // File-specific appearances (fileId -> pointSize + opacity)
+  const [fileAppearances, setFileAppearances] = useState<Record<number, {
+    pointSize: number;
+    opacity: number;
+  }>>({});
+
   // Memoize contractFileIds to prevent unnecessary re-renders
   // Use JSON.stringify to compare array contents rather than reference
   const contractFileIdsKey = contractFileIds ? JSON.stringify(contractFileIds) : undefined;
@@ -315,7 +322,18 @@ const Viewer: FC<ViewerProps> = (props) => {
         const up = cmd.payload.upAxis;
         const nextPointSize = clamp(cmd.payload.pointSize ?? appearance.pointSize, 0, 5);
         const nextOpacity   = clamp(cmd.payload.opacity   ?? appearance.opacity,   0, 100);
-        setAppearance({ pointSize: nextPointSize, opacity: nextOpacity });
+
+        // fileId が指定されている場合はファイル単位で保存
+        const fileId = cmd.payload.fileId;
+        if (fileId !== undefined) {
+          setFileAppearances(prev => ({
+            ...prev,
+            [fileId]: { pointSize: nextPointSize, opacity: nextOpacity },
+          }));
+        } else {
+          // fileId がない場合はグローバル（後方互換）
+          setAppearance({ pointSize: nextPointSize, opacity: nextOpacity });
+        }
 
         if (up) {
           const cam = cameraRef.current;
@@ -333,6 +351,8 @@ const Viewer: FC<ViewerProps> = (props) => {
           g.rotation.set(0, 0, 0, 'XYZ');
         }
         setAppearance({ pointSize: 2, opacity: 100 });
+        setFileAppearances({});
+        setFileTransforms({});
 
         const cam = cameraRef.current;
         if (cam) {
@@ -375,17 +395,24 @@ const Viewer: FC<ViewerProps> = (props) => {
           )}
 
           <group ref={transformRootRef}>
-            {views.map((view) => (
-              <ContractFileView
-                key={view.file.id}
-                file={view.file}
-                meta={view.meta}
-                referencePoint={point}
-                selected={view.file.id === selectedFileId}
-                translation={fileTransforms[view.file.id]?.translation ?? { x: 0, y: 0, z: 0 }}
-                rotation={fileTransforms[view.file.id]?.rotation ?? { x: 0, y: 0, z: 0 }}
-              />
-            ))}
+            {views.map((view) => {
+              const fId = view.file.id;
+              const transform = fId !== undefined ? fileTransforms[fId] : undefined;
+              const fileAppearance = fId !== undefined ? fileAppearances[fId] : undefined;
+              return (
+                <ContractFileView
+                  key={fId}
+                  file={view.file}
+                  meta={view.meta}
+                  referencePoint={point}
+                  selected={fId === selectedFileId}
+                  translation={transform?.translation ?? { x: 0, y: 0, z: 0 }}
+                  rotation={transform?.rotation ?? { x: 0, y: 0, z: 0 }}
+                  inspectorPointSize={fileAppearance?.pointSize}
+                  inspectorOpacity={fileAppearance?.opacity}
+                />
+              );
+            })}
             <group position={point}>{positionOffsetComponent}</group>
             <group>{children}</group>
             {onContractFileClick && <ClickHandler views={views} referencePoint={point} onContractFileClick={onContractFileClick} />}

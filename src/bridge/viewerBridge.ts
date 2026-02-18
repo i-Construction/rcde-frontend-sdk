@@ -9,7 +9,8 @@ export type ViewerTransform = {
 export type ViewerAppearance = {
   pointSize: number;
   opacity: number;
-  upAxis: UpAxis;
+  upAxis?: UpAxis;
+  fileId?: number; // RCDE DB ID (number) - if present, applies to specific file
 };
 
 const CHANNEL = 'RCDE_VIEWER_CMD';
