@@ -16,8 +16,8 @@ import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { LeftSider } from "./LeftSider";
 import { ReferencePointView } from "./ReferencePointView";
 import { RightSider } from "./right/RightSider";
+import { ViewerHeader } from "./ViewerHeader";
 
-import axios, { AxiosError, AxiosResponse } from "axios";
 
 type UpAxis = 'Y' | 'Z';
 
@@ -71,37 +71,20 @@ export type ViewerProps = {
   positionOffsetComponent?: React.ReactNode;
   showLeftSider?: boolean;
   showRightSider?: boolean;
+  /** ヘッダーを表示するか（デフォルト: true） */
+  showHeader?: boolean;
+  /** ヘッダーに表示する現場名 */
+  constructionName?: string;
+  /** ヘッダーに表示する契約名 */
+  contractName?: string;
+  /** ヘッダー右側に追加するコンテンツ */
+  headerRightContent?: React.ReactNode;
   selectedFileId?: number;
   onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
-let _axiosSafePatched = false;
-function ensureAxiosSafeOnce() {
-  if (_axiosSafePatched) return;
-  _axiosSafePatched = true;
-  axios.defaults.validateStatus = () => true;
-  axios.interceptors.response.use(
-    (resp: AxiosResponse) => resp,
-    (error: AxiosError) => {
-      const resp = error.response;
-      if (resp) {
-        return Promise.resolve(resp);
-      }
-      return Promise.resolve({
-        status: 0,
-        statusText: "AxiosNetworkError",
-        data: {
-          error: "network_error",
-          message: error.message ?? "Network error",
-        },
-        headers: {},
-        config: error.config ?? {},
-      } as AxiosResponse);
-    }
-  );
-}
 
 // Helper function to check if a ray intersects with a Box3
 const rayIntersectBox = (ray: { origin: Vector3; direction: Vector3 }, box: Box3): Vector3 | null => {
@@ -180,10 +163,16 @@ const ClickHandler: FC<{
 
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
-  const { app, constructionId, contractId, contractFileIds, r3f, children, positionOffsetComponent, showLeftSider = true, showRightSider = true, selectedFileId, onContractFileClick } = props;
+  const {
+    app, constructionId, contractId, contractFileIds, r3f, children,
+    positionOffsetComponent, showLeftSider = true, showRightSider = true,
+    showHeader = true, constructionName, contractName, headerRightContent,
+    selectedFileId, onContractFileClick,
+  } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point, change: changeReferencePoint } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const transformRootRef = useRef<Group>(null);
   const cameraRef = useRef<PerspectiveCamera>(null);
@@ -215,7 +204,6 @@ const Viewer: FC<ViewerProps> = (props) => {
   const memoizedContractFileIds = useMemo(() => contractFileIds, [contractFileIdsKey]);
 
   useEffect(() => {
-    ensureAxiosSafeOnce();
     initialize(app);
   }, [app, initialize]);
 
@@ -281,7 +269,6 @@ const Viewer: FC<ViewerProps> = (props) => {
     changeReferencePoint(center.negate());
   }, [views, changeReferencePoint]);
 
-  const handleFileDelete = useCallback((file: ContractFile) => { console.log(file); }, []);
   const handleUploaded = useCallback(() => { fetchContractFiles(); }, [fetchContractFiles]);
 
   const applyAppearanceToScene = useCallback((root: Group | null, ps: number, opPercent: number) => {
@@ -383,8 +370,26 @@ const Viewer: FC<ViewerProps> = (props) => {
   }, [appearance.pointSize, appearance.opacity]);
 
   return (
-    <Box width={1} height={1} display="flex">
-      {showLeftSider && <LeftSider contractId={contractId} onUploaded={handleUploaded} />}
+    <Box width={1} height={1} display="flex" flexDirection="column">
+      {/* ── ヘッダー ── */}
+      {showHeader && (
+        <ViewerHeader
+          constructionName={constructionName}
+          contractName={contractName}
+          sidebarOpen={sidebarOpen}
+          onSidebarToggle={() => setSidebarOpen((v) => !v)}
+          rightContent={headerRightContent}
+        />
+      )}
+      <Box width={1} flex={1} display="flex" overflow="hidden">
+      {showLeftSider && (
+        <LeftSider
+          contractId={contractId}
+          onUploaded={handleUploaded}
+          onFileFocus={handleFileFocus}
+          open={sidebarOpen}
+        />
+      )}
       <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
         <Canvas camera={camera} {...r3f?.canvas}>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -450,7 +455,8 @@ const Viewer: FC<ViewerProps> = (props) => {
           <ReferencePointView point={point} />
         </Box>
       </Box>
-      {showRightSider && <RightSider onFileFocus={handleFileFocus} onFileDelete={handleFileDelete} />}
+      {showRightSider && <RightSider />}
+      </Box>
     </Box>
   );
 };

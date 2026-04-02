@@ -162,6 +162,18 @@ export class RCDEClient {
     return (await completeRes.json()) as Json;
   }
 
+  // アップロード後の処理ステータスを取得（pending / completed）
+  async getContractFileProcessingStatus(params: { contractId: number; contractFileId: number }): Promise<{ status: string }> {
+    const { contractId, contractFileId } = params;
+    const url = this.getApiPath(`/contractFile/processingStatus/${contractFileId}`);
+    const queryParams = new URLSearchParams({ contractId: String(contractId) });
+    const res = await this.fetchImpl(`${url}?${queryParams}`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as { status: string };
+  }
+
   // Construction関連のAPI
   async getConstructionList(): Promise<{ constructions: Construction[] }> {
     const url = this.getApiPath('/construction');

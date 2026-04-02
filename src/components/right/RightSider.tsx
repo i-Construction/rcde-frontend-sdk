@@ -1,17 +1,17 @@
 import { FC } from "react";
-import { ContractFile } from "../../contexts/contractFiles";
 import { GlobalStateContext } from "../../contexts/state";
-import { ContractFileList } from "./ContractFileList";
 import { ReferencePoint } from "./ReferencePoint";
 import { MenuList } from "@mui/material";
 
-export type RightSiderProps = {
-  onFileFocus: (file: ContractFile) => void;
-  onFileDelete: (file: ContractFile) => void;
-};
+// RightSider は基準点モード時のみ表示するパネル。
+// ファイル一覧は LeftSider に移動済み。
+export type RightSiderProps = Record<string, never>;
 
-const RightSider: FC<RightSiderProps> = ({ onFileFocus, onFileDelete }) => {
+const RightSider: FC<RightSiderProps> = () => {
   const state = GlobalStateContext.useSelector((s) => s);
+
+  const isReferencePoint = state.matches("reference_point");
+  if (!isReferencePoint) return null;
 
   return (
     <MenuList
@@ -20,14 +20,7 @@ const RightSider: FC<RightSiderProps> = ({ onFileFocus, onFileDelete }) => {
         flex: "0 0 auto",
       }}
     >
-      {state.matches("reference_point") ? (
-        <ReferencePoint />
-      ) : (
-        <ContractFileList
-          onFileFocus={onFileFocus}
-          onFileDelete={onFileDelete}
-        />
-      )}
+      <ReferencePoint />
     </MenuList>
   );
 };
