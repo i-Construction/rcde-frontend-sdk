@@ -1,0 +1,1927 @@
+openapi: 3.0.0
+info:
+  version: 2.0.0
+  title: rcde for external
+servers:
+  - url: 'https://api.rcde.jp'
+paths:
+  /ext/v2/oauth/token:
+    post:
+      summary: Create Token
+      description: アクセストークン、リフレッシュトークン生成
+      operationId: post-ext-3legged-v2-auth-token
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                authCode:
+                  type: string
+                  description: ログイン成功時のコールバックURLのクエリ文字列へ付与された値
+                clientId:
+                  type: string
+                  description: 企業管理画面にて払い出された値
+                clientSecret:
+                  type: string
+                  description: 企業管理画面にて払い出された値
+              required:
+                - authCode
+                - clientId
+                - clientSecret
+            examples:
+              Example 1:
+                value:
+                  authCode: e924361cb05d31c46d35e18c4a6100eb45fa45e4c552cdbd38c7574f47bcd04d
+                  clientId: Ypa0K7FHZBD2guFp6ck15QQFubRRlgFk
+                  clientSecret: t0ZhDKsVZ3Wdi9rA
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+                  expiresAt:
+                    type: integer
+              examples:
+                Example 1:
+                  value:
+                    accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGllbnRJZCI6IllwYTBLN0ZIWkJEMmd1RnA2Y2sxNVFRRnViUlJsZ0ZrIiwidG9rZW5Vc2UiOiJhY2Nlc3MiLCJpc3MiOiJSLUNERSBTRVJWRVIiLCJzdWIiOiJiZTNlOGYzZS0wYjdiLTQ1MmMtOWNlNy1lNDQ3MTc0Zjc0NjkiLCJleHAiOjE3MTMzMzU0MjN9.RGuton9eHURwnawAn7GeMabpB8VIU2dYU4SOFZzmBEA
+                    refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGllbnRJZCI6IllwYTBLN0ZIWkJEMmd1RnA2Y2sxNVFRRnViUlJsZ0ZrIiwidG9rZW5Vc2UiOiJyZWZyZXNoIiwiaXNzIjoiUi1DREUgU0VSVkVSIiwic3ViIjoiYmUzZThmM2UtMGI3Yi00NTJjLTljZTctZTQ0NzE3NGY3NDY5IiwiZXhwIjoxNzE1ODQxMDIzfQ.ku7sCEflIUtsy2fNajr5DxTeETNX9pEs7aV-6Zq8s-U
+                    expiresAt: 1713335423
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  /ext/v2/userAuthenticated/user:
+    get:
+      summary: Get User List
+      description: メンバー一覧取得
+      operationId: get-ext-3legged-v2-authenticated-user-list
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - name: includes
+          in: query
+          description: 追加で取得するモデルの指定
+          schema:
+            type: string
+          examples:
+            Example 1:
+              value: companyUser.company
+              summary: 企業を取得する場合
+            Example 2:
+              value: constructionUsers.construction
+              summary: 現場を取得する場合
+            Example 3:
+              value: companyUser.company,constructionUsers.construction
+              summary: 企業・現場両方を取得する場合(","区切り)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: メンバー総数
+                  users:
+                    type: array
+                    description: メンバー一覧
+                    items:
+                      $ref: '#/components/schemas/user'
+              examples:
+                Example 1:
+                  value:
+                    total: 2
+                    users:
+                      - id: 1
+                        name: テストユーザー
+                        email: test@example.com
+                        role: 2
+                        canBetaAccess: true
+                        isOwn: true
+                        companyUser:
+                          id: 1
+                          role: 1
+                          company:
+                            id: 1
+                            name: 株式会社テスト
+                        constructionUsers:
+                          - id: 1
+                            role: 1
+                            createdAt: '2025-01-01T15:00:00Z'
+                            updatedAt: '2025-01-01T15:00:00Z'
+                            construction:
+                              id: 1
+                              name: テスト工事
+                              address: 住所
+                              contractedAt: '2025-01-01T15:00:00Z'
+                              period: '2025-01-01T15:00:00Z'
+                              advancePaymentRate: 10
+                              contractAmount: 1000000
+                      - id: 2
+                        name: テストユーザー
+                        email: test2@example.com
+                        role: 2
+                        canBetaAccess: false
+                        isOwn: false
+                        companyUser:
+                          id: 2
+                          role: 2
+                          company:
+                            id: 1
+                            name: 株式会社テスト
+                        constructionUsers:
+                          - id: 2
+                            role: 2
+                            createdAt: '2025-01-01T15:00:00Z'
+                            updatedAt: '2025-01-01T15:00:00Z'
+                            construction:
+                              id: 1
+                              name: テスト工事
+                              address: 住所
+                              contractedAt: '2025-01-01T15:00:00Z'
+                              period: '2025-01-01T15:00:00Z'
+                              advancePaymentRate: 10
+                              contractAmount: 1000000
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+    parameters: []
+  /ext/v2/userAuthenticated/construction:
+    get:
+      summary: Get Construction List
+      description: 現場一覧取得
+      operationId: get-ext-3legged-v2-authenticated-construction-list
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - name: includes
+          in: query
+          description: 追加で取得するモデルの指定
+          schema:
+            type: string
+          examples:
+            Example 1:
+              value: contractee
+              summary: 注文者企業を取得する場合
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: 現場総数
+                  constructions:
+                    type: array
+                    description: 現場一覧
+                    items:
+                      $ref: '#/components/schemas/construction'
+              examples:
+                Example 1:
+                  value:
+                    total: 2
+                    constructions:
+                      - id: 1
+                        name: テスト工事
+                        address: 住所
+                        contractedAt: '2025-01-01T15:00:00Z'
+                        period: '2025-01-01T15:00:00Z'
+                        advancePaymentRate: 10
+                        contractAmount: 1000000
+                        contractee:
+                          id: 1
+                          name: 株式会社テスト
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+    post:
+      summary: Create Construction
+      description: 現場作成
+      operationId: post-ext-3legged-v2-authenticated-construction
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 工事名称
+                address:
+                  type: string
+                  description: 住所
+                contractedAt:
+                  type: string
+                  description: 契約日
+                  format: date-time
+                period:
+                  type: string
+                  description: 完成期日
+                  format: date-time
+                advancePaymentRate:
+                  type: integer
+                  description: 前払い金額率
+                contractAmount:
+                  type: integer
+                  description: 請負金額
+              required:
+                - name
+                - address
+                - contractedAt
+                - period
+                - advancePaymentRate
+                - contractAmount
+            examples:
+              Example 1:
+                value:
+                  name: 工事
+                  address: 住所
+                  contractedAt: '2024-04-16T15:00:00Z'
+                  period: '2024-04-18T15:00:00Z'
+                  advancePaymentRate: 20
+                  contractAmount: 1000000
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/construction'
+              examples:
+                Example 1:
+                  value:
+                    id: 1
+                    name: テスト工事
+                    address: 住所
+                    contractedAt: '2025-01-01T15:00:00Z'
+                    period: '2025-01-01T15:00:00Z'
+                    advancePaymentRate: 10
+                    contractAmount: 1000000
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  '/ext/v2/userAuthenticated/construction/{constructionId}':
+    get:
+      summary: Get Construction
+      description: 現場詳細取得
+      operationId: get-ext-3legged-v2-authenticated-construction
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathConstructionId'
+        - name: includes
+          in: query
+          description: 追加で取得するモデルの指定
+          schema:
+            type: string
+          examples:
+            Example 1:
+              value: contractee
+              summary: 注文者企業を取得する場合
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: |
+                      現場ID
+                  name:
+                    type: string
+                    description: 工事名称
+                  address:
+                    type: string
+                    description: 住所
+                  contractedAt:
+                    type: string
+                    description: 契約日
+                    format: date-time
+                  period:
+                    type: string
+                    description: 完成期日
+                    format: date-time
+                  advancePaymentRate:
+                    type: integer
+                    description: 前払い金額率
+                  contractAmount:
+                    type: integer
+                    description: 請負金額
+              examples:
+                Example 1:
+                  value:
+                    id: 1
+                    name: テスト工事
+                    address: 住所
+                    contractedAt: '2025-01-01T15:00:00Z'
+                    period: '2025-01-01T15:00:00Z'
+                    advancePaymentRate: 10
+                    contractAmount: 1000000
+                    contractee:
+                      id: 1
+                      name: 株式会社テスト
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+    put:
+      summary: Update Construction
+      description: 現場編集
+      operationId: put-ext-3legged-v2-authenticated-construction
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathConstructionId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 工事名称
+            examples:
+              Example 1:
+                value:
+                  name: 変更工事
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/construction'
+              examples:
+                Example 1:
+                  value:
+                    id: 17
+                    name: 変更工事
+                    address: 変更住所
+                    contractedAt: '2024-04-26T15:00:00Z'
+                    period: '2024-04-28T15:00:00Z'
+                    advancePaymentRate: 40
+                    contractAmount: 3000000
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+    delete:
+      summary: Delete Construction
+      description: 現場削除
+      operationId: delete-ext-3legged-v2-authenticated-construction
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathConstructionId'
+      requestBody:
+        content: {}
+      responses:
+        '200':
+          description: OK
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  '/ext/v2/userAuthenticated/construction/{constructionId}/user':
+    post:
+      summary: Create Construction User
+      description: 現場へのメンバー招待
+      operationId: post-ext-3legged-v2-authenticated-construction-user
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathConstructionId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                constructionUsersCreateParams:
+                  type: array
+                  description: 現場メンバー招待パラメータ一覧
+                  items:
+                    type: object
+                    properties:
+                      userId:
+                        type: integer
+                        description: ユーザーID
+                      role:
+                        type: integer
+                        description: '1: 現場管理者、2: 一般'
+            examples:
+              Example 1:
+                value:
+                  constructionUsersCreateParams:
+                    - userId: 1
+                      role: 1
+                    - userId: 2
+                      role: 2
+      responses:
+        '200':
+          description: OK
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  /ext/v2/userAuthenticated/contract:
+    get:
+      summary: Get Contract List
+      description: 契約項目一覧取得
+      operationId: get-ext-3legged-v2-authenticated-contract-list
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - name: constructionId
+          in: query
+          description: 現場ID
+          schema:
+            type: integer
+        - name: sort
+          in: query
+          description: |-
+            - createdAt: 作成日の降順
+            - accessedAt: アクセス日時の降順
+            - name: 契約項目名の昇順
+          schema:
+            type: string
+            enum:
+              - createdAt
+              - accessedAt
+              - name
+        - name: searchType
+          in: query
+          description: |-
+            - contractor: 受注した契約項目
+            - contractee: 発注した契約項目
+            - unapproved: 未承認の契約項目
+            - creator: 依頼中の契約項目
+          schema:
+            type: string
+            enum:
+              - contractor
+              - contractee
+              - unapproved
+              - creator
+        - name: currentPage
+          in: query
+          description: 現在のページ番号。perPageも設定すること
+          schema:
+            type: integer
+        - name: perPage
+          in: query
+          description: 1ページの表示数。currentPareも設定すること
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: 契約項目総数
+                  contracts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/contract'
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+    post:
+      summary: Create Contract
+      description: 契約項目作成
+      operationId: post-ext-3legged-v2-authenticated-contract
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                constructionId:
+                  type: integer
+                  description: 現場ID
+                name:
+                  type: string
+                  description: 契約項目名
+                unitPrice:
+                  type: integer
+                  description: 契約単価
+                unitVolume:
+                  type: integer
+                  description: 契約数量
+                contractedAt:
+                  type: string
+                  description: 契約日
+                  format: date-time
+                contracteeEmail:
+                  type: string
+                  description: 受注者として作成する場合の発注者企業のメールアドレス(contracteeEmailまたはcontractorEmailどちらか一方を指定)
+                contractorEmail:
+                  type: string
+                  description: 発注者として作成する場合の受注者企業のメールアドレス(contracteeEmailまたはcontractorEmailどちらか一方を指定)
+              required:
+                - constructionId
+                - name
+                - unitPrice
+                - unitVolume
+                - contractedAt
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/contract'
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  '/ext/v2/userAuthenticated/contract/{contractId}/approved':
+    put:
+      summary: Update Contract Approval
+      description: 契約項目承認
+      operationId: put-ext-3legged-v2-authenticated-contract-approved
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathContractId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/contract'
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  '/ext/v2/userAuthenticated/contract/{contractId}/drop':
+    delete:
+      summary: Delete Contract
+      description: 契約項目取り下げ(削除)
+      operationId: delete-ext-3legged-v2-authenticated-contract-drop
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathContractId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  '/ext/v2/userAuthenticated/contract/{contractId}':
+    get:
+      summary: Get Contract
+      description: 契約項目詳細取得
+      operationId: get-ext-3legged-v2-authenticated-contract
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathContractId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/contract'
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+    put:
+      summary: Update Contract
+      description: 契約項目編集
+      operationId: put-ext-3legged-v2-authenticated-contract
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathContractId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 契約項目名
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/contract'
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+    delete:
+      summary: Delete Contract
+      description: 契約項目削除
+      operationId: delete-ext-3legged-v2-authenticated-contract
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathContractId'
+      responses:
+        '200':
+          description: OK
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  /ext/v2/userAuthenticated/contractFile/pointCloud/multipartUpload:
+    post:
+      summary: Multipart Upload Point Cloud
+      description: 点群マルチパートアップロード(2種類のアップロードURLが返るのでそれぞれにアップロードする)
+      operationId: post-ext-3legged-v2-authenticated-contractFile-pointCloud-multipartUpload
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+      requestBody:
+        description: 'ファイル名に指定可能な拡張子: .txt, .csv, .las, .laz, .xyz, .e57'
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contractId:
+                  type: integer
+                  description: 契約項目ID
+                name:
+                  type: string
+                  description: ファイル名
+                size:
+                  type: integer
+                  description: ファイルサイズ
+                partTotal:
+                  type: integer
+                  description: ファイルの分割数
+                pointCloudAttribute:
+                  type: object
+                  properties:
+                    no:
+                      type: string
+                    time:
+                      type: string
+                    method:
+                      type: string
+                    equipment:
+                      type: string
+                    person:
+                      type: string
+                    crs:
+                      type: string
+              required:
+                - contractId
+                - name
+                - size
+                - partTotal
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  s3UploadId:
+                    type: string
+                    description: S3アップロードID
+                  presignedUploadParts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        partNumber:
+                          type: integer
+                          description: パート番号
+                        presignedURL:
+                          type: string
+                          description: 署名付きURL(S3の署名付きURLによるアップロード方法)
+                  blockChainUploadId:
+                    type: string
+                    description: ブロックチェーンアップロードID
+                  blockChainUploadURLs:
+                    type: array
+                    description: ブロックチェーンアップロードURL一覧(PUTメソッドかつmultipart/form-dataでアップロードする)
+                    items:
+                      type: string
+                  contractFileId:
+                    type: integer
+                    description: 契約項目ファイルID
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  /ext/v2/userAuthenticated/contractFile/pointCloud/completeMultipartUpload:
+    put:
+      summary: Complete Multipart Upload Point Cloud
+      description: 点群マルチパートアップロード完了
+      operationId: put-ext-3legged-v2-authenticated-contractFile-pointCloud-completeMultipartUpload
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contractFileId:
+                  type: integer
+                  description: 契約項目ファイルID
+                s3UploadId:
+                  type: string
+                  description: S3アップロードID
+                s3Parts:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      partNumber:
+                        type: integer
+                        description: パート番号
+                      etag:
+                        type: string
+                        description: presignedURLによるファイルアップロードのレスポンスヘッダーから得られるETag
+                blockChainUploadId:
+                  type: string
+                  description: ブロックチェーンアップロードID
+              required:
+                - contractFileId
+                - s3UploadId
+                - s3Parts
+                - blockChainUploadId
+      responses:
+        '200':
+          description: OK
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  /ext/v2/userAuthenticated/contractFile/pointCloud/deleteMultipartUpload:
+    delete:
+      summary: Delete Multipart Upload Point Cloud
+      description: 点群マルチパートアップロード削除
+      operationId: delete-ext-3legged-v2-authenticated-contractFile-pointCloud-multipartUpload
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contractFileId:
+                  type: integer
+                  description: 契約項目ファイルID
+                s3UploadId:
+                  type: string
+                  description: S3アップロードID
+                blockChainUploadId:
+                  type: string
+                  description: ブロックチェーンアップロードID
+              required:
+                - contractFileId
+                - s3UploadId
+                - blockChainUploadId
+      responses:
+        '200':
+          description: OK
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  /ext/v2/userAuthenticated/contractFile:
+    get:
+      summary: Get Contract File List
+      description: 契約項目ファイル一覧取得
+      operationId: get-ext-3legged-v2-authenticated-contractFile-list
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/QueryContractId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: 契約項目ファイル総数
+                  contractFiles:
+                    type: array
+                    description: 契約項目ファイル一覧
+                    items:
+                      $ref: '#/components/schemas/contractFile'
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+
+  /ext/v2/userAuthenticated/contractFile/downloadURL/{contractFileId}:
+    get:
+      summary: Get Contract File Download URL
+      description: 契約項目ファイルのダウンロードURL取得
+      operationId: get-ext-3legged-v2-authenticated-contractFile-downloadURL
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathContractFileId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  presignedURL:
+                    type: string
+                    description: 署名付きダウンロードURL(発行から30分間有効)
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  /ext/v2/userAuthenticated/contractFile/processingStatus/{contractFileId}:
+    get:
+      summary: Get Contract File Processing Status
+      description: 契約項目ファイルの処理ステータス取得
+      operationId: get-ext-3legged-v2-authenticated-contractFile-processingStatus
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathContractFileId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: |-
+                      処理ステータス
+                      - pending: 保留中
+                      - completed: 完了
+              examples:
+                Example 1:
+                  value:
+                    status: completed
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  '/ext/v2/userAuthenticated/contractFile/{contractFileId}':
+    put:
+      summary: Update Contract File
+      description: 契約項目ファイル更新
+      operationId: put-ext-3legged-v2-authenticated-contractFile
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathContractFileId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: ファイル名
+                status:
+                  type: integer
+                  description: |-
+                    ステータス
+                    - WIP: 1
+                    - Shared: 2
+                    - Published（技術検査済み）: 3
+                    - Archived（給付検査済み）: 4
+            examples:
+              Example 1:
+                value:
+                  name: pointcloud.txt
+                  status: 1
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/contractFile'
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+    delete:
+      summary: Delete Contract File
+      description: 契約項目ファイル削除
+      operationId: delete-ext-3legged-v2-authenticated-contractFile
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/PathContractFileId'
+      responses:
+        '200':
+          description: OK
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+  /ext/v2/userAuthenticated/pclod/meta:
+    get:
+      summary: Get Pclod Meta
+      description: メタ情報取得
+      operationId: get-ext-3legged-v2-authenticated-pclod-meta
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/QueryContractFileId'
+      responses:
+        '200':
+          $ref: '#/components/responses/OKBinary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+
+  /ext/v2/userAuthenticated/pclod/imagePosition:
+    get:
+      summary: Get Pclod Image Position
+      description: Position画像取得
+      operationId: get-ext-3legged-v2-authenticated-pclod-imagePosition
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/QueryContractFileId'
+        - name: level
+          in: query
+          required: true
+          schema:
+            type: integer
+          examples:
+            Example 1:
+              value: 0
+        - name: addr
+          in: query
+          required: true
+          schema:
+            type: string
+          examples:
+            Example 1:
+              value: 0-0-0
+      responses:
+        '200':
+          $ref: '#/components/responses/OKBinary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+
+  /ext/v2/userAuthenticated/pclod/imageColor:
+    get:
+      summary: Get PCLOD Image Color
+      description: Color画像取得
+      operationId: get-ext-3legged-v2-authenticated-pclod-imageColor
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+        - $ref: '#/components/parameters/QueryContractFileId'
+        - name: level
+          in: query
+          required: true
+          schema:
+            type: integer
+          examples:
+            Example 1:
+              value: 0
+        - name: addr
+          in: query
+          required: true
+          schema:
+            type: string
+          examples:
+            Example 1:
+              value: 0-0-0
+      responses:
+        '200':
+          $ref: '#/components/responses/OKBinary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+
+  /ext/v2/userAuthenticated/equipmentToken:
+    post:
+      summary: Create Equipment Token
+      description: pub APIトークン作成
+      operationId: post-ext-3legged-v2-authenticated-equipmentToken
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/AccessToken'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contractId:
+                  type: integer
+                  description: 契約項目ID
+                expirationType:
+                  type: integer
+                  description: |
+                    有効期限種別
+
+                    有効期限 | 設定値
+                    ---------|----------
+                     1時間 | 1
+                     12時間 | 2
+                     1日 | 3
+                     3日 | 4
+                     1週間 | 5
+                     1ヶ月 | 6
+                     3ヶ月 | 7
+                     半年 | 8
+                     1年 | 9
+                     永久 | 99
+              required:
+                - contractId
+                - expirationType
+            examples:
+              Example 1:
+                value:
+                  contractId: 1
+                  expirationType: 1
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/equipmentToken'
+              examples:
+                Example 1:
+                  value:
+                    id: 1
+                    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+                    expiredAt: '2025-01-01T12:00:00Z'
+                    isExpired: false
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+              description: 企業管理画面にて設定したオリジン
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      servers:
+        - url: 'https://api.rcde.jp'
+
+components:
+  parameters:
+    QueryConstructionId:
+      name: constructionId
+      in: query
+      description: 現場ID
+      schema:
+        type: integer
+    QueryContractId:
+      name: contractId
+      in: query
+      description: 契約項目ID
+      required: true
+      schema:
+        type: integer
+    QueryContractFileId:
+      name: contractFileId
+      in: query
+      description: 契約項目ファイルID
+      required: true
+      schema:
+        type: integer
+    PathConstructionId:
+      name: constructionId
+      in: path
+      description: 現場ID
+      required: true
+      schema:
+        type: integer
+    PathContractId:
+      name: contractId
+      in: path
+      description: 契約項目ID
+      required: true
+      schema:
+        type: integer
+    PathContractFileId:
+      name: contractFileId
+      in: path
+      description: 契約項目ファイルID
+      required: true
+      schema:
+        type: integer
+    Origin:
+      name: Origin
+      in: header
+      description: 企業管理画面にて設定したオリジン
+      required: true
+      schema:
+        type: string
+    AccessToken:
+      name: Authorization
+      in: header
+      description: '「Bearer {accessToken}」の形式で設定'
+      required: true
+      schema:
+        type: string
+    RefreshToken:
+      name: Authorization
+      in: header
+      description: '「Bearer {refreshToken}」の形式で設定'
+      required: true
+      schema:
+        type: string
+    PathUserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: ユーザーID
+    Ext-v2-prod_PathContractId:
+      name: contractId
+      in: path
+      description: 契約項目ID
+      required: true
+      schema:
+        type: integer
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errors'
+      headers:
+        Access-Control-Allow-Origin:
+          schema:
+            type: string
+          description: 企業管理画面にて設定したオリジン
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errors'
+      headers:
+        Access-Control-Allow-Origin:
+          schema:
+            type: string
+          description: 企業管理画面にて設定したオリジン
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errors'
+      headers:
+        Access-Control-Allow-Origin:
+          schema:
+            type: string
+          description: 企業管理画面にて設定したオリジン
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errors'
+      headers:
+        Access-Control-Allow-Origin:
+          schema:
+            type: string
+          description: 企業管理画面にて設定したオリジン
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errors'
+      headers:
+        Access-Control-Allow-Origin:
+          schema:
+            type: string
+          description: 企業管理画面にて設定したオリジン
+    OKBinary:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: string
+            format: binary
+      headers:
+        Access-Control-Allow-Origin:
+          schema:
+            type: string
+          description: 企業管理画面にて設定したオリジン
+  schemas:
+    pointCloudAttribute:
+      type: object
+      properties:
+        id:
+          type: integer
+        no:
+          type: string
+        time:
+          type: string
+        method:
+          type: string
+        equipment:
+          type: string
+        person:
+          type: string
+        crs:
+          type: string
+    errors:
+      type: object
+      title: error
+      description: 正常終了以外の返却値
+      properties:
+        errors:
+          type: array
+          description: |-
+            `code={HTTPステータスコード}, message={R-CDEエラーコード}: {エラー内容}`
+            R-CDEエラーコード | 内容
+            ---------|----------
+             ERR0100001 | 認可情報取得エラー
+             ERR0100002 | 認可エラー
+             ERR0200001 | 企業管理者ではない場合の認可エラー
+             ERR0201001 | 入力パラメータエラー
+             ERR0201002 | 企業アプリケーション情報不正
+             ERR0301001 | 企業アプリケーション情報取得エラー
+             ERR0301002 | トークン作成者不正
+             ERR0301003 | アクセストークン生成エラー
+             ERR0301004 | リフレッシュトークン生成エラー
+             ERR0202001 | 入力パラメータエラー
+             ERR0202002 | 企業アプリケーション情報不正
+             ERR0302001 | 無効なServiceHUBトークンエラー
+             ERR0103001 | 企業アプリケーション情報不正
+             ERR0103002 | オリジン不正
+             ERR0103003 | tokenの種類不正
+             ERR0103004 | 発行者不正
+             ERR0103005 | 企業アプリケーションID不正
+             ERR0103006 | 企業アプリケーション情報取得エラー
+             ERR0103007 | トークン作成者不正
+             ERR0103008 | CORSポリシー適用エラー
+             ERR0103009 | token有効期限切れ
+             ERR0103010 | token検証エラー（有効期限切れ以外）
+             ERR0203001 | 入力パラメータエラー
+             ERR0203002 | 企業アプリケーション情報不正
+             ERR0303001 | 無効なServiceHUBトークンエラー
+             ERR0303002 | 無効なSkydioトークンエラー
+             ERR0303003 | 該当するフライトデータが無い
+             ERR0303004 | 該当する画像データが無い
+             ERR0204001 | 入力パラメータエラー
+             ERR0204002 | 企業アプリケーション情報不正
+             ERR0304001 | 無効なServiceHUBトークンエラー
+             ERR0205001 | 入力パラメータエラー
+             ERR0205002 | 企業アプリケーション情報不正
+             ERR0206001 | 入力パラメータエラー
+             ERR0206002 | 企業アプリケーション情報不正
+             ERR0305001 | 発注者と受注者が同一エラー
+             ERR0305002 | 現場の発注者が契約項目の受注者として指定された時のエラー
+             ERR0103011 | 入力パラメータ不正
+             ERR0207001 | 入力パラメータエラー
+             ERR0207002 | 企業アプリケーション情報不正
+             ERR0207003 | カテゴリー不正
+             ERR0207004 | S3操作不正
+             ERR0208001 | 入力パラメータエラー
+             ERR0209001 | 入力パラメータエラー
+             ERR0210001 | 入力パラメータエラー
+             ERR0211001 | 入力パラメータエラー
+             ERR0212001 | 入力パラメータエラー
+             ERR0212002 | カテゴリー不正
+             ERR0212003 | S3操作不正
+             ERR0213001 | 入力パラメータエラー
+          items:
+            type: string
+    contractFile:
+      title: contractFile
+      type: object
+      description: 契約項目ファイル
+      properties:
+        id:
+          type: integer
+          description: 契約項目ファイルID
+        name:
+          type: string
+          description: ファイル名
+        category:
+          type: integer
+          description: |-
+            種別コード
+            - 設計情報: 1
+            - 施工管理（点群データ）: 2
+            - ヒートマップ: 3
+            - IFC: 4
+            - Slope: 5
+            - Trimmed Point Cloud: 6
+            - Generated Heat Map: 7
+            - Generated Slope Angle: 8
+            - Liner Information: 9
+            - 吹付: 10
+            - 覆工: 11
+            - 評価: 12
+            - DXF: 13
+            - OBJ: 14
+            - STL: 15
+            - RVT: 16
+        status:
+          type: integer
+          description: |-
+            ステータス
+            - WIP: 1
+            - Shared: 2
+            - Published（技術検査済み）: 3
+            - Archived（給付検査済み）: 4
+        fileCheckStatus:
+          type: integer
+          description: |-
+            ファイルの整合姓
+            - 未チェック: 1
+            - 正: 2
+            - 否: 3
+        createdAt:
+          type: string
+          description: 作成日
+        updatedAt:
+          type: string
+          description: 更新日
+        uploadedAt:
+          type: string
+          description: アップロード日
+        file:
+          $ref: '#/components/schemas/file'
+        contract:
+          $ref: '#/components/schemas/contract'
+        batchProcessingResult:
+          $ref: '#/components/schemas/batchProcessingResult'
+        pointCloudAttribute:
+          $ref: '#/components/schemas/pointCloudAttribute'
+    file:
+      title: file
+      type: object
+      description: ファイル
+      properties:
+        id:
+          type: integer
+          description: ファイルID
+        size:
+          type: integer
+          description: ファイルサイズ
+        name:
+          type: string
+          description: ファイル名
+    company:
+      title: company
+      type: object
+      description: 企業情報
+      properties:
+        id:
+          type: integer
+          description: 企業ID
+        name:
+          type: string
+          description: 企業名
+    construction:
+      title: construction
+      type: object
+      description: 現場情報
+      properties:
+        id:
+          type: integer
+          description: 現場ID
+        name:
+          type: string
+          description: 工事名称
+        address:
+          type: string
+          description: 住所
+        contractedAt:
+          type: string
+          description: 契約日
+        period:
+          type: string
+          description: 完成期日
+        advancePaymentRate:
+          type: integer
+          description: 前払い金額率
+        contractAmount:
+          type: integer
+          description: 請負金額
+        contractee:
+          $ref: '#/components/schemas/company'
+    contract:
+      title: contract
+      type: object
+      description: 契約項目
+      properties:
+        id:
+          type: integer
+          description: 契約項目ID
+        name:
+          type: string
+          description: 契約項目名
+        unitPrice:
+          type: integer
+          description: 契約単価
+        unitVolume:
+          type: integer
+          description: 契約数量
+        contractedAt:
+          type: string
+          description: 契約日
+        createdAt:
+          type: string
+          description: 作成日
+        status:
+          type: integer
+          description: |-
+            契約項目ステータス
+            - 承認依頼中: 1
+            - 承認済み: 2
+    batchProcessingResult:
+      title: batchProcessingResult
+      type: object
+      description: バッチ処理結果
+      properties:
+        id:
+          type: integer
+          description: バッチ処理結果ID
+        status:
+          type: integer
+          description: |-
+            ステータス
+            - 開始: 1
+            - 進行中: 2
+            - 完了: 3
+    user:
+      title: user
+      type: object
+      description: メンバー
+      properties:
+        id:
+          type: integer
+          description: メンバーID
+        name:
+          type: string
+          description: 名前
+        email:
+          type: string
+          description: メールアドレス
+        role:
+          type: integer
+          description: |-
+            権限
+            - システム管理者: 1
+            - 一般: 2
+        canBetaAccess:
+          type: boolean
+          description: ベータ版機能アクセス権限
+        companyUser:
+          type: object
+          description: 企業メンバー
+          properties:
+            id:
+              type: integer
+              description: 企業メンバーID
+            role:
+              type: integer
+              description: |-
+                権限
+                - 企業管理者: 1
+                - 一般: 2
+            company:
+              $ref: '#/components/schemas/company'
+        constructionUsers:
+          type: array
+          description: 現場メンバー
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: 現場メンバーID
+              role:
+                type: integer
+                description: |-
+                  権限
+                  - 現場管理者: 1
+                  - 一般: 2
+              createdAt:
+                type: string
+                description: 作成日
+              updatedAt:
+                type: string
+                description: 更新日
+              construction:
+                $ref: '#/components/schemas/construction'
+    equipmentToken:
+      title: equipmentToken
+      type: object
+      description: pub APIトークン
+      properties:
+        id:
+          type: integer
+          description: トークンID
+        token:
+          type: string
+          description: トークン
+        expiredAt:
+          type: string
+          description: 有効期限
+          format: date-time
+        isExpired:
+          type: boolean
+          description: 有効期限切れの場合true

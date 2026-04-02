@@ -14,10 +14,12 @@ export default defineConfig(({ command }) => ({
   ],
   build: {
     lib: {
-      entry: "src/index.ts",
-      name: "rcde-frontend-sdk",
-      fileName: (format) => `index.${format}.js`,
-      formats: ["es", "umd"],
+      entry: {
+        index: "src/index.ts",
+        "api-server": "src/api-server.ts",
+      },
+      formats: ["es"],
+      fileName: (format, entryName) => `${entryName}.${format}.js`,
     },
     rollupOptions: {
       external: [
@@ -34,6 +36,10 @@ export default defineConfig(({ command }) => ({
           "@react-three/fiber": "fiber",
           "@react-three/drei": "drei",
           three: "three",
+        },
+        banner: (chunk) => {
+          if (chunk.isEntry && chunk.name === "index") return '"use client";';
+          return "";
         },
       },
     },
