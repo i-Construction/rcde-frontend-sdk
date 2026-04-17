@@ -17,8 +17,6 @@ import { LeftSider } from "./LeftSider";
 import { ReferencePointView } from "./ReferencePointView";
 import { RightSider } from "./right/RightSider";
 
-import axios, { AxiosError, AxiosResponse } from "axios";
-
 type UpAxis = 'Y' | 'Z';
 
 type CoordinateSystemType =
@@ -76,32 +74,6 @@ export type ViewerProps = {
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-
-let _axiosSafePatched = false;
-function ensureAxiosSafeOnce() {
-  if (_axiosSafePatched) return;
-  _axiosSafePatched = true;
-  axios.defaults.validateStatus = () => true;
-  axios.interceptors.response.use(
-    (resp: AxiosResponse) => resp,
-    (error: AxiosError) => {
-      const resp = error.response;
-      if (resp) {
-        return Promise.resolve(resp);
-      }
-      return Promise.resolve({
-        status: 0,
-        statusText: "AxiosNetworkError",
-        data: {
-          error: "network_error",
-          message: error.message ?? "Network error",
-        },
-        headers: {},
-        config: error.config ?? {},
-      } as AxiosResponse);
-    }
-  );
-}
 
 // Helper function to check if a ray intersects with a Box3
 const rayIntersectBox = (ray: { origin: Vector3; direction: Vector3 }, box: Box3): Vector3 | null => {
@@ -215,7 +187,6 @@ const Viewer: FC<ViewerProps> = (props) => {
   const memoizedContractFileIds = useMemo(() => contractFileIds, [contractFileIdsKey]);
 
   useEffect(() => {
-    ensureAxiosSafeOnce();
     initialize(app);
   }, [app, initialize]);
 
