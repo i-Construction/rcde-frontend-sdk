@@ -40,7 +40,7 @@
     "chroma-js": "^3.1.2",
     "date-fns": "^2.30.0",
     "js-quadtree": "^3.3.6",
-    "pcd-viewer": "0.0.23",
+    "@i-con/pcd-viewer": "0.0.25",
     "pngjs": "^7.0.0",
     "react-hook-form": "^7.54.0",
     "xstate": "^5.19.0",
