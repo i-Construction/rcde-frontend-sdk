@@ -15,12 +15,10 @@ export type MeasurementHandlerProps = {
 // シーンから点群データを抽出
 const extractPointsFromScene = (scene: Scene, sampleRate = 10): Vector3[] => {
   const allPoints: Vector3[] = [];
-  let pointsObjectCount = 0;
 
   scene.traverse((obj) => {
     // Points オブジェクト、または type が 'Points' または 'points' のオブジェクトを検索
     if (obj instanceof Points || obj.type === 'Points' || obj.type === 'points') {
-      pointsObjectCount++;
       const geometry = (obj as Points).geometry as BufferGeometry;
       const positions = geometry.getAttribute('position');
 
