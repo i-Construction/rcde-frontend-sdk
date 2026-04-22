@@ -13,8 +13,6 @@ const buildTree = (props: {
 
   const map = new Map<string, Point>();
   const precision = 1e4;
-  let insertedCount = 0;
-  let outOfBoundsCount = 0;
 
   points.forEach((point, id) => {
     const projection = point.clone().project(camera);
@@ -23,7 +21,6 @@ const buildTree = (props: {
 
     // NDC範囲外の点をスキップ
     if (x < -1 || x > 1 || y < -1 || y > 1) {
-      outOfBoundsCount++;
       return;
     }
 
@@ -32,7 +29,6 @@ const buildTree = (props: {
       const newPoint = new Point(x, y, { id });
       map.set(key, newPoint);
       tree.insert(newPoint);
-      insertedCount++;
     }
   });
 
