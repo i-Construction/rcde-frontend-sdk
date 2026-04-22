@@ -6,7 +6,7 @@ import {
   MapControls,
 } from "@react-three/drei";
 import { Canvas, CanvasProps, useThree } from "@react-three/fiber";
-import { PointCloudMeta } from "pcd-viewer";
+import { PointCloudMeta } from "@i-con/pcd-viewer";
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box3, Color, DoubleSide, Quaternion, Vector2, Vector3, Group, PerspectiveCamera, Object3D, Raycaster } from "three";
 import { useClient } from "../contexts/client";

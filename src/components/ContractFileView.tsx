@@ -7,7 +7,7 @@ import {
   PointCloudLODLoader,
   PointCloudLODParser,
   PointCloudMeta,
-} from "pcd-viewer";
+} from "@i-con/pcd-viewer";
 import { PNG } from "pngjs/browser";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Euler, Group, Object3D, Vector3 } from "three";

@@ -1,6 +1,6 @@
 import { createContext, FC, ReactNode, useCallback, useContext, useState } from "react";
 import { Box3, Vector3 } from "three";
-import { PointCloudMeta } from "pcd-viewer";
+import { PointCloudMeta } from "@i-con/pcd-viewer";
 import { useClient } from "./client";
 import { useContractFiles } from "./contractFiles";
 
