@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 
 *.tsbuildinfo
+
+# Example POC
+example-poc/
+
+# Backup files
+*.bak

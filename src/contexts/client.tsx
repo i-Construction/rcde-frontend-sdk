@@ -1,4 +1,5 @@
-import { RCDEClient } from "@i-con/api-sdk";
+import { RCDEClient } from "../lib/rcde-client";
+import { RCDEAppConfig } from "../components/Viewer";
 import {
   createContext,
   Dispatch,
@@ -12,7 +13,7 @@ import {
 
 export type ClientContextType = {
   client?: RCDEClient;
-  initialize: (props: ConstructorParameters<typeof RCDEClient>[0]) => void;
+  initialize: (app: RCDEAppConfig) => void;
   project?: {
     constructionId: number;
     contractId: number;
@@ -27,14 +28,13 @@ export const ClientProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [project, setProject] = useState<ClientContextType["project"]>();
 
   const initialize = useCallback(
-    (props: Parameters<ClientContextType["initialize"]>[0]) => {
-      const client = new RCDEClient(props);
-      client
-        .authenticate()
-        .then(() => setClient(client))
-        .catch((e) => {
-          throw e;
-        });
+    (app: RCDEAppConfig) => {
+      const client = new RCDEClient({
+        accessToken: app.token,
+        baseUrl: app.baseUrl,
+        authType: app.authType,
+      });
+      setClient(client);
     },
     []
   );
