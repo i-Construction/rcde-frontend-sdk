@@ -32,6 +32,7 @@
     "build": "tsc -b && vite build && vite build --config vite.api-server.config.ts && tsc -p tsconfig.api-server.json",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:cases": "node scripts/generate-test-cases.mjs",
     "test:watch": "vitest",
     "preview": "vite preview",
     "prepublishOnly": "npm run build"
