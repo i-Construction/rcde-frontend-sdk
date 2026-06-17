@@ -9,14 +9,14 @@ import { Context } from 'react';
 import { Dispatch } from 'react';
 import { EventObject } from 'xstate';
 import { FC } from 'react';
-import { JSX as JSX_2 } from 'react/jsx-runtime';
+import { JSX as JSX_2 } from 'react';
 import { MachineContext } from 'xstate';
 import { MachineSnapshot } from 'xstate';
 import { MetaObject } from 'xstate';
 import { NonReducibleUnknown } from 'xstate';
 import { ParameterizedObject } from 'xstate';
 import { Plane } from 'three';
-import { PointCloudMeta } from 'pcd-viewer';
+import { PointCloudMeta } from '@i-con/pcd-viewer';
 import { ProvidedActor } from 'xstate';
 import { ReactNode } from 'react';
 import { SetStateAction } from 'react';
@@ -106,6 +106,9 @@ export declare type ContractFileProps = {
         y: number;
         z: number;
     };
+    inspectorPointSize?: number;
+    inspectorOpacity?: number;
+    inspectorCoordinateSystem?: CoordinateSystemType_2;
 };
 
 export declare type ContractFiles = NonNullable<Awaited<ReturnType<RCDEClient["getContractFileList"]>>["contractFiles"]>;
@@ -120,7 +123,20 @@ export declare const ContractFilesProvider: FC<{
     children: ReactNode;
 }>;
 
-export declare const ContractFileView: ({ file, meta, referencePoint, selected, translation, rotation, }: ContractFileProps) => JSX_2.Element | null;
+export declare const ContractFileView: ({ file, meta, referencePoint, selected, translation, rotation, inspectorPointSize, inspectorOpacity, inspectorCoordinateSystem, }: ContractFileProps) => JSX_2.Element | null;
+
+export declare const CoordinateSystem: {
+    readonly RightHandedXUp: "RIGHT_HANDED_X_UP";
+    readonly LeftHandedXUp: "LEFT_HANDED_X_UP";
+    readonly RightHandedYUp: "RIGHT_HANDED_Y_UP";
+    readonly LeftHandedYUp: "LEFT_HANDED_Y_UP";
+    readonly RightHandedZUp: "RIGHT_HANDED_Z_UP";
+    readonly LeftHandedZUp: "LEFT_HANDED_Z_UP";
+};
+
+export declare type CoordinateSystemType = (typeof CoordinateSystem)[keyof typeof CoordinateSystem];
+
+declare type CoordinateSystemType_2 = 'RIGHT_HANDED_X_UP' | 'LEFT_HANDED_X_UP' | 'RIGHT_HANDED_Y_UP' | 'LEFT_HANDED_Y_UP' | 'RIGHT_HANDED_Z_UP' | 'LEFT_HANDED_Z_UP';
 
 declare type CreateConstructionParams = {
     name: string;
@@ -359,7 +375,9 @@ export declare const Viewer: FC<ViewerProps>;
 export declare type ViewerAppearance = {
     pointSize: number;
     opacity: number;
-    upAxis: UpAxis;
+    upAxis?: UpAxis;
+    coordinateSystem?: CoordinateSystemType;
+    fileId?: number;
 };
 
 export declare const ViewerBridge: {
