@@ -1,11 +1,11 @@
 import { Adjust, InsertDriveFile } from "@mui/icons-material";
 import { ListItemIcon, ListItemText, MenuItem, MenuList } from "@mui/material";
-import { FC, useCallback, useMemo, useState } from "react";
+import { FC, type ReactElement, useCallback, useMemo, useState } from "react";
 import { GlobalStateContext } from "../contexts/state";
 import { FileUploadModal } from "./FileUploadModal";
 
 type Menu = {
-  icon: JSX.Element;
+  icon: ReactElement;
   text: string;
   selected?: boolean;
   onClick?: () => void;
