@@ -80,7 +80,11 @@ async function chunkedUpload(
   input: Chunkable,
   { upload, chunkSize = FIVE_MB, onProgress }: Options
 ): Promise<void> {
-  const totalSize = await getTotalSize(input);
+  // ReadableStream は一度しか読めない（getTotalSize で読み切るとロックされ、
+  // 続く chunks() が失敗する）。ストリーム入力は総サイズ不明(null)のまま
+  // 一度の走査で流す。サイズが事前に分かる入力のみ getTotalSize を呼ぶ。
+  const totalSize =
+    input instanceof ReadableStream ? null : await getTotalSize(input);
 
   let index = 0;
   let offset = 0;
