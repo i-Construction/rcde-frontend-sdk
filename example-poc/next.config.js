@@ -21,8 +21,15 @@ const nextConfig = {
       ...config.resolve.alias,
       react: path.join(pocNodeModules, "react"),
       "react-dom": path.join(pocNodeModules, "react-dom"),
+      "react/jsx-runtime": path.join(pocNodeModules, "react/jsx-runtime.js"),
+      "react/jsx-dev-runtime": path.join(
+        pocNodeModules,
+        "react/jsx-dev-runtime.js"
+      ),
       "@react-three/fiber": path.join(pocNodeModules, "@react-three/fiber"),
       "@react-three/drei": path.join(pocNodeModules, "@react-three/drei"),
+      xstate: path.join(pocNodeModules, "xstate"),
+      "@xstate/react": path.join(pocNodeModules, "@xstate/react"),
     };
     return config;
   },
