@@ -44,6 +44,19 @@ class RCDEClient2Legged {
     if (!this.token) throw new Error("Token is not available");
   }
 
+  /**
+   * 現在保持しているトークンのコピーを返す。
+   * 未認証時は throw する（private フィールドを外部から覗かせないための公開 API）。
+   */
+  public getToken(): { accessToken: string; refreshToken: string; expiresAt: number } {
+    if (!this.token?.accessToken) throw new Error("Token is not available");
+    return {
+      accessToken: this.token.accessToken,
+      refreshToken: this.token.refreshToken ?? "",
+      expiresAt: this.token.expiresAt ?? 0,
+    };
+  }
+
   public async authenticate() {
     const res = await this.api.ext.postExtV2AuthToken(
       { clientId: this.clientId, clientSecret: this.clientSecret },
