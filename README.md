@@ -17,15 +17,15 @@ Next.js（App Router構成）および React Three Fiber をベースとし、�
 |------|-------------|------|
 | Node.js | 20.x 以上 | LTS推奨 |
 | React | **18.3.1 固定** | Three.js互換のため他バージョン不可 |
-| Next.js | **14.2.5 固定** | Three.js／React Three Fiber間の依存制約あり |
-| Vite | ^5.x | ライブラリビルド用 |
+| Next.js | **16.2.9 固定** | App Router 利用時（参照: `example-poc/`） |
+| Vite | ^6.x | ライブラリビルド用 |
 | TypeScript | ^5.x | 型定義完全対応 |
-| Three.js | ^0.164.x | `@react-three/fiber` 依存 |
+| Three.js | ^0.171.0 | `@react-three/fiber` 依存 |
 
-> ⚠️ **React/Nextバージョンは厳密固定です。**
+> ⚠️ **React バージョンは 18.3.1 固定です。**
 >
-> Three.js と React 18.3.1 / Next.js 14.2.5 の組み合わせでのみビルドが安定します。  
-> これ以外のバージョンでは、`react-reconciler` や `r3f` 関連でコンパイルエラーが発生します。
+> Three.js と React 18.3.1 / Next.js 16.2.9 の組み合わせでビルドを検証しています。  
+> React 19 や Next.js 14 系では、`react-reconciler` や `r3f` 関連でコンパイルエラーが発生する可能性があります。
 
 ---
 
@@ -50,6 +50,22 @@ npm run dev
 
 # ライブラリビルド
 npm run build
+```
+
+### 参照実装
+
+| ディレクトリ | 用途 |
+|-------------|------|
+| [`example/`](example/) | Vite + React による SDK 利用例 |
+| [`example-poc/`](example-poc/) | Next.js 16（App Router）による統合 PoC。2-legged / 3-legged 認証と RCDE ビューア表示の参照実装 |
+
+`example-poc` の起動:
+
+```bash
+cd example-poc
+cp .env.example .env   # 認証情報を設定
+npm install
+npm run dev
 ```
 
 ---
