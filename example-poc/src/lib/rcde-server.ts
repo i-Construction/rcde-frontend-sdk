@@ -1,4 +1,8 @@
-import { RCDEClient2Legged, RCDEClient3Legged } from "@i-con/frontend-sdk/api-server";
+import {
+  RCDEClient2Legged,
+  RCDEClient3Legged,
+  isExpiringSoon,
+} from "@i-con/frontend-sdk/api-server";
 import { getStoredToken, storeToken } from "./auth-store";
 
 export function getAuthType(): "2legged" | "3legged" {
@@ -26,24 +30,6 @@ export function create3LeggedClient() {
   });
 }
 
-type TokenPayload = {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: number;
-};
-
-function read2LeggedToken(client: RCDEClient2Legged): TokenPayload {
-  const token = (client as unknown as { token?: TokenPayload }).token;
-  if (!token?.accessToken) {
-    throw new Error("Token is not available");
-  }
-  return {
-    accessToken: token.accessToken,
-    refreshToken: token.refreshToken ?? "",
-    expiresAt: token.expiresAt ?? 0,
-  };
-}
-
 /**
  * プロキシ向けに有効な accessToken を取得する。
  * 2-legged: clientSecret で都度 authenticate（/api/constructions と同じ）
@@ -58,7 +44,7 @@ export async function resolveAccessToken(): Promise<string | undefined> {
   if (getAuthType() === "2legged") {
     const client = create2LeggedClient();
     await client.authenticate();
-    const token = read2LeggedToken(client);
+    const token = client.getToken();
     await storeToken(token);
     return token.accessToken;
   }
@@ -66,8 +52,8 @@ export async function resolveAccessToken(): Promise<string | undefined> {
   const client = create3LeggedClient();
   client.setToken(session);
 
-  const now = Math.floor(Date.now() / 1000);
-  if (session.expiresAt - now <= 60) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (isExpiringSoon(session.expiresAt, nowSec)) {
     await client.refreshToken();
     const refreshed = client.getToken();
     await storeToken(refreshed);
