@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/api-server.ts", "src/api/**/*.ts"],
+  "compilerOptions": {
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "outDir": "dist",
+    "allowImportingTsExtensions": false
+  }
+}

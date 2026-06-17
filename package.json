@@ -15,6 +15,11 @@
       "require": "./dist/index.umd.js",
       "default": "./dist/index.es.js"
     },
+    "./api-server": {
+      "types": "./dist/api-server.d.ts",
+      "import": "./dist/api-server.es.js",
+      "default": "./dist/api-server.es.js"
+    },
     "./package.json": "./package.json"
   },
   "sideEffects": false,
@@ -24,7 +29,7 @@
   ],
   "scripts": {
     "dev": "vite example",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --config vite.api-server.config.ts && tsc -p tsconfig.api-server.json",
     "lint": "eslint .",
     "preview": "vite preview",
     "prepublishOnly": "npm run build"
@@ -33,6 +38,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@hookform/resolvers": "^3.9.1",
+    "@i-con/pcd-viewer": "0.0.26",
     "@mui/icons-material": "^6.2.0",
     "@mui/material": "^6.1.10",
     "@mui/x-date-pickers": "^7.23.1",
@@ -40,15 +46,20 @@
     "chroma-js": "^3.1.2",
     "date-fns": "^2.30.0",
     "js-quadtree": "^3.3.6",
-    "@i-con/pcd-viewer": "0.0.26",
     "pngjs": "^7.0.0",
     "react-hook-form": "^7.54.0",
     "xstate": "^5.19.0",
     "zod": "^3.24.1"
   },
   "peerDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^6.2.0",
+    "@mui/material": "^6.1.10",
     "@react-three/drei": "^9.120.4",
     "@react-three/fiber": "^8.17.10",
+    "@xstate/react": "^5.0.0",
+    "pngjs": "^7.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.171.0"
