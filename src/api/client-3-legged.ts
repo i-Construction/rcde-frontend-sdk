@@ -1,5 +1,5 @@
 import { Api as Api3Legged } from "./api-3-legged";
-import { ClientProps } from "./common";
+import { ClientProps, isExpiringSoon } from "./common";
 import { Chunkable, chunkedUpload, getTotalSize } from "./chunk-uploader";
 
 type Api = Api3Legged<unknown>;
@@ -22,6 +22,16 @@ type Token = {
  * - 自動リフレッシュ内蔵（期限の60秒前で更新）
  * - トークン永続化は利用側（setToken/getToken で入出力）
  */
+/**
+ * テスト容易性のための任意依存。未指定時は本番デフォルトで動作する。
+ */
+type ClientDeps3Legged = {
+  /** API クライアント（未指定なら baseUrl から生成） */
+  api?: Api;
+  /** 現在時刻（ms）。リフレッシュ境界判定に使用。未指定なら Date.now */
+  now?: () => number;
+};
+
 class RCDEClient3Legged {
   private baseUrl: string;
   private clientId: string;
@@ -29,14 +39,16 @@ class RCDEClient3Legged {
   private api: Api;
   private origin: string;
   private token?: Token;
+  private now: () => number;
 
-  constructor(props: ClientProps3Legged) {
+  constructor(props: ClientProps3Legged, deps: ClientDeps3Legged = {}) {
     const { baseUrl, clientId, clientSecret, domain } = props;
     this.baseUrl = baseUrl;
     this.clientId = clientId;
     this.clientSecret = clientSecret;
     this.origin = domain ?? "";
-    this.api = new Api3Legged({ baseUrl });
+    this.api = deps.api ?? new Api3Legged({ baseUrl });
+    this.now = deps.now ?? (() => Date.now());
   }
 
   private get headers(): Record<string, string> {
@@ -74,9 +86,8 @@ class RCDEClient3Legged {
   }
 
   private needsRefresh(skewSec = 60): boolean {
-    if (!this.token?.expiresAt) return false;
-    const now = Math.floor(Date.now() / 1000);
-    return this.token.expiresAt - now <= skewSec;
+    const nowSec = Math.floor(this.now() / 1000);
+    return isExpiringSoon(this.token?.expiresAt, nowSec, skewSec);
   }
 
   public async refreshToken(): Promise<void> {
