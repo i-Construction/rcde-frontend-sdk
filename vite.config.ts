@@ -1,10 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import dts from "vite-plugin-dts";
+import { fixPcdViewerReact } from "./vite/fix-pcd-viewer-react";
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   plugins: [
+    fixPcdViewerReact(),
     react({}),
     dts({
       tsconfigPath: "./tsconfig.json",
@@ -23,9 +25,20 @@ export default defineConfig(({ command }) => ({
       external: [
         "react",
         "react-dom",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime",
+        "react-reconciler",
+        "scheduler",
         "@react-three/fiber",
         "@react-three/drei",
         "three",
+        "pngjs",
+        "pngjs/browser",
+        /^@mui\/.*/,
+        /^@emotion\/.*/,
+        /^@xstate\/.*/,
+        /^xstate$/,
+        /^use-sync-external-store/,
       ],
       output: {
         globals: {
@@ -35,8 +48,9 @@ export default defineConfig(({ command }) => ({
           "@react-three/drei": "drei",
           three: "three",
         },
+        banner: '"use client";',
       },
     },
   },
-  publicDir: command === "build" ? false : "example/public", // for the example
+  publicDir: command === "build" ? false : "example/public",
 }));
