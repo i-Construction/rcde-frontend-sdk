@@ -1,12 +1,5 @@
 import { Add } from "@mui/icons-material";
-import {
-  Box,
-  Button,
-  FormControl,
-  FormHelperText,
-  FormLabel,
-  Typography,
-} from "@mui/material";
+import { Box, Button, FormControl, FormHelperText, FormLabel, Typography } from "@mui/material";
 import React, { FC, useCallback, useMemo, useRef, useState } from "react";
 import { useClient } from "../contexts/client";
 import { ModalBox, ModalBoxProps } from "./ModalBox";
@@ -15,9 +8,7 @@ import { RCDEClient } from "../lib/rcde-client";
 
 export type FileUploadModalProps = {
   contractId: number;
-  onUploaded?: (
-    res: Awaited<ReturnType<RCDEClient["uploadContractFile"]>>
-  ) => void;
+  onUploaded?: (res: Awaited<ReturnType<RCDEClient["uploadContractFile"]>>) => void;
 } & Omit<ModalBoxProps, "children">;
 
 const FileUploadModal: FC<FileUploadModalProps> = (props) => {
@@ -28,28 +19,24 @@ const FileUploadModal: FC<FileUploadModalProps> = (props) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [pointCloudAttribute, setPointCloudAttribute] =
-    useState<PointCloudAttribute>({});
+  const [pointCloudAttribute, setPointCloudAttribute] = useState<PointCloudAttribute>({});
 
   const accept = useMemo(() => {
     return ".las,.laz,.csv,.txt,.xyz,.e57";
   }, []);
 
-  const handleChangeFile = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const { files: fileList } = event.target;
-      if (fileList !== null) {
-        const inputFiles = Array.from(fileList);
-        if (inputFiles.length > 10) {
-          setErrorMessage("アップロードできるファイル数は10個までです");
-          return;
-        }
-        setErrorMessage("");
-        setFile(inputFiles[0]);
+  const handleChangeFile = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const { files: fileList } = event.target;
+    if (fileList !== null) {
+      const inputFiles = Array.from(fileList);
+      if (inputFiles.length > 10) {
+        setErrorMessage("アップロードできるファイル数は10個までです");
+        return;
       }
-    },
-    []
-  );
+      setErrorMessage("");
+      setFile(inputFiles[0]);
+    }
+  }, []);
 
   const handleUpload = useCallback(() => {
     if (file !== null) {
@@ -168,11 +155,7 @@ const FileUploadModal: FC<FileUploadModalProps> = (props) => {
                 textAlign: "right",
               }}
             >
-              <Button
-                variant="contained"
-                onClick={handleUpload}
-                disabled={file === null}
-              >
+              <Button variant="contained" onClick={handleUpload} disabled={file === null}>
                 アップロードする
               </Button>
             </Box>

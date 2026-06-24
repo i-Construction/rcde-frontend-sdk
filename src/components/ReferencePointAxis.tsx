@@ -1,5 +1,5 @@
-import { FC, useMemo } from 'react';
-import { Vector3 } from 'three';
+import { FC, useMemo } from "react";
+import { Vector3 } from "three";
 
 /**
  * Reference point axis component props
@@ -56,9 +56,9 @@ const ReferencePointAxis: FC<ReferencePointAxisProps> = ({
   // Define axis directions and colors
   const axes = useMemo(
     () => [
-      { direction: new Vector3(1, 0, 0), color: '#ff0000', label: 'X' }, // Red for X
-      { direction: new Vector3(0, 1, 0), color: '#00ff00', label: 'Y' }, // Green for Y
-      { direction: new Vector3(0, 0, 1), color: '#0000ff', label: 'Z' }, // Blue for Z
+      { direction: new Vector3(1, 0, 0), color: "#ff0000", label: "X" }, // Red for X
+      { direction: new Vector3(0, 1, 0), color: "#00ff00", label: "Y" }, // Green for Y
+      { direction: new Vector3(0, 0, 1), color: "#0000ff", label: "Z" }, // Blue for Z
     ],
     []
   );

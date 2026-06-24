@@ -44,7 +44,9 @@ export function ViewerPanel({ pointCloudUrl = "../example-data/sample.las" }: Vi
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: 8, gap: 8, display: "flex" }}>
         <button onClick={() => ViewerBridge.resetCamera()}>Reset Camera</button>
-        <button onClick={() => ViewerBridge.setTransform({ translation: { x: 0, y: 0, z: 0 } })}>Reset Transform</button>
+        <button onClick={() => ViewerBridge.setTransform({ translation: { x: 0, y: 0, z: 0 } })}>
+          Reset Transform
+        </button>
       </div>
       <div ref={containerRef} style={{ flex: 1, background: "#111" }} />
     </div>

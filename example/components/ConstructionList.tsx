@@ -1,11 +1,4 @@
-import {
-  Box,
-  List,
-  ListItem,
-  ListItemButton,
-  Modal,
-  Typography,
-} from "@mui/material";
+import { Box, List, ListItem, ListItemButton, Modal, Typography } from "@mui/material";
 import { FC, useCallback, useEffect, useState } from "react";
 import { useClient } from "../../src/contexts/client";
 import { RCDEClient } from "../../src/lib/rcde-client";
@@ -73,9 +66,7 @@ const ConstructionList: FC<ConstructionListProps> = ({ onSelect }) => {
       ) : null}
       <List>
         <ListItem>
-          <ListItemButton onClick={handleNewConstruction}>
-            現場作成
-          </ListItemButton>
+          <ListItemButton onClick={handleNewConstruction}>現場作成</ListItemButton>
         </ListItem>
         {constructions?.map((c) => {
           const { id } = c;
@@ -91,16 +82,10 @@ const ConstructionList: FC<ConstructionListProps> = ({ onSelect }) => {
                 <Box>
                   <Typography variant="body1">工事名称: {c.name}</Typography>
                   <Typography variant="caption">住所: {c.address}</Typography>
-                  <Typography variant="body2">
-                    契約日: {c.contractedAt}
-                  </Typography>
+                  <Typography variant="body2">契約日: {c.contractedAt}</Typography>
                   <Typography variant="body2">完成期日: {c.period}</Typography>
-                  <Typography variant="body2">
-                    請負金額: ¥{c.contractAmount}
-                  </Typography>
-                  <Typography variant="body2">
-                    前払い金額率:{c.advancePaymentRate}%
-                  </Typography>
+                  <Typography variant="body2">請負金額: ¥{c.contractAmount}</Typography>
+                  <Typography variant="body2">前払い金額率:{c.advancePaymentRate}%</Typography>
                 </Box>
               </ListItemButton>
             </ListItem>

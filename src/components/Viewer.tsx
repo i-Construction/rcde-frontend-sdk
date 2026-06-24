@@ -1,14 +1,20 @@
 import { Box } from "@mui/material";
-import {
-  GizmoHelper,
-  GizmoViewport,
-  Grid,
-  MapControls,
-} from "@react-three/drei";
+import { GizmoHelper, GizmoViewport, Grid, MapControls } from "@react-three/drei";
 import { Canvas, CanvasProps, useThree } from "@react-three/fiber";
 import { PointCloudMeta } from "@i-con/pcd-viewer";
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box3, Color, DoubleSide, Quaternion, Vector2, Vector3, Group, PerspectiveCamera, Object3D, Raycaster } from "three";
+import {
+  Box3,
+  Color,
+  DoubleSide,
+  Quaternion,
+  Vector2,
+  Vector3,
+  Group,
+  PerspectiveCamera,
+  Object3D,
+  Raycaster,
+} from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile, useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
@@ -17,15 +23,15 @@ import { LeftSider } from "./LeftSider";
 import { ReferencePointView } from "./ReferencePointView";
 import { RightSider } from "./right/RightSider";
 
-type UpAxis = 'Y' | 'Z';
+type UpAxis = "Y" | "Z";
 
 type CoordinateSystemType =
-  | 'RIGHT_HANDED_X_UP'
-  | 'LEFT_HANDED_X_UP'
-  | 'RIGHT_HANDED_Y_UP'
-  | 'LEFT_HANDED_Y_UP'
-  | 'RIGHT_HANDED_Z_UP'
-  | 'LEFT_HANDED_Z_UP';
+  | "RIGHT_HANDED_X_UP"
+  | "LEFT_HANDED_X_UP"
+  | "RIGHT_HANDED_Y_UP"
+  | "LEFT_HANDED_Y_UP"
+  | "RIGHT_HANDED_Z_UP"
+  | "LEFT_HANDED_Z_UP";
 
 type ViewerTransform = {
   translation: { x: number; y: number; z: number };
@@ -34,16 +40,16 @@ type ViewerTransform = {
 };
 type ViewerAppearance = {
   pointSize: number; // 0..5
-  opacity: number;   // 0..100
-  upAxis?: UpAxis;   // カメラUp
+  opacity: number; // 0..100
+  upAxis?: UpAxis; // カメラUp
   coordinateSystem?: CoordinateSystemType; // ファイル単位の座標系
-  fileId?: number;   // R-CDEのデータベースに登録されているファイルID
+  fileId?: number; // R-CDEのデータベースに登録されているファイルID
 };
 type Command =
-  | { type: 'SET_TRANSFORM'; payload: ViewerTransform }
-  | { type: 'SET_APPEARANCE'; payload: ViewerAppearance }
-  | { type: 'RESET' };
-const CHANNEL = 'RCDE_VIEWER_CMD';
+  | { type: "SET_TRANSFORM"; payload: ViewerTransform }
+  | { type: "SET_APPEARANCE"; payload: ViewerAppearance }
+  | { type: "RESET" };
+const CHANNEL = "RCDE_VIEWER_CMD";
 
 type R3FProps = {
   canvas?: CanvasProps;
@@ -56,7 +62,7 @@ type R3FProps = {
 export type RCDEAppConfig = {
   token: string;
   baseUrl?: string;
-  authType?: '2legged' | '3legged';
+  authType?: "2legged" | "3legged";
 };
 
 export type ViewerProps = {
@@ -76,7 +82,10 @@ export type ViewerProps = {
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 // Helper function to check if a ray intersects with a Box3
-const rayIntersectBox = (ray: { origin: Vector3; direction: Vector3 }, box: Box3): Vector3 | null => {
+const rayIntersectBox = (
+  ray: { origin: Vector3; direction: Vector3 },
+  box: Box3
+): Vector3 | null => {
   const invDir = new Vector3(1 / ray.direction.x, 1 / ray.direction.y, 1 / ray.direction.z);
   const t1 = (box.min.x - ray.origin.x) * invDir.x;
   const t2 = (box.max.x - ray.origin.x) * invDir.x;
@@ -105,45 +114,51 @@ const ClickHandler: FC<{
   const { camera, gl } = useThree();
   const raycaster = useMemo(() => new Raycaster(), []);
 
-  const handleClick = useCallback((event: MouseEvent) => {
-    if (!onContractFileClick) return;
+  const handleClick = useCallback(
+    (event: MouseEvent) => {
+      if (!onContractFileClick) return;
 
-    const rect = gl.domElement.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const rect = gl.domElement.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-    raycaster.setFromCamera(new Vector2(x, y), camera);
-    const ray = raycaster.ray;
+      raycaster.setFromCamera(new Vector2(x, y), camera);
+      const ray = raycaster.ray;
 
-    // Find the closest bounding box that intersects with the ray
-    let closestIntersection: { view: ContractFileProps & { boundingBox: Box3 }; distance: number } | null = null;
+      // Find the closest bounding box that intersects with the ray
+      let closestIntersection: {
+        view: ContractFileProps & { boundingBox: Box3 };
+        distance: number;
+      } | null = null;
 
-    for (const view of views) {
-      // Apply reference point offset to bounding box
-      const offsetBoundingBox = view.boundingBox.clone();
-      offsetBoundingBox.translate(referencePoint);
+      for (const view of views) {
+        // Apply reference point offset to bounding box
+        const offsetBoundingBox = view.boundingBox.clone();
+        offsetBoundingBox.translate(referencePoint);
 
-      const intersection = rayIntersectBox(ray, offsetBoundingBox);
-      if (intersection) {
-        const distance = ray.origin.distanceTo(intersection);
-        if (!closestIntersection || distance < closestIntersection.distance) {
-          closestIntersection = { view, distance };
+        const intersection = rayIntersectBox(ray, offsetBoundingBox);
+        if (intersection) {
+          const distance = ray.origin.distanceTo(intersection);
+          if (!closestIntersection || distance < closestIntersection.distance) {
+            closestIntersection = { view, distance };
+          }
         }
       }
-    }
 
-    if (closestIntersection) {
-      onContractFileClick(closestIntersection.view.file, closestIntersection.view.boundingBox);
-    } else {
-      onContractFileClick(undefined, undefined);
-    }
-  }, [views, referencePoint, onContractFileClick, camera, gl, raycaster]);
+      if (closestIntersection) {
+        onContractFileClick(closestIntersection.view.file, closestIntersection.view.boundingBox);
+      } else {
+        onContractFileClick(undefined, undefined);
+      }
+    },
+    [views, referencePoint, onContractFileClick, camera, gl, raycaster]
+  );
 
   useEffect(() => {
     const canvas = gl.domElement;
-    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener("click", handleClick);
     return () => {
-      canvas.removeEventListener('click', handleClick);
+      canvas.removeEventListener("click", handleClick);
     };
   }, [gl, handleClick]);
 
@@ -152,7 +167,19 @@ const ClickHandler: FC<{
 
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
-  const { app, constructionId, contractId, contractFileIds, r3f, children, positionOffsetComponent, showLeftSider = true, showRightSider = true, selectedFileId, onContractFileClick } = props;
+  const {
+    app,
+    constructionId,
+    contractId,
+    contractFileIds,
+    r3f,
+    children,
+    positionOffsetComponent,
+    showLeftSider = true,
+    showRightSider = true,
+    selectedFileId,
+    onContractFileClick,
+  } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point, change: changeReferencePoint } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
@@ -168,17 +195,27 @@ const Viewer: FC<ViewerProps> = (props) => {
   });
 
   // File-specific transforms (fileId -> translation + rotation)
-  const [fileTransforms, setFileTransforms] = useState<Record<number, {
-    translation: { x: number; y: number; z: number };
-    rotation: { x: number; y: number; z: number };
-  }>>({});
+  const [fileTransforms, setFileTransforms] = useState<
+    Record<
+      number,
+      {
+        translation: { x: number; y: number; z: number };
+        rotation: { x: number; y: number; z: number };
+      }
+    >
+  >({});
 
   // File-specific appearances (fileId -> pointSize + opacity + coordinateSystem)
-  const [fileAppearances, setFileAppearances] = useState<Record<number, {
-    pointSize: number;
-    opacity: number;
-    coordinateSystem?: CoordinateSystemType;
-  }>>({});
+  const [fileAppearances, setFileAppearances] = useState<
+    Record<
+      number,
+      {
+        pointSize: number;
+        opacity: number;
+        coordinateSystem?: CoordinateSystemType;
+      }
+    >
+  >({});
 
   // Memoize contractFileIds to prevent unnecessary re-renders
   // Use JSON.stringify to compare array contents rather than reference
@@ -190,7 +227,9 @@ const Viewer: FC<ViewerProps> = (props) => {
     initialize(app);
   }, [app, initialize]);
 
-  useEffect(() => { setProject({ constructionId, contractId }); }, [constructionId, contractId, setProject]);
+  useEffect(() => {
+    setProject({ constructionId, contractId });
+  }, [constructionId, contractId, setProject]);
 
   const fetchContractFiles = useCallback(async () => {
     if (!client || !contractId) return;
@@ -211,13 +250,16 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
   }, [client, contractId, fetchContractFiles]);
 
-  const camera = useMemo(() => ({
-    fov: 40,
-    position: new Vector3(1, 2, 1).multiplyScalar(1e2),
-    up: new Vector3(0, 0, 1),
-    near: 1e-1,
-    far: 1e3 * 5,
-  }), []);
+  const camera = useMemo(
+    () => ({
+      fov: 40,
+      position: new Vector3(1, 2, 1).multiplyScalar(1e2),
+      up: new Vector3(0, 0, 1),
+      near: 1e-1,
+      far: 1e3 * 5,
+    }),
+    []
+  );
 
   useEffect(() => {
     if (project === undefined) return;
@@ -231,7 +273,10 @@ const Viewer: FC<ViewerProps> = (props) => {
           .then((d) => {
             const meta = d as unknown as PointCloudMeta;
             const { min, max } = meta.bounds;
-            const boundingBox = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
+            const boundingBox = new Box3(
+              new Vector3().fromArray(min),
+              new Vector3().fromArray(max)
+            );
             return { file: c.file, meta, boundingBox };
           })
           .catch((e) => {
@@ -245,40 +290,60 @@ const Viewer: FC<ViewerProps> = (props) => {
     });
   }, [containers, project, client]);
 
-  const handleFileFocus = useCallback((file: ContractFile) => {
-    const view = views.find((v) => v.file.id === file.id);
-    if (!view) return;
-    const center = view.boundingBox.getCenter(new Vector3());
-    changeReferencePoint(center.negate());
-  }, [views, changeReferencePoint]);
+  const handleFileFocus = useCallback(
+    (file: ContractFile) => {
+      const view = views.find((v) => v.file.id === file.id);
+      if (!view) return;
+      const center = view.boundingBox.getCenter(new Vector3());
+      changeReferencePoint(center.negate());
+    },
+    [views, changeReferencePoint]
+  );
 
-  const handleFileDelete = useCallback((file: ContractFile) => { console.log(file); }, []);
-  const handleUploaded = useCallback(() => { fetchContractFiles(); }, [fetchContractFiles]);
-
-  const applyAppearanceToScene = useCallback((root: Group | null, ps: number, opPercent: number) => {
-    if (!root) return;
-    const pointSize = clamp(ps, 0, 5);
-    const opacity01 = clamp(opPercent, 0, 100) / 100;
-
-    root.traverse((obj: Object3D) => {
-      const mat = (obj as { material?: { size?: number; uniforms?: Record<string, { value?: number }>; opacity?: number; transparent?: boolean; needsUpdate?: boolean } }).material;
-      if (!mat) return;
-
-      if (typeof mat.size === "number") {
-        mat.size = pointSize;
-        mat.needsUpdate = true;
-      }
-      if (mat.uniforms) {
-        if (mat.uniforms.pointSize?.value !== undefined) mat.uniforms.pointSize.value = pointSize;
-        if (mat.uniforms.opacity?.value !== undefined) mat.uniforms.opacity.value = opacity01;
-      }
-      if (typeof mat.opacity === "number") {
-        mat.opacity = opacity01;
-        if (opacity01 < 1 && mat.transparent !== true) mat.transparent = true;
-        mat.needsUpdate = true;
-      }
-    });
+  const handleFileDelete = useCallback((file: ContractFile) => {
+    console.log(file);
   }, []);
+  const handleUploaded = useCallback(() => {
+    fetchContractFiles();
+  }, [fetchContractFiles]);
+
+  const applyAppearanceToScene = useCallback(
+    (root: Group | null, ps: number, opPercent: number) => {
+      if (!root) return;
+      const pointSize = clamp(ps, 0, 5);
+      const opacity01 = clamp(opPercent, 0, 100) / 100;
+
+      root.traverse((obj: Object3D) => {
+        const mat = (
+          obj as {
+            material?: {
+              size?: number;
+              uniforms?: Record<string, { value?: number }>;
+              opacity?: number;
+              transparent?: boolean;
+              needsUpdate?: boolean;
+            };
+          }
+        ).material;
+        if (!mat) return;
+
+        if (typeof mat.size === "number") {
+          mat.size = pointSize;
+          mat.needsUpdate = true;
+        }
+        if (mat.uniforms) {
+          if (mat.uniforms.pointSize?.value !== undefined) mat.uniforms.pointSize.value = pointSize;
+          if (mat.uniforms.opacity?.value !== undefined) mat.uniforms.opacity.value = opacity01;
+        }
+        if (typeof mat.opacity === "number") {
+          mat.opacity = opacity01;
+          if (opacity01 < 1 && mat.transparent !== true) mat.transparent = true;
+          mat.needsUpdate = true;
+        }
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     applyAppearanceToScene(transformRootRef.current, appearance.pointSize, appearance.opacity);
@@ -289,26 +354,26 @@ const Viewer: FC<ViewerProps> = (props) => {
       if (!e?.data || e.data.channel !== CHANNEL) return;
       const cmd = e.data.cmd as Command;
 
-      if (cmd.type === 'SET_TRANSFORM') {
+      if (cmd.type === "SET_TRANSFORM") {
         const { fileId, translation, rotation } = cmd.payload;
         // Store file-specific transform (translation + rotation)
-        setFileTransforms(prev => ({
+        setFileTransforms((prev) => ({
           ...prev,
           [fileId]: {
             translation,
-            rotation
-          }
+            rotation,
+          },
         }));
-      } else if (cmd.type === 'SET_APPEARANCE') {
+      } else if (cmd.type === "SET_APPEARANCE") {
         const up = cmd.payload.upAxis;
         const cs = cmd.payload.coordinateSystem;
         const nextPointSize = clamp(cmd.payload.pointSize ?? appearance.pointSize, 0, 5);
-        const nextOpacity   = clamp(cmd.payload.opacity   ?? appearance.opacity,   0, 100);
+        const nextOpacity = clamp(cmd.payload.opacity ?? appearance.opacity, 0, 100);
 
         // fileId が指定されている場合はファイル単位で保存
         const fileId = cmd.payload.fileId;
         if (fileId !== undefined) {
-          setFileAppearances(prev => ({
+          setFileAppearances((prev) => ({
             ...prev,
             [fileId]: {
               pointSize: nextPointSize,
@@ -325,17 +390,17 @@ const Viewer: FC<ViewerProps> = (props) => {
         if (up) {
           const cam = cameraRef.current;
           if (cam) {
-            if (up === 'Y') cam.up.set(0, 1, 0);
+            if (up === "Y") cam.up.set(0, 1, 0);
             else cam.up.set(0, 0, 1);
             cam.updateProjectionMatrix?.();
           }
           controlsRef.current?.update?.();
         }
-      } else if (cmd.type === 'RESET') {
+      } else if (cmd.type === "RESET") {
         const g = transformRootRef.current;
         if (g) {
           g.position.set(0, 0, 0);
-          g.rotation.set(0, 0, 0, 'XYZ');
+          g.rotation.set(0, 0, 0, "XYZ");
         }
         setAppearance({ pointSize: 2, opacity: 100 });
         setFileAppearances({});
@@ -349,8 +414,8 @@ const Viewer: FC<ViewerProps> = (props) => {
         controlsRef.current?.update?.();
       }
     };
-    window.addEventListener('message', listener);
-    return () => window.removeEventListener('message', listener);
+    window.addEventListener("message", listener);
+    return () => window.removeEventListener("message", listener);
   }, [appearance.pointSize, appearance.opacity]);
 
   return (
@@ -403,7 +468,13 @@ const Viewer: FC<ViewerProps> = (props) => {
             })}
             <group position={point}>{positionOffsetComponent}</group>
             <group>{children}</group>
-            {onContractFileClick && <ClickHandler views={views} referencePoint={point} onContractFileClick={onContractFileClick} />}
+            {onContractFileClick && (
+              <ClickHandler
+                views={views}
+                referencePoint={point}
+                onContractFileClick={onContractFileClick}
+              />
+            )}
           </group>
         </Canvas>
 
@@ -421,7 +492,9 @@ const Viewer: FC<ViewerProps> = (props) => {
           <ReferencePointView point={point} />
         </Box>
       </Box>
-      {showRightSider && <RightSider onFileFocus={handleFileFocus} onFileDelete={handleFileDelete} />}
+      {showRightSider && (
+        <RightSider onFileFocus={handleFileFocus} onFileDelete={handleFileDelete} />
+      )}
     </Box>
   );
 };

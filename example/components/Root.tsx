@@ -32,12 +32,12 @@ const Root: FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const baseUrl = useMemo(() => {
-    return import.meta.env.VITE_API_BASE_URL || 'https://api.rcde.jp';
+    return import.meta.env.VITE_API_BASE_URL || "https://api.rcde.jp";
   }, []);
 
   const authType = useMemo(() => {
     const type = import.meta.env.VITE_AUTH_TYPE;
-    return (type === '3legged' ? '3legged' : '2legged') as '2legged' | '3legged';
+    return (type === "3legged" ? "3legged" : "2legged") as "2legged" | "3legged";
   }, []);
 
   useEffect(() => {
@@ -47,7 +47,7 @@ const Root: FC = () => {
       const origin = window.location.origin;
 
       if (!clientId || !clientSecret) {
-        setError('VITE_CLIENT_ID と VITE_CLIENT_SECRET を設定してください');
+        setError("VITE_CLIENT_ID と VITE_CLIENT_SECRET を設定してください");
         return;
       }
 
@@ -55,20 +55,20 @@ const Root: FC = () => {
         let tokenEndpoint: string;
         let requestBody: Record<string, string>;
 
-        if (authType === '2legged') {
+        if (authType === "2legged") {
           tokenEndpoint = `${baseUrl}/ext/v2/auth/token`;
           requestBody = { clientId, clientSecret };
         } else {
           // 3leggedの場合はOAuthフローが必要（今回は未実装）
-          setError('3legged認証は現在サポートされていません');
+          setError("3legged認証は現在サポートされていません");
           return;
         }
 
         const response = await fetch(tokenEndpoint, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'Origin': origin,
+            "Content-Type": "application/json",
+            Origin: origin,
           },
           body: JSON.stringify(requestBody),
         });
@@ -91,9 +91,9 @@ const Root: FC = () => {
         });
         setError(null);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'トークン取得に失敗しました';
+        const message = err instanceof Error ? err.message : "トークン取得に失敗しました";
         setError(message);
-        console.error('Failed to fetch access token:', err);
+        console.error("Failed to fetch access token:", err);
       }
     };
 
@@ -147,12 +147,7 @@ const Root: FC = () => {
         );
       }
       case "construction": {
-        return (
-          <ConstructionDetail
-            id={page.constructionId}
-            onSelect={handleSelectContract}
-          />
-        );
+        return <ConstructionDetail id={page.constructionId} onSelect={handleSelectContract} />;
       }
       case "contract": {
         return (
@@ -173,8 +168,8 @@ const Root: FC = () => {
     return (
       <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
         <Box sx={{ p: 2 }}>
-          <Box sx={{ color: 'error.main', mb: 2 }}>エラー: {error}</Box>
-          <Box sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+          <Box sx={{ color: "error.main", mb: 2 }}>エラー: {error}</Box>
+          <Box sx={{ fontSize: "0.875rem", color: "text.secondary" }}>
             .envファイルに VITE_CLIENT_ID と VITE_CLIENT_SECRET を設定してください。
           </Box>
         </Box>
@@ -194,22 +189,21 @@ const Root: FC = () => {
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
       <Box width={1} height={1} display="flex" flexDirection={"column"}>
         <Box>
-          <Button
-            fullWidth
-            onClick={handleBack}
-            disabled={page.variant === "root"}
-          >
+          <Button fullWidth onClick={handleBack} disabled={page.variant === "root"}>
             戻る
           </Button>
         </Box>
         {p}
       </Box>
-    <Box sx={{ p:2, display:'flex', gap:1 }}>
-  <Button variant="outlined" onClick={() => setPage({ variant: "root" })}>Home</Button>
-  <Button variant="outlined" onClick={() => setPage({ variant: "viewer" })}>Viewer</Button>
-</Box>
-</LocalizationProvider>
-
+      <Box sx={{ p: 2, display: "flex", gap: 1 }}>
+        <Button variant="outlined" onClick={() => setPage({ variant: "root" })}>
+          Home
+        </Button>
+        <Button variant="outlined" onClick={() => setPage({ variant: "viewer" })}>
+          Viewer
+        </Button>
+      </Box>
+    </LocalizationProvider>
   );
 };
 

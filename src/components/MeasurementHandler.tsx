@@ -1,10 +1,10 @@
-import { useFrame, useThree } from '@react-three/fiber';
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BufferGeometry, Matrix4, Points, Scene, Vector3 } from 'three';
-import { buildTree, pick } from '../services/Picking';
-import { useMouseUVPosition } from '../hooks/useMouseUVPosition';
-import { MeasurementView } from './MeasurementView';
-import { useReferencePoint } from '../contexts/referencePoint';
+import { useFrame, useThree } from "@react-three/fiber";
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BufferGeometry, Matrix4, Points, Scene, Vector3 } from "three";
+import { buildTree, pick } from "../services/Picking";
+import { useMouseUVPosition } from "../hooks/useMouseUVPosition";
+import { MeasurementView } from "./MeasurementView";
+import { useReferencePoint } from "../contexts/referencePoint";
 
 export type MeasurementHandlerProps = {
   onChange?: (points: Vector3[]) => void;
@@ -18,18 +18,14 @@ const extractPointsFromScene = (scene: Scene, sampleRate = 10): Vector3[] => {
 
   scene.traverse((obj) => {
     // Points オブジェクト、または type が 'Points' または 'points' のオブジェクトを検索
-    if (obj instanceof Points || obj.type === 'Points' || obj.type === 'points') {
+    if (obj instanceof Points || obj.type === "Points" || obj.type === "points") {
       const geometry = (obj as Points).geometry as BufferGeometry;
-      const positions = geometry.getAttribute('position');
+      const positions = geometry.getAttribute("position");
 
       if (positions) {
         // パフォーマンスのためサンプリング
         for (let i = 0; i < positions.count; i += sampleRate) {
-          const point = new Vector3(
-            positions.getX(i),
-            positions.getY(i),
-            positions.getZ(i)
-          );
+          const point = new Vector3(positions.getX(i), positions.getY(i), positions.getZ(i));
           // ワールド座標に変換
           point.applyMatrix4(obj.matrixWorld);
           allPoints.push(point);
@@ -47,7 +43,7 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
   // ローカルstateを使用（R3F Context問題を回避）
   const [points, setPoints] = useState<Vector3[]>([]);
   useReferencePoint(); // コンテキスト接続を維持
-  const treeRef = useRef<ReturnType<typeof buildTree>['tree'] | null>(null);
+  const treeRef = useRef<ReturnType<typeof buildTree>["tree"] | null>(null);
   const pointsRef = useRef<Vector3[]>([]);
   const prevCameraMatrix = useRef<Matrix4>(new Matrix4());
 
@@ -97,17 +93,14 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
     return () => clearTimeout(timer);
   }, [camera, scene]);
 
-  const pickPoint = useCallback(
-    (uv: { x: number; y: number }): Vector3 | undefined => {
-      if (!treeRef.current || pointsRef.current.length === 0) {
-        return undefined;
-      }
+  const pickPoint = useCallback((uv: { x: number; y: number }): Vector3 | undefined => {
+    if (!treeRef.current || pointsRef.current.length === 0) {
+      return undefined;
+    }
 
-      const pickedPoint = pick(uv, treeRef.current, pointsRef.current);
-      return pickedPoint;
-    },
-    []
-  );
+    const pickedPoint = pick(uv, treeRef.current, pointsRef.current);
+    return pickedPoint;
+  }, []);
 
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
@@ -141,7 +134,7 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         setPoints([]);
         setHead(null);
         lastRef.current = null;
@@ -163,27 +156,22 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
     };
 
     // capture: true でイベントを先に捕捉
-    canvas.addEventListener('mousedown', handleMouseDown, { capture: true });
-    canvas.addEventListener('click', handleClick, { capture: true });
-    canvas.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('keydown', handleKeyDown);
-    canvas.addEventListener('contextmenu', handleContextMenu, { capture: true });
+    canvas.addEventListener("mousedown", handleMouseDown, { capture: true });
+    canvas.addEventListener("click", handleClick, { capture: true });
+    canvas.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("keydown", handleKeyDown);
+    canvas.addEventListener("contextmenu", handleContextMenu, { capture: true });
 
     return () => {
-      canvas.removeEventListener('mousedown', handleMouseDown, { capture: true });
-      canvas.removeEventListener('click', handleClick, { capture: true });
-      canvas.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('keydown', handleKeyDown);
-      canvas.removeEventListener('contextmenu', handleContextMenu, { capture: true });
+      canvas.removeEventListener("mousedown", handleMouseDown, { capture: true });
+      canvas.removeEventListener("click", handleClick, { capture: true });
+      canvas.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("keydown", handleKeyDown);
+      canvas.removeEventListener("contextmenu", handleContextMenu, { capture: true });
     };
   }, [canvas, getUV, pickPoint, points, setPoints, onChange]);
 
-  return (
-    <MeasurementView
-      edit
-      points={displayPoints}
-    />
-  );
+  return <MeasurementView edit points={displayPoints} />;
 };
 
 export { MeasurementHandler };

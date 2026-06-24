@@ -27,17 +27,14 @@ export const ClientProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [client, setClient] = useState<RCDEClient | undefined>();
   const [project, setProject] = useState<ClientContextType["project"]>();
 
-  const initialize = useCallback(
-    (app: RCDEAppConfig) => {
-      const client = new RCDEClient({
-        accessToken: app.token,
-        baseUrl: app.baseUrl,
-        authType: app.authType,
-      });
-      setClient(client);
-    },
-    []
-  );
+  const initialize = useCallback((app: RCDEAppConfig) => {
+    const client = new RCDEClient({
+      accessToken: app.token,
+      baseUrl: app.baseUrl,
+      authType: app.authType,
+    });
+    setClient(client);
+  }, []);
 
   return (
     <ClientContext.Provider value={{ client, initialize, project, setProject }}>

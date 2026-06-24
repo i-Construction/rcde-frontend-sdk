@@ -23,10 +23,7 @@ const RightSider: FC<RightSiderProps> = ({ onFileFocus, onFileDelete }) => {
       {state.matches("reference_point") ? (
         <ReferencePoint />
       ) : (
-        <ContractFileList
-          onFileFocus={onFileFocus}
-          onFileDelete={onFileDelete}
-        />
+        <ContractFileList onFileFocus={onFileFocus} onFileDelete={onFileDelete} />
       )}
     </MenuList>
   );

@@ -1,12 +1,5 @@
 import { RCDEClient } from "../lib/rcde-client";
-import {
-  createContext,
-  FC,
-  ReactNode,
-  useCallback,
-  useContext,
-  useState,
-} from "react";
+import { createContext, FC, ReactNode, useCallback, useContext, useState } from "react";
 
 export type ContractFiles = NonNullable<
   Awaited<ReturnType<RCDEClient["getContractFileList"]>>["contractFiles"]
@@ -24,20 +17,17 @@ type ContractFilesContextType = {
   toggleVisibility: (container: ContractFileContainer) => void;
 };
 
-const ContractFilesContext = createContext<
-  ContractFilesContextType | undefined
->(undefined);
+const ContractFilesContext = createContext<ContractFilesContextType | undefined>(undefined);
 
-export const ContractFilesProvider: FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+export const ContractFilesProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [containers, setContainers] = useState<ContractFileContainer[]>([]);
 
   const load = useCallback((files: ContractFiles, visibleIds?: number[]) => {
     setContainers(
       files.map((file) => ({
         file,
-        visible: visibleIds === undefined ? true : (file.id !== undefined && visibleIds.includes(file.id)),
+        visible:
+          visibleIds === undefined ? true : file.id !== undefined && visibleIds.includes(file.id),
       }))
     );
   }, []);
@@ -56,9 +46,7 @@ export const ContractFilesProvider: FC<{ children: ReactNode }> = ({
   }, []);
 
   return (
-    <ContractFilesContext.Provider
-      value={{ load, toggleVisibility, containers }}
-    >
+    <ContractFilesContext.Provider value={{ load, toggleVisibility, containers }}>
       {children}
     </ContractFilesContext.Provider>
   );
@@ -68,9 +56,7 @@ export const ContractFilesProvider: FC<{ children: ReactNode }> = ({
 export const useContractFiles = (): ContractFilesContextType => {
   const context = useContext(ContractFilesContext);
   if (!context) {
-    throw new Error(
-      "useContractFiles must be used within a ContractFilesProvider"
-    );
+    throw new Error("useContractFiles must be used within a ContractFilesProvider");
   }
   return context;
 };

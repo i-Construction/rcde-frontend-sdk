@@ -1,4 +1,4 @@
-export type AuthType = '2legged' | '3legged';
+export type AuthType = "2legged" | "3legged";
 
 export type RCDEClientOptions = {
   baseUrl?: string;
@@ -22,29 +22,32 @@ export class RCDEClient {
   private fetchImpl: typeof fetch;
 
   constructor(opts: RCDEClientOptions = {}) {
-    this.baseUrl = opts.baseUrl ?? '';
+    this.baseUrl = opts.baseUrl ?? "";
     this.token = opts.accessToken;
-    this.authType = opts.authType ?? '2legged';
+    this.authType = opts.authType ?? "2legged";
     this.fetchImpl = opts.fetchImpl ?? fetch.bind(globalThis);
   }
 
   private headers(): Record<string, string> {
-    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    const h: Record<string, string> = { "Content-Type": "application/json" };
     if (this.token) h.Authorization = `Bearer ${this.token}`;
     return h;
   }
 
   private getApiPath(segment: string): string {
-    const prefix = this.authType === '3legged' ? '/ext/v2/userAuthenticated' : '/ext/v2/authenticated';
+    const prefix =
+      this.authType === "3legged" ? "/ext/v2/userAuthenticated" : "/ext/v2/authenticated";
     return `${this.baseUrl}${prefix}${segment}`;
   }
 
   // ---- 既存で使われている想定のAPI ----
 
   // Viewer などで使用
-  async getContractFileList(params: { contractId: number }): Promise<{ contractFiles: ContractFile[] }> {
+  async getContractFileList(params: {
+    contractId: number;
+  }): Promise<{ contractFiles: ContractFile[] }> {
     const { contractId } = params;
-    const url = this.getApiPath('/contractFile');
+    const url = this.getApiPath("/contractFile");
     const queryParams = new URLSearchParams({ contractId: String(contractId) });
     const res = await this.fetchImpl(`${url}?${queryParams}`, {
       headers: this.headers(),
@@ -54,14 +57,17 @@ export class RCDEClient {
     return { contractFiles: data.contractFiles ?? [] };
   }
 
-  async getContractFileMetadata(params: { contractId: number; contractFileId: number }): Promise<Json> {
+  async getContractFileMetadata(params: {
+    contractId: number;
+    contractFileId: number;
+  }): Promise<Json> {
     const { contractId, contractFileId } = params;
-    const url = this.getApiPath('/pclod/meta');
+    const url = this.getApiPath("/pclod/meta");
     const queryParams = new URLSearchParams({
       contractFileId: String(contractFileId),
     });
-    if (this.authType === '2legged') {
-      queryParams.append('contractId', String(contractId));
+    if (this.authType === "2legged") {
+      queryParams.append("contractId", String(contractId));
     }
     const res = await this.fetchImpl(`${url}?${queryParams}`, {
       headers: this.headers(),
@@ -71,16 +77,21 @@ export class RCDEClient {
   }
 
   // 画像（位置）バッファ
-  async getContractFileImagePosition(params: { contractId: number; contractFileId: number; level?: number; addr?: string }): Promise<ArrayBuffer> {
-    const { contractId, contractFileId, level = 0, addr = '0-0-0' } = params;
-    const url = this.getApiPath('/pclod/imagePosition');
+  async getContractFileImagePosition(params: {
+    contractId: number;
+    contractFileId: number;
+    level?: number;
+    addr?: string;
+  }): Promise<ArrayBuffer> {
+    const { contractId, contractFileId, level = 0, addr = "0-0-0" } = params;
+    const url = this.getApiPath("/pclod/imagePosition");
     const queryParams = new URLSearchParams({
       contractFileId: String(contractFileId),
       level: String(level),
       addr,
     });
-    if (this.authType === '2legged') {
-      queryParams.append('contractId', String(contractId));
+    if (this.authType === "2legged") {
+      queryParams.append("contractId", String(contractId));
     }
     const res = await this.fetchImpl(`${url}?${queryParams}`, {
       headers: this.headers(),
@@ -90,16 +101,21 @@ export class RCDEClient {
   }
 
   // 画像（色）バッファ
-  async getContractFileImageColor(params: { contractId: number; contractFileId: number; level?: number; addr?: string }): Promise<ArrayBuffer> {
-    const { contractId, contractFileId, level = 0, addr = '0-0-0' } = params;
-    const url = this.getApiPath('/pclod/imageColor');
+  async getContractFileImageColor(params: {
+    contractId: number;
+    contractFileId: number;
+    level?: number;
+    addr?: string;
+  }): Promise<ArrayBuffer> {
+    const { contractId, contractFileId, level = 0, addr = "0-0-0" } = params;
+    const url = this.getApiPath("/pclod/imageColor");
     const queryParams = new URLSearchParams({
       contractFileId: String(contractFileId),
       level: String(level),
       addr,
     });
-    if (this.authType === '2legged') {
-      queryParams.append('contractId', String(contractId));
+    if (this.authType === "2legged") {
+      queryParams.append("contractId", String(contractId));
     }
     const res = await this.fetchImpl(`${url}?${queryParams}`, {
       headers: this.headers(),
@@ -109,10 +125,13 @@ export class RCDEClient {
   }
 
   // ダウンロードURL
-  async getContractFileDownloadUrl(contractId: number, fileId: number): Promise<{ presignedURL: string; url: string }> {
+  async getContractFileDownloadUrl(
+    contractId: number,
+    fileId: number
+  ): Promise<{ presignedURL: string; url: string }> {
     const url = this.getApiPath(`/contractFile/downloadURL/${fileId}`);
     let fullUrl = url;
-    if (this.authType === '2legged') {
+    if (this.authType === "2legged") {
       const queryParams = new URLSearchParams({ contractId: String(contractId) });
       fullUrl = `${url}?${queryParams}`;
     }
@@ -121,15 +140,20 @@ export class RCDEClient {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as { presignedURL?: string; url?: string };
-    const presignedURL = data.presignedURL ?? data.url ?? '';
+    const presignedURL = data.presignedURL ?? data.url ?? "";
     return { url: presignedURL, presignedURL };
   }
 
   // アップロード開始（点群アップロードAPIを使用）
-  async uploadContractFile(params: { contractId: number; name: string; buffer: ArrayBuffer; pointCloudAttribute?: Record<string, unknown> }): Promise<Json> {
+  async uploadContractFile(params: {
+    contractId: number;
+    name: string;
+    buffer: ArrayBuffer;
+    pointCloudAttribute?: Record<string, unknown>;
+  }): Promise<Json> {
     const { contractId, name, buffer, pointCloudAttribute } = params;
     // まずアップロード開始APIを呼び出してpresignedURLを取得
-    const uploadUrl = this.getApiPath('/contractFile/pointCloud');
+    const uploadUrl = this.getApiPath("/contractFile/pointCloud");
     const uploadRequest = {
       contractId,
       name,
@@ -137,7 +161,7 @@ export class RCDEClient {
       pointCloudAttribute: pointCloudAttribute ?? {},
     };
     const uploadRes = await this.fetchImpl(uploadUrl, {
-      method: 'POST',
+      method: "POST",
       headers: this.headers(),
       body: JSON.stringify(uploadRequest),
     });
@@ -146,7 +170,7 @@ export class RCDEClient {
 
     // presignedURLにファイルをアップロード
     const uploadFileRes = await this.fetchImpl(uploadData.presignedURL, {
-      method: 'PUT',
+      method: "PUT",
       body: buffer,
     });
     if (!uploadFileRes.ok) throw new Error(`Upload failed: HTTP ${uploadFileRes.status}`);
@@ -154,7 +178,7 @@ export class RCDEClient {
     // アップロード完了を通知
     const completeUrl = this.getApiPath(`/contractFile/uploaded/${uploadData.contractFileId}`);
     const completeRes = await this.fetchImpl(completeUrl, {
-      method: 'PUT',
+      method: "PUT",
       headers: this.headers(),
       body: JSON.stringify({ contractId }),
     });
@@ -164,7 +188,7 @@ export class RCDEClient {
 
   // Construction関連のAPI
   async getConstructionList(): Promise<{ constructions: Construction[] }> {
-    const url = this.getApiPath('/construction');
+    const url = this.getApiPath("/construction");
     const res = await this.fetchImpl(url, {
       headers: this.headers(),
     });
@@ -183,9 +207,9 @@ export class RCDEClient {
   }
 
   async createConstruction(params: CreateConstructionParams): Promise<Json> {
-    const url = this.getApiPath('/construction');
+    const url = this.getApiPath("/construction");
     const res = await this.fetchImpl(url, {
-      method: 'POST',
+      method: "POST",
       headers: this.headers(),
       body: JSON.stringify(params),
     });
@@ -196,10 +220,10 @@ export class RCDEClient {
   // Contract関連のAPI
   async getContractList(params: { constructionId: number }): Promise<{ contracts: Contract[] }> {
     const { constructionId } = params;
-    const url = this.getApiPath('/contract');
+    const url = this.getApiPath("/contract");
     const queryParams = new URLSearchParams();
-    if (this.authType === '2legged' || constructionId) {
-      queryParams.append('constructionId', String(constructionId));
+    if (this.authType === "2legged" || constructionId) {
+      queryParams.append("constructionId", String(constructionId));
     }
     const fullUrl = queryParams.toString() ? `${url}?${queryParams}` : url;
     const res = await this.fetchImpl(fullUrl, {
@@ -210,9 +234,14 @@ export class RCDEClient {
     return { contracts: data.contracts ?? [] };
   }
 
-  async createContract(params: { constructionId: number; name: string; contractedAt: string; status?: string }): Promise<Json> {
+  async createContract(params: {
+    constructionId: number;
+    name: string;
+    contractedAt: string;
+    status?: string;
+  }): Promise<Json> {
     const { constructionId, name, contractedAt, status } = params;
-    const url = this.getApiPath('/contract');
+    const url = this.getApiPath("/contract");
     const requestBody: Record<string, unknown> = {
       name,
       contractedAt,
@@ -222,7 +251,7 @@ export class RCDEClient {
       requestBody.status = status;
     }
     const res = await this.fetchImpl(url, {
-      method: 'POST',
+      method: "POST",
       headers: this.headers(),
       body: JSON.stringify(requestBody),
     });

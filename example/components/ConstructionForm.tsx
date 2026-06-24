@@ -1,27 +1,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Box,
-  Button,
-  List,
-  ListItem,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Box, Button, List, ListItem, TextField, Typography } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { FC, useCallback, useMemo, useState } from "react";
 import { Controller, SubmitHandler, useForm } from "react-hook-form";
-import {
-  CreateConstructionSchema,
-  createConstructionSchema,
-} from "../schemas/construction";
+import { CreateConstructionSchema, createConstructionSchema } from "../schemas/construction";
 
 export type ConstructionFormProps = {
   onSubmit: (values: CreateConstructionSchema) => void;
 };
 
-const ConstructionForm: FC<ConstructionFormProps> = ({
-  onSubmit
-}) => {
+const ConstructionForm: FC<ConstructionFormProps> = ({ onSubmit }) => {
   const [loading, setLoading] = useState(false);
 
   const {
@@ -92,14 +80,11 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
                     size: "small",
                     fullWidth: true,
                     error: !!errors.contractedAt,
-                    helperText:
-                      errors.contractedAt && errors.contractedAt.message,
+                    helperText: errors.contractedAt && errors.contractedAt.message,
                   },
                 }}
                 onChange={(value: Date | null) =>
-                  value === null
-                    ? field.onChange(undefined)
-                    : field.onChange(value)
+                  value === null ? field.onChange(undefined) : field.onChange(value)
                 }
               />
             )}
@@ -126,9 +111,7 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
                   },
                 }}
                 onChange={(value: Date | null) =>
-                  value === null
-                    ? field.onChange(undefined)
-                    : field.onChange(value)
+                  value === null ? field.onChange(undefined) : field.onChange(value)
                 }
               />
             )}
@@ -172,9 +155,7 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
               endAdornment: "%",
             }}
             error={!!errors.advancePaymentRate}
-            helperText={
-              errors.advancePaymentRate && errors.advancePaymentRate.message
-            }
+            helperText={errors.advancePaymentRate && errors.advancePaymentRate.message}
             {...register("advancePaymentRate", {
               valueAsNumber: true,
             })}
@@ -201,12 +182,7 @@ const ConstructionForm: FC<ConstructionFormProps> = ({
           return (
             <ListItem key={item.key}>
               <Box display="flex" width={1}>
-                <Box
-                  display={"flex"}
-                  alignItems={"center"}
-                  marginRight={2}
-                  minWidth={100}
-                >
+                <Box display={"flex"} alignItems={"center"} marginRight={2} minWidth={100}>
                   <Typography variant="caption">{item.label}</Typography>
                 </Box>
                 {item.component}

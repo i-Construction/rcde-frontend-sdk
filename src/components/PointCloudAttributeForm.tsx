@@ -17,11 +17,7 @@ export type PointCloudAttributeFormProps = {
   onChange?: (params: OnChangeParams) => void;
 };
 
-const PointCloudAttributeForm = ({
-  value,
-  onChange,
-}: PointCloudAttributeFormProps) => {
-
+const PointCloudAttributeForm = ({ value, onChange }: PointCloudAttributeFormProps) => {
   const formItems: FormItem[] = useMemo(
     () => [
       {
@@ -53,10 +49,7 @@ const PointCloudAttributeForm = ({
   );
 
   const handleChange = useCallback(
-    (
-      event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-      key: FormItemKey
-    ) => {
+    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, key: FormItemKey) => {
       onChange?.({
         key,
         value: event.target.value,

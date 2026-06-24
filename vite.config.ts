@@ -20,13 +20,7 @@ export default defineConfig(({ command }) => ({
       formats: ["es", "umd"],
     },
     rollupOptions: {
-      external: [
-        "react",
-        "react-dom",
-        "@react-three/fiber",
-        "@react-three/drei",
-        "three",
-      ],
+      external: ["react", "react-dom", "@react-three/fiber", "@react-three/drei", "three"],
       output: {
         globals: {
           react: "React",

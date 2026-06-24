@@ -1,5 +1,13 @@
-import { Dispatch, FC, ReactNode, SetStateAction, createContext, useContext, useState } from 'react';
-import { Vector3 } from 'three';
+import {
+  Dispatch,
+  FC,
+  ReactNode,
+  SetStateAction,
+  createContext,
+  useContext,
+  useState,
+} from "react";
+import { Vector3 } from "three";
 
 export type MeasurementContextProps = {
   points: Vector3[];
@@ -36,7 +44,7 @@ export const MeasurementProvider: FC<{ children?: ReactNode }> = ({ children }) 
 export const useMeasurement = (): MeasurementContextProps => {
   const context = useContext(MeasurementContext);
   if (!context) {
-    throw new Error('useMeasurement must be used within a MeasurementProvider');
+    throw new Error("useMeasurement must be used within a MeasurementProvider");
   }
   return context;
 };
