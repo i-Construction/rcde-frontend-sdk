@@ -15,3 +15,4 @@ export { ReferencePointAxis } from "./components/ReferencePointAxis";
 export type { ReferencePointAxisProps } from "./components/ReferencePointAxis";
 export { CrossSectionHandler, CrossSectionPlane } from './components/CrossSectionHandler';
 export { ClippingPlanesProvider, useClippingPlanes, ClippingPlanesContext, type ClippingPlanesContextProps } from './contexts/clippingPlanes';
+export { isRcdeSessionTokenValid } from './reviewTest';
