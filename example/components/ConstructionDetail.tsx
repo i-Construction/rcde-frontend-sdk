@@ -1,11 +1,4 @@
-import {
-  Box,
-  List,
-  ListItem,
-  ListItemButton,
-  Modal,
-  Typography
-} from "@mui/material";
+import { Box, List, ListItem, ListItemButton, Modal, Typography } from "@mui/material";
 import { RCDEClient } from "../../src/lib/rcde-client";
 import { FC, useCallback, useEffect, useState } from "react";
 import { useClient } from "../../src/contexts/client";
@@ -94,9 +87,7 @@ const ConstructionDetail: FC<ConstructionDetailProps> = ({ id: constructionId, o
       ) : null}
       <List>
         <ListItem>
-          <Typography variant="body1">
-            工事名称: {construction?.name}
-          </Typography>
+          <Typography variant="body1">工事名称: {construction?.name}</Typography>
         </ListItem>
         <ListItem>
           <ListItemButton onClick={handleNewContract}>契約作成</ListItemButton>
@@ -114,9 +105,7 @@ const ConstructionDetail: FC<ConstructionDetailProps> = ({ id: constructionId, o
               >
                 <Box>
                   <Typography variant="body1">契約名称: {c.name}</Typography>
-                  <Typography variant="body2">
-                    契約日: {c.contractedAt}
-                  </Typography>
+                  <Typography variant="body2">契約日: {c.contractedAt}</Typography>
                   <Typography variant="body2">状態: {c.status}</Typography>
                 </Box>
               </ListItemButton>

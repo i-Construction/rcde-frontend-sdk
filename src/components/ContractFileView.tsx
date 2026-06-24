@@ -16,30 +16,33 @@ import { ContractFile } from "../contexts/contractFiles";
 
 // 座標系の型定義
 type CoordinateSystemType =
-  | 'RIGHT_HANDED_X_UP'
-  | 'LEFT_HANDED_X_UP'
-  | 'RIGHT_HANDED_Y_UP'
-  | 'LEFT_HANDED_Y_UP'
-  | 'RIGHT_HANDED_Z_UP'
-  | 'LEFT_HANDED_Z_UP';
+  | "RIGHT_HANDED_X_UP"
+  | "LEFT_HANDED_X_UP"
+  | "RIGHT_HANDED_Y_UP"
+  | "LEFT_HANDED_Y_UP"
+  | "RIGHT_HANDED_Z_UP"
+  | "LEFT_HANDED_Z_UP";
 
 // 座標系ごとの変換定義
-const COORDINATE_SYSTEM_TRANSFORMS: Record<CoordinateSystemType, {
-  rotation: [number, number, number]; // Euler angles [x, y, z] (radians)
-  scale: [number, number, number];
-}> = {
+const COORDINATE_SYSTEM_TRANSFORMS: Record<
+  CoordinateSystemType,
+  {
+    rotation: [number, number, number]; // Euler angles [x, y, z] (radians)
+    scale: [number, number, number];
+  }
+> = {
   // 右手系 Z Up → 変換不要
-  'RIGHT_HANDED_Z_UP': { rotation: [0, 0, 0], scale: [1, 1, 1] },
+  RIGHT_HANDED_Z_UP: { rotation: [0, 0, 0], scale: [1, 1, 1] },
   // 右手系 Y Up → X軸周りに +90° 回転して Y→Z へ
-  'RIGHT_HANDED_Y_UP': { rotation: [Math.PI / 2, 0, 0], scale: [1, 1, 1] },
+  RIGHT_HANDED_Y_UP: { rotation: [Math.PI / 2, 0, 0], scale: [1, 1, 1] },
   // 右手系 X Up → Y軸周りに -90° 回転して X→Z へ
-  'RIGHT_HANDED_X_UP': { rotation: [0, -Math.PI / 2, 0], scale: [1, 1, 1] },
+  RIGHT_HANDED_X_UP: { rotation: [0, -Math.PI / 2, 0], scale: [1, 1, 1] },
   // 左手系 Z Up → X軸ミラーで右手系に変換
-  'LEFT_HANDED_Z_UP': { rotation: [0, 0, 0], scale: [-1, 1, 1] },
+  LEFT_HANDED_Z_UP: { rotation: [0, 0, 0], scale: [-1, 1, 1] },
   // 左手系 Y Up → X軸周りに +90° 回転 + X軸ミラー
-  'LEFT_HANDED_Y_UP': { rotation: [Math.PI / 2, 0, 0], scale: [-1, 1, 1] },
+  LEFT_HANDED_Y_UP: { rotation: [Math.PI / 2, 0, 0], scale: [-1, 1, 1] },
   // 左手系 X Up → Y軸周りに -90° 回転 + X軸ミラー
-  'LEFT_HANDED_X_UP': { rotation: [0, -Math.PI / 2, 0], scale: [-1, 1, 1] },
+  LEFT_HANDED_X_UP: { rotation: [0, -Math.PI / 2, 0], scale: [-1, 1, 1] },
 };
 
 export type ContractFileProps = {
@@ -48,7 +51,7 @@ export type ContractFileProps = {
   referencePoint?: Vector3;
   selected?: boolean;
   translation: { x: number; y: number; z: number };
-  rotation: { x: number; y: number; z: number };  // degree
+  rotation: { x: number; y: number; z: number }; // degree
   inspectorPointSize?: number;
   inspectorOpacity?: number;
   inspectorCoordinateSystem?: CoordinateSystemType;
@@ -249,7 +252,17 @@ const ContractFileView = ({
     if (inspectorPointSize === undefined && inspectorOpacity === undefined) return;
 
     group.traverse((obj: Object3D) => {
-      const mat = (obj as { material?: { size?: number; uniforms?: Record<string, { value?: number }>; opacity?: number; transparent?: boolean; needsUpdate?: boolean } }).material;
+      const mat = (
+        obj as {
+          material?: {
+            size?: number;
+            uniforms?: Record<string, { value?: number }>;
+            opacity?: number;
+            transparent?: boolean;
+            needsUpdate?: boolean;
+          };
+        }
+      ).material;
       if (!mat) return;
 
       if (inspectorPointSize !== undefined) {
@@ -295,11 +308,20 @@ const ContractFileView = ({
         rotation.x * (Math.PI / 180),
         rotation.y * (Math.PI / 180),
         rotation.z * (Math.PI / 180),
-        'XYZ'
+        "XYZ",
       ]}
     >
       <group
-        rotation={csTransform ? new Euler(csTransform.rotation[0], csTransform.rotation[1], csTransform.rotation[2], 'XYZ') : undefined}
+        rotation={
+          csTransform
+            ? new Euler(
+                csTransform.rotation[0],
+                csTransform.rotation[1],
+                csTransform.rotation[2],
+                "XYZ"
+              )
+            : undefined
+        }
         scale={csTransform ? csTransform.scale : undefined}
       >
         <PointCloud

@@ -13,14 +13,14 @@ Next.js（App Router構成）および React Three Fiber をベースとし、�
 
 ## 開発環境要件
 
-| 項目 | バージョン | 備考 |
-|------|-------------|------|
-| Node.js | 20.x 以上 | LTS推奨 |
-| React | **18.3.1 固定** | Three.js互換のため他バージョン不可 |
-| Next.js | **14.2.5 固定** | Three.js／React Three Fiber間の依存制約あり |
-| Vite | ^5.x | ライブラリビルド用 |
-| TypeScript | ^5.x | 型定義完全対応 |
-| Three.js | ^0.164.x | `@react-three/fiber` 依存 |
+| 項目       | バージョン      | 備考                                        |
+| ---------- | --------------- | ------------------------------------------- |
+| Node.js    | 20.x 以上       | LTS推奨                                     |
+| React      | **18.3.1 固定** | Three.js互換のため他バージョン不可          |
+| Next.js    | **14.2.5 固定** | Three.js／React Three Fiber間の依存制約あり |
+| Vite       | ^5.x            | ライブラリビルド用                          |
+| TypeScript | ^5.x            | 型定義完全対応                              |
+| Three.js   | ^0.164.x        | `@react-three/fiber` 依存                   |
 
 > ⚠️ **React/Nextバージョンは厳密固定です。**
 >
@@ -35,7 +35,7 @@ npm、またはyarnを使用してインストールします。
 
 ```bash
 npm install @i-con/frontend-sdk
-# or 
+# or
 yarn add @i-con/frontend-sdk
 ```
 
@@ -74,13 +74,13 @@ packages/
 
 ## 主な機能
 
-| モジュール | 概要 |
-|-----------|------|
-| ViewerBridge | Three.jsビューワーとReact間のブリッジ処理 |
-| useViewer | 点群・基準面の表示制御用フック |
-| useAuth | RCDE OAuth 3-legged認証対応 |
-| FileUploadModal | S3/RCDE両対応のアップロードモーダル |
-| contractFiles | 契約項目別ファイル管理用コンテキスト |
+| モジュール      | 概要                                      |
+| --------------- | ----------------------------------------- |
+| ViewerBridge    | Three.jsビューワーとReact間のブリッジ処理 |
+| useViewer       | 点群・基準面の表示制御用フック            |
+| useAuth         | RCDE OAuth 3-legged認証対応               |
+| FileUploadModal | S3/RCDE両対応のアップロードモーダル       |
+| contractFiles   | 契約項目別ファイル管理用コンテキスト      |
 
 ---
 
@@ -169,26 +169,21 @@ export default function ViewerPanel() {
     };
   }, []);
 
-  return (
-    <div
-      ref={viewerRef}
-      style={{ width: "100%", height: "600px", background: "#111" }}
-    />
-  );
+  return <div ref={viewerRef} style={{ width: "100%", height: "600px", background: "#111" }} />;
 }
 ```
 
 ### 主なAPI一覧
 
-| メソッド | 機能概要 |
-|---------|---------|
-| `init(container: HTMLElement, options?: ViewerOptions)` | ビューワー初期化 |
-| `loadPointCloud({ url, color })` | 点群データをロード |
-| `setTransform({ translation, rotation, scale })` | オブジェクトの位置・回転・拡縮設定 |
-| `setCamera({ position, target })` | カメラ位置と注視点を設定 |
-| `resetCamera()` | カメラを初期位置に戻す |
-| `animate(callback: (time: number) => void)` | 毎フレーム呼ばれるアニメーション関数登録 |
-| `dispose()` | ビューワー破棄とメモリ解放 |
+| メソッド                                                | 機能概要                                 |
+| ------------------------------------------------------- | ---------------------------------------- |
+| `init(container: HTMLElement, options?: ViewerOptions)` | ビューワー初期化                         |
+| `loadPointCloud({ url, color })`                        | 点群データをロード                       |
+| `setTransform({ translation, rotation, scale })`        | オブジェクトの位置・回転・拡縮設定       |
+| `setCamera({ position, target })`                       | カメラ位置と注視点を設定                 |
+| `resetCamera()`                                         | カメラを初期位置に戻す                   |
+| `animate(callback: (time: number) => void)`             | 毎フレーム呼ばれるアニメーション関数登録 |
+| `dispose()`                                             | ビューワー破棄とメモリ解放               |
 
 ### 補足
 
@@ -311,7 +306,7 @@ const App = () => {
 
 ## 更新履歴
 
-| バージョン | 日付 | 内容 |
-|-----------|------|------|
-| 1.0.0 | 2025-07-30 | 初版作成 |
-| 1.1.0 | 2025-10-21 | React 18.3.1 / Next 14.2.5 固定明記、Three.js依存性追記、ViewerBridge使用例追加、RCDE認証要約追加 |
+| バージョン | 日付       | 内容                                                                                              |
+| ---------- | ---------- | ------------------------------------------------------------------------------------------------- |
+| 1.0.0      | 2025-07-30 | 初版作成                                                                                          |
+| 1.1.0      | 2025-10-21 | React 18.3.1 / Next 14.2.5 固定明記、Three.js依存性追記、ViewerBridge使用例追加、RCDE認証要約追加 |

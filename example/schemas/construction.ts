@@ -1,24 +1,16 @@
 import { z, ZodErrorMap, ZodIssueCode, ZodParsedType } from "zod";
 
 const contractedAtErrorMap: ZodErrorMap = (issue, ctx) => {
-  if (
-    issue.code === ZodIssueCode.invalid_type &&
-    issue.received === ZodParsedType.undefined
-  )
+  if (issue.code === ZodIssueCode.invalid_type && issue.received === ZodParsedType.undefined)
     return { message: "契約日を入力してください" };
-  if (issue.code === ZodIssueCode.invalid_date)
-    return { message: "契約日を入力してください" };
+  if (issue.code === ZodIssueCode.invalid_date) return { message: "契約日を入力してください" };
   return { message: ctx.defaultError };
 };
 
 const periodErrorMap: ZodErrorMap = (issue, ctx) => {
-  if (
-    issue.code === ZodIssueCode.invalid_type &&
-    issue.received === ZodParsedType.undefined
-  )
+  if (issue.code === ZodIssueCode.invalid_type && issue.received === ZodParsedType.undefined)
     return { message: "完成期日を入力してください" };
-  if (issue.code === ZodIssueCode.invalid_date)
-    return { message: "完成期日を入力してください" };
+  if (issue.code === ZodIssueCode.invalid_date) return { message: "完成期日を入力してください" };
   return { message: ctx.defaultError };
 };
 

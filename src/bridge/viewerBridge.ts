@@ -1,13 +1,13 @@
-export type UpAxis = 'Y' | 'Z';
+export type UpAxis = "Y" | "Z";
 
 // 座標系の定義
 export const CoordinateSystem = {
-  RightHandedXUp: 'RIGHT_HANDED_X_UP',
-  LeftHandedXUp: 'LEFT_HANDED_X_UP',
-  RightHandedYUp: 'RIGHT_HANDED_Y_UP',
-  LeftHandedYUp: 'LEFT_HANDED_Y_UP',
-  RightHandedZUp: 'RIGHT_HANDED_Z_UP',
-  LeftHandedZUp: 'LEFT_HANDED_Z_UP',
+  RightHandedXUp: "RIGHT_HANDED_X_UP",
+  LeftHandedXUp: "LEFT_HANDED_X_UP",
+  RightHandedYUp: "RIGHT_HANDED_Y_UP",
+  LeftHandedYUp: "LEFT_HANDED_Y_UP",
+  RightHandedZUp: "RIGHT_HANDED_Z_UP",
+  LeftHandedZUp: "LEFT_HANDED_Z_UP",
 } as const;
 
 export type CoordinateSystemType = (typeof CoordinateSystem)[keyof typeof CoordinateSystem];
@@ -26,36 +26,36 @@ export type ViewerAppearance = {
   fileId?: number; // R-CDEのデータベースに登録されているファイルID
 };
 
-const CHANNEL = 'RCDE_VIEWER_CMD';
+const CHANNEL = "RCDE_VIEWER_CMD";
 
 type Command =
-  | { type: 'SET_TRANSFORM'; payload: ViewerTransform }
-  | { type: 'SET_APPEARANCE'; payload: ViewerAppearance }
-  | { type: 'RESET' };
+  | { type: "SET_TRANSFORM"; payload: ViewerTransform }
+  | { type: "SET_APPEARANCE"; payload: ViewerAppearance }
+  | { type: "RESET" };
 
 function post(cmd: Command) {
-  if (typeof window === 'undefined') return;
-  window.postMessage({ channel: CHANNEL, cmd }, '*');
+  if (typeof window === "undefined") return;
+  window.postMessage({ channel: CHANNEL, cmd }, "*");
 }
 
 export const ViewerBridge = {
   setTransform(tx: ViewerTransform) {
-    post({ type: 'SET_TRANSFORM', payload: tx });
+    post({ type: "SET_TRANSFORM", payload: tx });
   },
   setAppearance(app: ViewerAppearance) {
-    post({ type: 'SET_APPEARANCE', payload: app });
+    post({ type: "SET_APPEARANCE", payload: app });
   },
   reset() {
-    post({ type: 'RESET' });
+    post({ type: "RESET" });
   },
   addListener(handler: (cmd: Command) => void) {
-    if (typeof window === 'undefined') return () => {};
+    if (typeof window === "undefined") return () => {};
     const listener = (e: MessageEvent) => {
       if (!e?.data || e.data.channel !== CHANNEL) return;
       handler(e.data.cmd as Command);
     };
-    window.addEventListener('message', listener);
-    return () => window.removeEventListener('message', listener);
+    window.addEventListener("message", listener);
+    return () => window.removeEventListener("message", listener);
   },
 };
 

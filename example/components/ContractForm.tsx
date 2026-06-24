@@ -1,12 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Box,
-  Button,
-  List,
-  ListItem,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Box, Button, List, ListItem, TextField, Typography } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { FC, useCallback, useMemo, useState } from "react";
 import { Controller, SubmitHandler, useForm } from "react-hook-form";
@@ -71,14 +64,11 @@ const ContractForm: FC<ContractFormProps> = ({ onSubmit }) => {
                     size: "small",
                     fullWidth: true,
                     error: !!errors.contractedAt,
-                    helperText:
-                      errors.contractedAt && errors.contractedAt.message,
+                    helperText: errors.contractedAt && errors.contractedAt.message,
                   },
                 }}
                 onChange={(value: Date | null) =>
-                  value === null
-                    ? field.onChange(undefined)
-                    : field.onChange(value)
+                  value === null ? field.onChange(undefined) : field.onChange(value)
                 }
               />
             )}
@@ -154,12 +144,7 @@ const ContractForm: FC<ContractFormProps> = ({ onSubmit }) => {
           return (
             <ListItem key={item.key}>
               <Box display="flex" width={1}>
-                <Box
-                  display={"flex"}
-                  alignItems={"center"}
-                  marginRight={2}
-                  minWidth={100}
-                >
+                <Box display={"flex"} alignItems={"center"} marginRight={2} minWidth={100}>
                   <Typography variant="caption">{item.label}</Typography>
                 </Box>
                 {item.component}

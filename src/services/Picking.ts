@@ -1,5 +1,5 @@
-import { Box, Circle, Point, QuadTree } from 'js-quadtree';
-import { Camera, Vector3 } from 'three';
+import { Box, Circle, Point, QuadTree } from "js-quadtree";
+import { Camera, Vector3 } from "three";
 
 const buildTree = (props: {
   camera: Camera;

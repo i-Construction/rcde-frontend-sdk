@@ -1,4 +1,4 @@
-declare module 'chroma-js' {
+declare module "chroma-js" {
   interface ChromaScale {
     (value: number): ChromaInstance;
     colors(count?: number): string[];
@@ -26,11 +26,20 @@ declare module 'chroma-js' {
     hsl(h: number, s: number, l: number): ChromaInstance;
     hex(color: string): ChromaInstance;
     valid(color: unknown): boolean;
-    mix(color1: ChromaInstance | string, color2: ChromaInstance | string, ratio?: number, mode?: string): ChromaInstance;
-    interpolate(color1: ChromaInstance | string, color2: ChromaInstance | string, f: number, mode?: string): ChromaInstance;
+    mix(
+      color1: ChromaInstance | string,
+      color2: ChromaInstance | string,
+      ratio?: number,
+      mode?: string
+    ): ChromaInstance;
+    interpolate(
+      color1: ChromaInstance | string,
+      color2: ChromaInstance | string,
+      f: number,
+      mode?: string
+    ): ChromaInstance;
   }
 
   const chroma: Chroma;
   export default chroma;
 }
-
