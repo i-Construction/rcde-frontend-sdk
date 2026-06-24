@@ -1,0 +1,43 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  review:
+    name: Review pull request
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.rcde_frontend_sdk }}
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Please review this pull request as a senior frontend SDK reviewer.
+            Focus on issues that can affect correctness, security, public API compatibility,
+            React behavior, TypeScript types, build output, and maintainability.
+
+            Review only the pull request changes. Do not modify files or push commits.
+            Post concise, actionable feedback directly to GitHub.
+            Use inline comments for specific code issues when possible.
+            Use a top-level PR comment only for the overall summary or non-line-specific feedback.
+            If there are no meaningful issues, leave a short approval-style summary comment.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
