@@ -32,6 +32,5 @@ export default defineConfig(() => ({
       },
     },
   },
-  publicDir: false, // library build: do not copy any public assets into dist
-}));
+  publicDir: false,
 }));
