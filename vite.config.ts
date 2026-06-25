@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import dts from "vite-plugin-dts";
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => ({
+export default defineConfig(() => ({
   plugins: [
     react({}),
     dts({
@@ -32,5 +32,4 @@ export default defineConfig(({ command }) => ({
       },
     },
   },
-  publicDir: command === "build" ? false : "example/public", // for the example
 }));
