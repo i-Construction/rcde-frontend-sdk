@@ -7,10 +7,21 @@ export type RCDEClientOptions = {
   fetchImpl?: typeof fetch;
 };
 
+export type BatchProcessingResult = {
+  id: number;
+  status: 1 | 2 | 3;
+};
+
 export type ContractFile = {
   id: number;
   name: string;
   status?: string;
+  uploadedAt?: string;
+  batchProcessingResult?: BatchProcessingResult;
+};
+
+export type ContractFileProcessingStatus = {
+  status: "pending" | "completed";
 };
 
 type Json = Record<string, unknown>;
@@ -54,7 +65,26 @@ export class RCDEClient {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as { contractFiles: ContractFile[]; total?: number };
-    return { contractFiles: data.contractFiles ?? [] };
+    const contractFiles = (data.contractFiles ?? []).map(parseContractFile);
+    return { contractFiles };
+  }
+
+  async getContractFileProcessingStatus(params: {
+    contractId: number;
+    contractFileId: number;
+  }): Promise<ContractFileProcessingStatus> {
+    const { contractId, contractFileId } = params;
+    const url = this.getApiPath(`/contractFile/processingStatus/${contractFileId}`);
+    let fullUrl = url;
+    if (this.authType === "2legged") {
+      const queryParams = new URLSearchParams({ contractId: String(contractId) });
+      fullUrl = `${url}?${queryParams}`;
+    }
+    const res = await this.fetchImpl(fullUrl, {
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as ContractFileProcessingStatus;
   }
 
   async getContractFileMetadata(params: {
@@ -150,6 +180,7 @@ export class RCDEClient {
     name: string;
     buffer: ArrayBuffer;
     pointCloudAttribute?: Record<string, unknown>;
+    onContractFileCreated?: (contractFileId: number) => void;
   }): Promise<Json> {
     const { contractId, name, buffer, pointCloudAttribute } = params;
     // まずアップロード開始APIを呼び出してpresignedURLを取得
@@ -167,6 +198,9 @@ export class RCDEClient {
     });
     if (!uploadRes.ok) throw new Error(`HTTP ${uploadRes.status}`);
     const uploadData = (await uploadRes.json()) as { presignedURL: string; contractFileId: number };
+    if (params.onContractFileCreated !== undefined) {
+      params.onContractFileCreated(uploadData.contractFileId);
+    }
 
     // presignedURLにファイルをアップロード
     const uploadFileRes = await this.fetchImpl(uploadData.presignedURL, {
@@ -276,6 +310,28 @@ export type Contract = {
   contractedAt?: string;
   status?: string;
 };
+
+function parseContractFile(raw: ContractFile): ContractFile {
+  const batchProcessingResult = raw.batchProcessingResult;
+  const hasBatchResult =
+    batchProcessingResult !== undefined &&
+    typeof batchProcessingResult.id === "number" &&
+    typeof batchProcessingResult.status === "number";
+  const normalizedBatchResult = hasBatchResult
+    ? {
+        id: batchProcessingResult.id,
+        status: batchProcessingResult.status as BatchProcessingResult["status"],
+      }
+    : undefined;
+
+  return {
+    id: raw.id,
+    name: raw.name,
+    status: raw.status,
+    uploadedAt: raw.uploadedAt,
+    batchProcessingResult: normalizedBatchResult,
+  };
+}
 
 export type CreateConstructionParams = {
   name: string;
