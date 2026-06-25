@@ -9,12 +9,14 @@ import { RCDEClient } from "../lib/rcde-client";
 export type FileUploadModalProps = {
   contractId: number;
   onUploaded?: (res: Awaited<ReturnType<RCDEClient["uploadContractFile"]>>) => void;
+  onUploadStarted?: (params: { contractFileId: number; name: string }) => void;
+  onUploadFinished?: (contractFileId: number) => void;
 } & Omit<ModalBoxProps, "children">;
 
 const FileUploadModal: FC<FileUploadModalProps> = (props) => {
   const { client } = useClient();
 
-  const { contractId, onUploaded, ...rest } = props;
+  const { contractId, onUploaded, onUploadStarted, onUploadFinished, ...rest } = props;
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -41,6 +43,7 @@ const FileUploadModal: FC<FileUploadModalProps> = (props) => {
   const handleUpload = useCallback(() => {
     if (file !== null) {
       setIsUploading(true);
+      let createdContractFileId: number | undefined;
       file
         .arrayBuffer()
         .then((buffer) => {
@@ -49,21 +52,31 @@ const FileUploadModal: FC<FileUploadModalProps> = (props) => {
             name: file.name,
             buffer,
             pointCloudAttribute,
+            onContractFileCreated: (contractFileId) => {
+              createdContractFileId = contractFileId;
+              onUploadStarted?.({ contractFileId, name: file.name });
+            },
           });
         })
         .then((res) => {
+          if (createdContractFileId !== undefined) {
+            onUploadFinished?.(createdContractFileId);
+          }
           if (res !== undefined) {
             onUploaded?.(res);
           }
         })
         .catch((e) => {
+          if (createdContractFileId !== undefined) {
+            onUploadFinished?.(createdContractFileId);
+          }
           console.error(e);
         })
         .finally(() => {
           setIsUploading(false);
         });
     }
-  }, [contractId, client, file, pointCloudAttribute, onUploaded]);
+  }, [contractId, client, file, pointCloudAttribute, onUploaded, onUploadStarted, onUploadFinished]);
 
   return (
     <ModalBox {...rest}>
