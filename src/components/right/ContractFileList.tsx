@@ -23,10 +23,7 @@ type ContractFileListProps = {
   onFileDelete: (file: ContractFile) => void;
 };
 
-const ContractFileList: FC<ContractFileListProps> = ({
-  onFileFocus,
-  onFileDelete,
-}) => {
+const ContractFileList: FC<ContractFileListProps> = ({ onFileFocus, onFileDelete }) => {
   const { client, project } = useClient();
   const { toggleVisibility, containers } = useContractFiles();
 
@@ -36,12 +33,9 @@ const ContractFileList: FC<ContractFileListProps> = ({
   } | null>(null);
   const open = focused !== null;
 
-  const handleDetailClick = useCallback(
-    (el: HTMLElement, container: ContractFileContainer) => {
-      setFocused({ el, container });
-    },
-    []
-  );
+  const handleDetailClick = useCallback((el: HTMLElement, container: ContractFileContainer) => {
+    setFocused({ el, container });
+  }, []);
 
   const handleMenuClose = useCallback(() => {
     setFocused(null);

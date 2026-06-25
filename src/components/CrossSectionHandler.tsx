@@ -1,26 +1,11 @@
-import { Line, PivotControls } from '@react-three/drei';
-import {
-  FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import {
-  ColorRepresentation,
-  Matrix4,
-  Plane,
-  Quaternion,
-  Vector3,
-} from 'three';
-import { useClippingPlanes } from '../contexts/clippingPlanes';
+import { Line, PivotControls } from "@react-three/drei";
+import { FC, useCallback, useEffect, useMemo, useState } from "react";
+import { ColorRepresentation, Matrix4, Plane, Quaternion, Vector3 } from "three";
+import { useClippingPlanes } from "../contexts/clippingPlanes";
 
 export const CrossSectionHandler: FC = () => {
   const [plane, setPlane] = useState<Plane>(
-    new Plane().setFromNormalAndCoplanarPoint(
-      new Vector3(0, 0, -1),
-      new Vector3()
-    )
+    new Plane().setFromNormalAndCoplanarPoint(new Vector3(0, 0, -1), new Vector3())
   );
   const { setClippingPlanes } = useClippingPlanes();
 
@@ -52,7 +37,7 @@ export const CrossSectionPlane: FC<{
   size: number;
   color?: ColorRepresentation;
   opacity?: number;
-}> = ({ size, color = 'yellow', opacity = 0.85 }) => {
+}> = ({ size, color = "yellow", opacity = 0.85 }) => {
   const rectangle = useMemo(() => {
     const pts = [
       new Vector3(-size / 2, -size / 2, 0),
@@ -64,17 +49,11 @@ export const CrossSectionPlane: FC<{
   }, [size]);
 
   const lt2rb = useMemo(() => {
-    return [
-      new Vector3(-size / 2, -size / 2, 0),
-      new Vector3(size / 2, size / 2, 0),
-    ];
+    return [new Vector3(-size / 2, -size / 2, 0), new Vector3(size / 2, size / 2, 0)];
   }, [size]);
 
   const rt2lb = useMemo(() => {
-    return [
-      new Vector3(size / 2, -size / 2, 0),
-      new Vector3(-size / 2, size / 2, 0),
-    ];
+    return [new Vector3(size / 2, -size / 2, 0), new Vector3(-size / 2, size / 2, 0)];
   }, [size]);
 
   return (
@@ -85,4 +64,3 @@ export const CrossSectionPlane: FC<{
     </group>
   );
 };
-

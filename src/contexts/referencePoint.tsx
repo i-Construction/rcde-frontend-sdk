@@ -22,39 +22,45 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
   const { client, project } = useClient();
   const { containers } = useContractFiles();
 
-  const change = useCallback((point: Vector3) => {
-    setPoint(point);
-  }, [setPoint]);
+  const change = useCallback(
+    (point: Vector3) => {
+      setPoint(point);
+    },
+    [setPoint]
+  );
 
-  const save = useCallback((point: Vector3) => {
-    setPoint(point);
-  }, [setPoint]);
+  const save = useCallback(
+    (point: Vector3) => {
+      setPoint(point);
+    },
+    [setPoint]
+  );
 
-  const focusFileById = useCallback(async (fileId: number) => {
-    if (!client || !project) return;
+  const focusFileById = useCallback(
+    async (fileId: number) => {
+      if (!client || !project) return;
 
-    // Find the container with the matching file ID
-    const container = containers.find((c) => c.file.id === fileId);
-    if (!container) return;
+      // Find the container with the matching file ID
+      const container = containers.find((c) => c.file.id === fileId);
+      if (!container) return;
 
-    try {
-      // Get file metadata to calculate bounding box
-      const metaData = await client.getContractFileMetadata({
-        ...project,
-        contractFileId: fileId,
-      });
-      const meta = metaData as unknown as PointCloudMeta;
-      const { min, max } = meta.bounds;
-      const boundingBox = new Box3(
-        new Vector3().fromArray(min),
-        new Vector3().fromArray(max)
-      );
-      const center = boundingBox.getCenter(new Vector3());
-      change(center.negate());
-    } catch (err) {
-      console.error("[useReferencePoint] Failed to focus file:", err);
-    }
-  }, [client, project, containers, change]);
+      try {
+        // Get file metadata to calculate bounding box
+        const metaData = await client.getContractFileMetadata({
+          ...project,
+          contractFileId: fileId,
+        });
+        const meta = metaData as unknown as PointCloudMeta;
+        const { min, max } = meta.bounds;
+        const boundingBox = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
+        const center = boundingBox.getCenter(new Vector3());
+        change(center.negate());
+      } catch (err) {
+        console.error("[useReferencePoint] Failed to focus file:", err);
+      }
+    },
+    [client, project, containers, change]
+  );
 
   return (
     <ReferencePointContext.Provider value={{ point, change, save, focusFileById }}>

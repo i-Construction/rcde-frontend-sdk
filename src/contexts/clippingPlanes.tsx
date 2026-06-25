@@ -1,5 +1,13 @@
-import { Dispatch, FC, ReactNode, SetStateAction, createContext, useContext, useState } from 'react';
-import { Plane } from 'three';
+import {
+  Dispatch,
+  FC,
+  ReactNode,
+  SetStateAction,
+  createContext,
+  useContext,
+  useState,
+} from "react";
+import { Plane } from "three";
 
 export type ClippingPlanesContextProps = {
   clippingPlanes: Plane[];
@@ -31,8 +39,7 @@ export const ClippingPlanesProvider: FC<{
 export const useClippingPlanes = (): ClippingPlanesContextProps => {
   const context = useContext(ClippingPlanesContext);
   if (!context) {
-    throw new Error('useClippingPlanes must be used within a ClippingPlanesProvider');
+    throw new Error("useClippingPlanes must be used within a ClippingPlanesProvider");
   }
   return context;
 };
-

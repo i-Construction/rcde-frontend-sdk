@@ -7,7 +7,7 @@ import { Viewer, ViewerProps } from "./Viewer";
 
 /**
  * Root component for RCDE
- * 
+ *
  * @example
  * ```tsx
  * <RCDE constructionId={1} contractId={1} app={app}>

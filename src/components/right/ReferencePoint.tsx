@@ -1,15 +1,8 @@
-import { Close, Save } from '@mui/icons-material';
-import {
-  Box,
-  Button,
-  FormControl,
-  List,
-  ListItem,
-  TextField,
-} from '@mui/material';
-import { ChangeEvent, FC, useCallback } from 'react';
-import { useReferencePoint } from '../../contexts/referencePoint';
-import { GlobalStateContext } from '../../contexts/state';
+import { Close, Save } from "@mui/icons-material";
+import { Box, Button, FormControl, List, ListItem, TextField } from "@mui/material";
+import { ChangeEvent, FC, useCallback } from "react";
+import { useReferencePoint } from "../../contexts/referencePoint";
+import { GlobalStateContext } from "../../contexts/state";
 
 const ReferencePoint: FC = () => {
   const actor = GlobalStateContext.useActorRef();
@@ -100,12 +93,7 @@ const ReferencePoint: FC = () => {
           >
             保存
           </Button>
-          <Button
-            variant="outlined"
-            fullWidth
-            startIcon={<Close />}
-            onClick={handleCloseClick}
-          >
+          <Button variant="outlined" fullWidth startIcon={<Close />} onClick={handleCloseClick}>
             閉じる
           </Button>
         </ListItem>
