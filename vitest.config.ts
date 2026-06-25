@@ -4,8 +4,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globals: true,
-    // Blob / ReadableStream / FormData / fetch は Node 22 でグローバル提供されるため node 環境で十分
-    // Blob / ReadableStream / FormData / fetch は Node 22 でグローバル提供される。
+    // Blob / ReadableStream / FormData / fetch は Node 24 でグローバル提供されるため node 環境で十分
     // コンポーネントテストを書く場合は jsdom / happy-dom への切り替えを検討。
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],

@@ -23,7 +23,6 @@
     "types"
   ],
   "scripts": {
-    "dev": "vite example",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -62,7 +61,7 @@
     "@react-three/drei": "^9.120.4",
     "@react-three/fiber": "^8.17.10",
     "@types/chroma-js": "^3.1.0",
-    "@types/node": "^22.10.1",
+    "@types/node": "^24.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.182.0",
@@ -82,6 +81,6 @@
     "vitest": "^2.1"
   },
   "volta": {
-    "node": "22.21.1"
+    "node": "24.18.0"
   }
 }

@@ -15,16 +15,16 @@ Next.js（App Router構成）および React Three Fiber をベースとし、�
 
 | 項目       | バージョン      | 備考                                        |
 | ---------- | --------------- | ------------------------------------------- |
-| Node.js    | 20.x 以上       | LTS推奨                                     |
+| Node.js    | **24.x**        | LTS推奨（24.18.0）                          |
 | React      | **18.3.1 固定** | Three.js互換のため他バージョン不可          |
-| Next.js    | **14.2.5 固定** | Three.js／React Three Fiber間の依存制約あり |
-| Vite       | ^5.x            | ライブラリビルド用                          |
+| Next.js    | **16.2.9 固定** | Three.js／React Three Fiber間の依存制約あり |
+| Vite       | ^6.x            | ライブラリビルド用                          |
 | TypeScript | ^5.x            | 型定義完全対応                              |
-| Three.js   | ^0.164.x        | `@react-three/fiber` 依存                   |
+| Three.js   | ^0.171.0        | `@react-three/fiber` 依存                   |
 
 > ⚠️ **React/Nextバージョンは厳密固定です。**
 >
-> Three.js と React 18.3.1 / Next.js 14.2.5 の組み合わせでのみビルドが安定します。  
+> Three.js と React 18.3.1 / Next.js 16.2.9 の組み合わせでのみビルドが安定します。  
 > これ以外のバージョンでは、`react-reconciler` や `r3f` 関連でコンパイルエラーが発生します。
 
 ---
@@ -43,13 +43,10 @@ yarn add @i-con/frontend-sdk
 
 ```bash
 # 依存関係インストール
-npm install
-
-# 開発ビルド
-npm run dev
+yarn install
 
 # ライブラリビルド
-npm run build
+yarn build
 ```
 
 ---
@@ -310,3 +307,4 @@ const App = () => {
 | ---------- | ---------- | ------------------------------------------------------------------------------------------------- |
 | 1.0.0      | 2025-07-30 | 初版作成                                                                                          |
 | 1.1.0      | 2025-10-21 | React 18.3.1 / Next 14.2.5 固定明記、Three.js依存性追記、ViewerBridge使用例追加、RCDE認証要約追加 |
+| 1.2.0      | 2026-06-25 | Node.js 24 / Next.js 16.2.9 対応、同梱 example 削除                                               |
