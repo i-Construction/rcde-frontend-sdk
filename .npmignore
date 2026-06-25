@@ -1,1 +1,11 @@
+example/
+example/**
+.cursor/
+node_modules/
+.git/
+dist-ssr/
+*.local
+yarn.lock
+package-lock.json
+
 tsconfig.json
