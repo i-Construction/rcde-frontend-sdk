@@ -68,3 +68,16 @@ src/
     ├── api-error.ts          # HTTP / RCDE API エラー
     └── contract-file-error.ts  # ContractFilePollingTimeoutError 等
 ```
+
+### ファイル命名規則
+
+- React コンポーネント: PascalCase（`ContractFileView.tsx`）
+- フック: camelCase、`use` プレフィックス（`useMouseUVPosition.ts`）
+- それ以外（core / infrastructure / types / errors）: kebab-case（`viewer-bridge.ts`）
+
+### 型・モデルの置き場所
+
+- `features/*/types/` … その機能の UI/状態専用型（外部公開しない）
+- `types/` … SDK 利用者に公開する純粋な構造体型（リクエスト/レスポンス、表示用 enum 等）
+- `core/models/` … 振る舞いを持つドメインモデル（導出ロジックとセットで扱うデータ）
+- `interfaces/` … DI・モック差し替え用の境界インターフェース（`*.interface.ts`）のみ
