@@ -6,11 +6,7 @@ export const metadata: Metadata = {
   description: "RCDE Frontend SDK example application",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
       <body style={{ margin: 0, fontFamily: "sans-serif" }}>

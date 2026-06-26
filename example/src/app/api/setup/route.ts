@@ -19,11 +19,7 @@ export async function POST() {
     await client.authenticate();
 
     const now = new Date();
-    const oneYearLater = new Date(
-      now.getFullYear() + 1,
-      now.getMonth(),
-      now.getDate()
-    );
+    const oneYearLater = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
 
     const construction = await client.createConstruction({
       name: `PoC テスト現場 (${now.toLocaleDateString("ja-JP")})`,
@@ -68,15 +64,9 @@ export async function POST() {
       typeof (error as Record<string, unknown>).error === "object"
     ) {
       const detail = JSON.stringify((error as Record<string, unknown>).error);
-      return NextResponse.json(
-        { error: `RCDE API エラー: ${detail}` },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: `RCDE API エラー: ${detail}` }, { status: 500 });
     }
     const detail = JSON.stringify(error);
-    return NextResponse.json(
-      { error: `セットアップに失敗しました: ${detail}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: `セットアップに失敗しました: ${detail}` }, { status: 500 });
   }
 }

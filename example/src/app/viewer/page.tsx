@@ -65,9 +65,7 @@ export default async function ViewerPage({
   }
 
   const params = await searchParams;
-  const constructionId = params.constructionId
-    ? Number(params.constructionId)
-    : 0;
+  const constructionId = params.constructionId ? Number(params.constructionId) : 0;
   const contractId = params.contractId ? Number(params.contractId) : 0;
 
   const hasIds = constructionId > 0 && contractId > 0;

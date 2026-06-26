@@ -11,10 +11,7 @@ export async function POST() {
     await authenticate2Legged();
     const tokenData = await getStoredToken();
     if (tokenData === undefined) {
-      return NextResponse.json(
-        { error: "Authentication failed" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Authentication failed" }, { status: 401 });
     }
 
     return NextResponse.json({
@@ -22,8 +19,7 @@ export async function POST() {
       authType: "2legged" as const,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Authentication failed";
+    const message = error instanceof Error ? error.message : "Authentication failed";
     return NextResponse.json({ error: message }, { status: 401 });
   }
 }

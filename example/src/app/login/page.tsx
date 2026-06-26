@@ -6,11 +6,7 @@ type SearchParams = {
   error?: string;
 };
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
 
   if (params.error) {

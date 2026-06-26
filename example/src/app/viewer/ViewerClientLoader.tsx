@@ -2,10 +2,9 @@
 
 import dynamic from "next/dynamic";
 
-const ViewerClient = dynamic(
-  () => import("./ViewerClient").then((mod) => mod.ViewerClient),
-  { ssr: false }
-);
+const ViewerClient = dynamic(() => import("./ViewerClient").then((mod) => mod.ViewerClient), {
+  ssr: false,
+});
 
 type ViewerClientLoaderProps = {
   token: string;

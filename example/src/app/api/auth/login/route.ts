@@ -16,8 +16,7 @@ export async function GET(request: Request) {
     await authenticate2Legged();
     return NextResponse.redirect(new URL("/viewer", request.url));
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Authentication failed";
+    const message = error instanceof Error ? error.message : "Authentication failed";
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("error", message);
     return NextResponse.redirect(loginUrl);

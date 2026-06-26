@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  deriveFileStatusLabels,
-  isFileStatusActive,
-  needsPolling,
-} from "./contractFileStatus";
+import { deriveFileStatusLabels, isFileStatusActive, needsPolling } from "./contractFileStatus";
 import type { ContractFile } from "./rcde-client";
 
 const uploadedAt = "2024-11-19T06:56:31Z";
@@ -29,20 +25,14 @@ const pclodCompletedFile: ContractFile = {
 
 describe("契約ファイル一覧に表示する状態ラベル", () => {
   it("クライアント側でアップロード追跡中は、アップロード：アップロード中、PCLOD：-として表示する", () => {
-    const labels = deriveFileStatusLabels(
-      { id: 10, name: "uploading.las" },
-      true
-    );
+    const labels = deriveFileStatusLabels({ id: 10, name: "uploading.las" }, true);
 
     expect(labels).toEqual({ upload: "アップロード中", pclod: "-" });
     expect(isFileStatusActive(labels)).toBe(true);
   });
 
   it("サーバー側アップロード未完了（uploadedAt なし）は、アップロード：アップロード中、PCLOD：待機中として表示する", () => {
-    const labels = deriveFileStatusLabels(
-      { id: 10, name: "registering.las" },
-      false
-    );
+    const labels = deriveFileStatusLabels({ id: 10, name: "registering.las" }, false);
 
     expect(labels).toEqual({ upload: "アップロード中", pclod: "待機中" });
     expect(isFileStatusActive(labels)).toBe(true);

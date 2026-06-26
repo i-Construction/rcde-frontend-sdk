@@ -66,32 +66,32 @@ yarn dev
 
 右サイドバーのファイル名にマウスホバーすると、以下が表示されます。
 
-| 行 | 内容 |
-|---|---|
-| PCLOD処理 | 待機中 / 処理中 / 完了 |
-| アップロード | アップロード中 / 完了 |
+| 行           | 内容                   |
+| ------------ | ---------------------- |
+| PCLOD処理    | 待機中 / 処理中 / 完了 |
+| アップロード | アップロード中 / 完了  |
 
 点群をアップロードしたあと、DevTools の Network タブで `contractFile` が約 3 秒間隔でポーリングされ、PCLOD 完了後に停止することを確認できます。
 
 ## 環境変数
 
-| 変数名 | 説明 |
-|---|---|
-| `RCDE_CLIENT_ID` | OAuth Client ID（サーバー側） |
-| `RCDE_CLIENT_SECRET` | OAuth Client Secret（サーバー側） |
-| `RCDE_API_BASE_URL` | RCDE API ベース URL（サーバー側） |
-| `NEXT_PUBLIC_RCDE_API_BASE_URL` | ブラウザ向け API URL |
+| 変数名                          | 説明                              |
+| ------------------------------- | --------------------------------- |
+| `RCDE_CLIENT_ID`                | OAuth Client ID（サーバー側）     |
+| `RCDE_CLIENT_SECRET`            | OAuth Client Secret（サーバー側） |
+| `RCDE_API_BASE_URL`             | RCDE API ベース URL（サーバー側） |
+| `NEXT_PUBLIC_RCDE_API_BASE_URL` | ブラウザ向け API URL              |
 
 ## トラブルシューティング
 
-| 症状 | 対処 |
-|---|---|
-| `Module not found: @i-con/frontend-sdk` | ルートで `yarn build` を実行する |
-| 認証エラー | `.env` の Client ID / Secret を確認する |
-| ビューアが真っ白 | 現場・契約 ID が存在するか確認する |
-| peer dependency エラー | Node 24.x であることを確認し、`yarn install` を再実行する |
-| `ENOSPC` / `yarn install` が異常に長い | 下記「ディスク不足・再帰インストール」を参照 |
-| `camera-controls` の engine エラー | Node 24.x を使用する（Volta 推奨）。一時的には `yarn install --ignore-engines` |
+| 症状                                    | 対処                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------ |
+| `Module not found: @i-con/frontend-sdk` | ルートで `yarn build` を実行する                                               |
+| 認証エラー                              | `.env` の Client ID / Secret を確認する                                        |
+| ビューアが真っ白                        | 現場・契約 ID が存在するか確認する                                             |
+| peer dependency エラー                  | Node 24.x であることを確認し、`yarn install` を再実行する                      |
+| `ENOSPC` / `yarn install` が異常に長い  | 下記「ディスク不足・再帰インストール」を参照                                   |
+| `camera-controls` の engine エラー      | Node 24.x を使用する（Volta 推奨）。一時的には `yarn install --ignore-engines` |
 
 ### ディスク不足・再帰インストール
 

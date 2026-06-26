@@ -32,9 +32,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     const detail = JSON.stringify(error);
-    return NextResponse.json(
-      { error: `データ取得に失敗しました: ${detail}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: `データ取得に失敗しました: ${detail}` }, { status: 500 });
   }
 }

@@ -76,7 +76,15 @@ const FileUploadModal: FC<FileUploadModalProps> = (props) => {
           setIsUploading(false);
         });
     }
-  }, [contractId, client, file, pointCloudAttribute, onUploaded, onUploadStarted, onUploadFinished]);
+  }, [
+    contractId,
+    client,
+    file,
+    pointCloudAttribute,
+    onUploaded,
+    onUploadStarted,
+    onUploadFinished,
+  ]);
 
   return (
     <ModalBox {...rest}>

@@ -44,9 +44,7 @@ export function ViewerHeader({
     fontSize: 14,
   };
 
-  const separator = (
-    <NavigateNextIcon fontSize="small" sx={{ color: "rgba(255,255,255,0.7)" }} />
-  );
+  const separator = <NavigateNextIcon fontSize="small" sx={{ color: "rgba(255,255,255,0.7)" }} />;
 
   return (
     <Box
@@ -75,9 +73,7 @@ export function ViewerHeader({
         >
           <Typography sx={breadcrumbTextSx}>frontend-sdk example</Typography>
           <Typography sx={breadcrumbTextSx}>{constructionLabel}</Typography>
-          <Typography sx={{ ...breadcrumbTextSx, fontWeight: 600 }}>
-            {contractLabel}
-          </Typography>
+          <Typography sx={{ ...breadcrumbTextSx, fontWeight: 600 }}>{contractLabel}</Typography>
         </Breadcrumbs>
       </Box>
     </Box>

@@ -32,8 +32,9 @@ export function ConstructionSelector({ accessToken }: Props) {
   const router = useRouter();
   const [constructions, setConstructions] = useState<Construction[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
-  const [selectedConstruction, setSelectedConstruction] =
-    useState<Construction | undefined>(undefined);
+  const [selectedConstruction, setSelectedConstruction] = useState<Construction | undefined>(
+    undefined
+  );
   const [loading, setLoading] = useState(true);
   const [contractsLoading, setContractsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -68,12 +69,9 @@ export function ConstructionSelector({ accessToken }: Props) {
     setContractsLoading(true);
     setError("");
     try {
-      const res = await fetch(
-        `/api/constructions?constructionId=${construction.id}`,
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
+      const res = await fetch(`/api/constructions?constructionId=${construction.id}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setContracts(data.contracts ?? []);
@@ -194,10 +192,7 @@ export function ConstructionSelector({ accessToken }: Props) {
               {!loading && constructions.length > 0 && (
                 <List dense>
                   {constructions.map((c) => (
-                    <ListItemButton
-                      key={c.id}
-                      onClick={() => handleSelectConstruction(c)}
-                    >
+                    <ListItemButton key={c.id} onClick={() => handleSelectConstruction(c)}>
                       <ListItemText primary={c.name} secondary={`ID: ${c.id}`} />
                     </ListItemButton>
                   ))}
@@ -236,14 +231,8 @@ export function ConstructionSelector({ accessToken }: Props) {
               {!contractsLoading && contracts.length > 0 && (
                 <List dense>
                   {contracts.map((c) => (
-                    <ListItemButton
-                      key={c.id}
-                      onClick={() => handleSelectContract(c)}
-                    >
-                      <ListItemText
-                        primary={c.name}
-                        secondary={`ID: ${c.id}`}
-                      />
+                    <ListItemButton key={c.id} onClick={() => handleSelectContract(c)}>
+                      <ListItemText primary={c.name} secondary={`ID: ${c.id}`} />
                     </ListItemButton>
                   ))}
                 </List>

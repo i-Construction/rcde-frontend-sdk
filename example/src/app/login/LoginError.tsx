@@ -26,12 +26,7 @@ export function LoginError({ message }: LoginErrorProps) {
           <Typography variant="h5" align="center" gutterBottom>
             frontend-sdk example
           </Typography>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            align="center"
-            sx={{ mb: 3 }}
-          >
+          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
             RCDE Frontend SDK サンプルアプリケーション
           </Typography>
 

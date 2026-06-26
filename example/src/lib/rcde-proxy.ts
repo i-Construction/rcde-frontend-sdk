@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAccessToken } from "@/lib/rcde-server";
 
-const RCDE_API_BASE_URL =
-  process.env.RCDE_API_BASE_URL ?? "https://api.rcde.jp";
+const RCDE_API_BASE_URL = process.env.RCDE_API_BASE_URL ?? "https://api.rcde.jp";
 
 /**
  * ブラウザ → RCDE API の CORS 回避用プロキシ。
@@ -16,8 +15,7 @@ export async function proxyToRcdeApi(
   try {
     accessToken = await resolveAccessToken();
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Authentication failed";
+    const message = error instanceof Error ? error.message : "Authentication failed";
     return NextResponse.json({ error: message }, { status: 401 });
   }
 

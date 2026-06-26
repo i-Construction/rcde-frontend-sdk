@@ -103,10 +103,9 @@ export class RcdeClient2Legged {
   }
 
   public async getConstruction(constructionId: number): Promise<ConstructionResponse> {
-    const res = await fetch(
-      `${this.baseUrl}/ext/v2/authenticated/construction/${constructionId}`,
-      { headers: this.authHeaders }
-    );
+    const res = await fetch(`${this.baseUrl}/ext/v2/authenticated/construction/${constructionId}`, {
+      headers: this.authHeaders,
+    });
     return readJsonResponse<ConstructionResponse>(res);
   }
 
@@ -116,10 +115,9 @@ export class RcdeClient2Legged {
     const params = new URLSearchParams({
       constructionId: String(query.constructionId),
     });
-    const res = await fetch(
-      `${this.baseUrl}/ext/v2/authenticated/contract?${params.toString()}`,
-      { headers: this.authHeaders }
-    );
+    const res = await fetch(`${this.baseUrl}/ext/v2/authenticated/contract?${params.toString()}`, {
+      headers: this.authHeaders,
+    });
     return readJsonResponse<{ contracts: ContractResponse[] }>(res);
   }
 

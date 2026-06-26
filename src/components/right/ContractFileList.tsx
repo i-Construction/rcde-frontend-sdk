@@ -1,18 +1,5 @@
-import {
-  CenterFocusStrong,
-  MoreVert,
-  Visibility,
-  VisibilityOff,
-} from "@mui/icons-material";
-import {
-  Box,
-  IconButton,
-  Menu,
-  MenuItem,
-  MenuList,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { CenterFocusStrong, MoreVert, Visibility, VisibilityOff } from "@mui/icons-material";
+import { Box, IconButton, Menu, MenuItem, MenuList, Tooltip, Typography } from "@mui/material";
 import { FC, useCallback, useMemo, useRef, useState } from "react";
 import {
   ContractFile,
@@ -194,9 +181,7 @@ const ContractFileList: FC<ContractFileListProps> = ({
   const { toggleVisibility, containers } = useContractFiles();
 
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const [menuContainer, setMenuContainer] = useState<ContractFileContainer | undefined>(
-    undefined
-  );
+  const [menuContainer, setMenuContainer] = useState<ContractFileContainer | undefined>(undefined);
   const isMenuOpen = menuAnchor !== null;
 
   const rows = useMemo((): FileListRow[] => {

@@ -1,9 +1,4 @@
-import {
-  AccessTime,
-  CheckCircle,
-  CloudUpload,
-  Sync,
-} from "@mui/icons-material";
+import { AccessTime, CheckCircle, CloudUpload, Sync } from "@mui/icons-material";
 import { Box, Popover, Typography } from "@mui/material";
 import { FC } from "react";
 import type { PclodStatusLabel, UploadStatusLabel } from "../../lib/contractFileStatus";
@@ -66,7 +61,10 @@ function PclodStatusDisplay({ status }: { status: PclodStatusLabel }) {
   const iconSx = { fontSize: 16 };
   if (status === "完了") {
     return (
-      <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: 12 }}>
+      <Box
+        component="span"
+        sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: 12 }}
+      >
         <CheckCircle sx={{ ...iconSx, color: "success.main" }} />
         <Typography component="span" variant="caption" color="common.white">
           {status}
@@ -76,7 +74,10 @@ function PclodStatusDisplay({ status }: { status: PclodStatusLabel }) {
   }
   if (status === "処理中") {
     return (
-      <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: 12 }}>
+      <Box
+        component="span"
+        sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: 12 }}
+      >
         <CloudUpload sx={{ ...iconSx, color: "info.main" }} />
         <Typography component="span" variant="caption" color="common.white">
           {status}
@@ -86,7 +87,10 @@ function PclodStatusDisplay({ status }: { status: PclodStatusLabel }) {
   }
   if (status === "待機中") {
     return (
-      <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: 12 }}>
+      <Box
+        component="span"
+        sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: 12 }}
+      >
         <AccessTime sx={{ ...iconSx, color: "warning.main" }} />
         <Typography component="span" variant="caption" color="common.white">
           {status}
@@ -105,7 +109,10 @@ function UploadStatusDisplay({ status }: { status: UploadStatusLabel }) {
   const iconSx = { fontSize: 16 };
   if (status === "完了") {
     return (
-      <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: 12 }}>
+      <Box
+        component="span"
+        sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: 12 }}
+      >
         <CheckCircle sx={{ ...iconSx, color: "success.main" }} />
         <Typography component="span" variant="caption" color="common.white">
           {status}
@@ -114,7 +121,10 @@ function UploadStatusDisplay({ status }: { status: UploadStatusLabel }) {
     );
   }
   return (
-    <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: 12 }}>
+    <Box
+      component="span"
+      sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: 12 }}
+    >
       <CloudUpload sx={{ ...iconSx, color: "info.main" }} />
       <Typography component="span" variant="caption" color="common.white">
         {status}
