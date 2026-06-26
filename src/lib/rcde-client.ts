@@ -22,10 +22,6 @@ export type ContractFile = {
   hasUnknownBatchStatus?: boolean;
 };
 
-export type ContractFileProcessingStatus = {
-  status: "pending" | "completed";
-};
-
 type Json = Record<string, unknown>;
 
 export class RCDEClient {
@@ -69,30 +65,6 @@ export class RCDEClient {
     const data = (await res.json()) as { contractFiles: ContractFile[]; total?: number };
     const contractFiles = (data.contractFiles ?? []).map(parseContractFile);
     return { contractFiles };
-  }
-
-  /**
-   * 単一契約ファイルの処理完了有無を取得する。
-   * 戻り値は RCDE API の pending / completed の 2 値のみ。
-   * 一覧 API の batchProcessingResult.status (1=開始, 2=進行中, 3=完了) による詳細判定は
-   * getContractFileList と contractFileStatus モジュールを使うこと。
-   */
-  async getContractFileProcessingStatus(params: {
-    contractId: number;
-    contractFileId: number;
-  }): Promise<ContractFileProcessingStatus> {
-    const { contractId, contractFileId } = params;
-    const url = this.getApiPath(`/contractFile/processingStatus/${contractFileId}`);
-    let fullUrl = url;
-    if (this.authType === "2legged") {
-      const queryParams = new URLSearchParams({ contractId: String(contractId) });
-      fullUrl = `${url}?${queryParams}`;
-    }
-    const res = await this.fetchImpl(fullUrl, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as ContractFileProcessingStatus;
   }
 
   async getContractFileMetadata(params: {
