@@ -1,8 +1,7 @@
-import { Adjust, InsertDriveFile } from "@mui/icons-material";
+import { Adjust } from "@mui/icons-material";
 import { ListItemIcon, ListItemText, MenuItem, MenuList } from "@mui/material";
-import { FC, useCallback, useMemo, useState } from "react";
+import { FC, useMemo } from "react";
 import { GlobalStateContext } from "../contexts/state";
-import { FileUploadModal } from "./FileUploadModal";
 
 type Menu = {
   icon: JSX.Element;
@@ -11,38 +10,12 @@ type Menu = {
   onClick?: () => void;
 };
 
-export type LeftSiderProps = {
-  contractId: number;
-  onUploaded?: () => void;
-};
-
-const LeftSider: FC<LeftSiderProps> = ({ contractId, onUploaded }) => {
+const LeftSider: FC = () => {
   const state = GlobalStateContext.useSelector((s) => s);
   const actor = GlobalStateContext.useActorRef();
 
-  const [open, setOpen] = useState<{
-    file?: boolean;
-  }>({
-    file: false,
-  });
-
-  const handleOnClose = useCallback(
-    (key: keyof typeof open) => () => {
-      setOpen((prev) => ({ ...prev, [key]: false }));
-    },
-    []
-  );
-
   const menus: Menu[] = useMemo(() => {
     return [
-      {
-        icon: <InsertDriveFile />,
-        text: "ファイル",
-        onClick: () => {
-          setOpen({ file: true });
-          actor.send({ type: "IDLE" });
-        },
-      },
       /*
       {
         icon: <Palette />,
@@ -87,11 +60,6 @@ const LeftSider: FC<LeftSiderProps> = ({ contractId, onUploaded }) => {
     ];
   }, [state, actor]);
 
-  const handleUploaded = useCallback(() => {
-    onUploaded?.();
-    handleOnClose("file")();
-  }, [onUploaded, handleOnClose]);
-
   return (
     <MenuList
       dense
@@ -107,12 +75,6 @@ const LeftSider: FC<LeftSiderProps> = ({ contractId, onUploaded }) => {
           </MenuItem>
         );
       })}
-      <FileUploadModal
-        contractId={contractId}
-        open={open.file ?? false}
-        onUploaded={handleUploaded}
-        onClose={handleOnClose("file")}
-      />
     </MenuList>
   );
 };

@@ -303,9 +303,6 @@ const Viewer: FC<ViewerProps> = (props) => {
   const handleFileDelete = useCallback((file: ContractFile) => {
     console.log(file);
   }, []);
-  const handleUploaded = useCallback(() => {
-    fetchContractFiles();
-  }, [fetchContractFiles]);
 
   const applyAppearanceToScene = useCallback(
     (root: Group | null, ps: number, opPercent: number) => {
@@ -420,7 +417,7 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   return (
     <Box width={1} height={1} display="flex">
-      {showLeftSider && <LeftSider contractId={contractId} onUploaded={handleUploaded} />}
+      {showLeftSider && <LeftSider />}
       <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
         <Canvas camera={camera} {...r3f?.canvas}>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
