@@ -18,6 +18,8 @@ export type ContractFile = {
   status?: string;
   uploadedAt?: string;
   batchProcessingResult?: BatchProcessingResult;
+  /** batchProcessingResult.status が RCDE 既知値 (1|2|3) 以外のとき true */
+  hasUnknownBatchStatus?: boolean;
 };
 
 export type ContractFileProcessingStatus = {
@@ -69,6 +71,12 @@ export class RCDEClient {
     return { contractFiles };
   }
 
+  /**
+   * 単一契約ファイルの処理完了有無を取得する。
+   * 戻り値は RCDE API の pending / completed の 2 値のみ。
+   * 一覧 API の batchProcessingResult.status (1=開始, 2=進行中, 3=完了) による詳細判定は
+   * getContractFileList と contractFileStatus モジュールを使うこと。
+   */
   async getContractFileProcessingStatus(params: {
     contractId: number;
     contractFileId: number;
@@ -311,18 +319,34 @@ export type Contract = {
   status?: string;
 };
 
+function isKnownBatchStatus(status: number): status is BatchProcessingResult["status"] {
+  const isStart = status === 1;
+  const isInProgress = status === 2;
+  const isFinish = status === 3;
+  return isStart || isInProgress || isFinish;
+}
+
 function parseContractFile(raw: ContractFile): ContractFile {
   const batchProcessingResult = raw.batchProcessingResult;
   const hasBatchResult =
     batchProcessingResult !== undefined &&
     typeof batchProcessingResult.id === "number" &&
     typeof batchProcessingResult.status === "number";
-  const normalizedBatchResult = hasBatchResult
-    ? {
+
+  let normalizedBatchResult: BatchProcessingResult | undefined;
+  let hasUnknownBatchStatus = false;
+
+  if (hasBatchResult) {
+    const status = batchProcessingResult.status;
+    if (isKnownBatchStatus(status)) {
+      normalizedBatchResult = {
         id: batchProcessingResult.id,
-        status: batchProcessingResult.status as BatchProcessingResult["status"],
-      }
-    : undefined;
+        status,
+      };
+    } else {
+      hasUnknownBatchStatus = true;
+    }
+  }
 
   return {
     id: raw.id,
@@ -330,6 +354,7 @@ function parseContractFile(raw: ContractFile): ContractFile {
     status: raw.status,
     uploadedAt: raw.uploadedAt,
     batchProcessingResult: normalizedBatchResult,
+    hasUnknownBatchStatus: hasUnknownBatchStatus ? true : undefined,
   };
 }
 

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { ContractFile, RCDEClient } from "../lib/rcde-client";
 import { needsPolling, type PendingUploads } from "../lib/contractFileStatus";
 
@@ -16,6 +16,16 @@ type UseContractFilesPollingParams = {
 export function useContractFilesPolling(params: UseContractFilesPollingParams): void {
   const { client, contractId, contractFiles, pendingUploads, onFilesUpdated, enabled } = params;
 
+  const contractFilesRef = useRef(contractFiles);
+  const pendingUploadsRef = useRef(pendingUploads);
+  const onFilesUpdatedRef = useRef(onFilesUpdated);
+
+  contractFilesRef.current = contractFiles;
+  pendingUploadsRef.current = pendingUploads;
+  onFilesUpdatedRef.current = onFilesUpdated;
+
+  const shouldPoll = needsPolling(contractFiles, pendingUploads);
+
   useEffect(() => {
     if (!enabled) {
       return;
@@ -27,7 +37,9 @@ export function useContractFilesPolling(params: UseContractFilesPollingParams): 
       return;
     }
 
-    const shouldContinuePolling = () => needsPolling(contractFiles, pendingUploads);
+    const shouldContinuePolling = () =>
+      needsPolling(contractFilesRef.current, pendingUploadsRef.current);
+
     if (!shouldContinuePolling()) {
       return;
     }
@@ -35,7 +47,7 @@ export function useContractFilesPolling(params: UseContractFilesPollingParams): 
     const poll = async () => {
       try {
         const res = await client.getContractFileList({ contractId });
-        onFilesUpdated(res.contractFiles);
+        onFilesUpdatedRef.current(res.contractFiles);
       } catch (err) {
         console.warn("[useContractFilesPolling] getContractFileList failed:", err);
       }
@@ -54,5 +66,5 @@ export function useContractFilesPolling(params: UseContractFilesPollingParams): 
     return () => {
       clearInterval(intervalId);
     };
-  }, [client, contractId, contractFiles, pendingUploads, onFilesUpdated, enabled]);
+  }, [client, contractId, enabled, shouldPoll]);
 }

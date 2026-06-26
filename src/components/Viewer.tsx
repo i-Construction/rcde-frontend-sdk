@@ -166,7 +166,7 @@ const ClickHandler: FC<{
 };
 
 const Viewer: FC<ViewerProps> = (props) => {
-  const { load, containers } = useContractFiles();
+  const { load, updateFiles, containers } = useContractFiles();
   const {
     app,
     constructionId,
@@ -248,9 +248,9 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   const handleFilesUpdated = useCallback(
     (files: ContractFile[]) => {
-      load(files, memoizedContractFileIds);
+      updateFiles(files);
     },
-    [load, memoizedContractFileIds]
+    [updateFiles]
   );
 
   useContractFilesPolling({
@@ -279,34 +279,49 @@ const Viewer: FC<ViewerProps> = (props) => {
     []
   );
 
+  const metadataFetchKey = useMemo(() => {
+    return containers
+      .filter((container) => container.visible && isPclodCompleted(container.file))
+      .map((container) => container.file.id)
+      .sort((left, right) => left - right)
+      .join(",");
+  }, [containers]);
+
   useEffect(() => {
     if (project === undefined) return;
-    const promises = containers
-      .filter((c) => c.visible && isPclodCompleted(c.file))
-      .map((c) => {
-        const id = c.file.id;
-        if (id === undefined) return Promise.resolve(undefined);
-        return client
-          ?.getContractFileMetadata({ ...project, contractFileId: id })
-          .then((d) => {
-            const meta = d as unknown as PointCloudMeta;
-            const { min, max } = meta.bounds;
-            const boundingBox = new Box3(
-              new Vector3().fromArray(min),
-              new Vector3().fromArray(max)
-            );
-            return { file: c.file, meta, boundingBox };
-          })
-          .catch((e) => {
-            console.error(e);
-            return undefined;
-          });
-      });
+    if (client === undefined) return;
+
+    const targets = containers.filter(
+      (container) => container.visible && isPclodCompleted(container.file)
+    );
+
+    if (targets.length === 0) {
+      setViews([]);
+      return;
+    }
+
+    const promises = targets.map((container) => {
+      const id = container.file.id;
+      return client
+        .getContractFileMetadata({ ...project, contractFileId: id })
+        .then((d) => {
+          const meta = d as unknown as PointCloudMeta;
+          const { min, max } = meta.bounds;
+          const boundingBox = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
+          return { file: container.file, meta, boundingBox };
+        })
+        .catch((e) => {
+          console.error(e);
+          return undefined;
+        });
+    });
 
     Promise.all(promises).then((vs) => {
       setViews(vs.filter((v): v is ContractFileProps & { boundingBox: Box3 } => v !== undefined));
     });
-  }, [containers, project, client]);
+    // metadataFetchKey が同じなら poll による containers 参照更新では再取得しない
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metadataFetchKey, project, client]);
 
   const handleFileFocus = useCallback(
     (file: ContractFile) => {

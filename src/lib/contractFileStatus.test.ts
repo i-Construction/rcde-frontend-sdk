@@ -23,6 +23,12 @@ const pclodCompletedFile: ContractFile = {
   batchProcessingResult: { id: 100, status: 3 },
 };
 
+/** batchProcessingResult.status が RCDE 既知値以外のファイル */
+const unknownBatchStatusFile: ContractFile = {
+  ...uploadedFile,
+  hasUnknownBatchStatus: true,
+};
+
 describe("契約ファイル一覧に表示する状態ラベル", () => {
   it("クライアント側でアップロード追跡中は、アップロード：アップロード中、PCLOD：-として表示する", () => {
     const labels = deriveFileStatusLabels({ id: 10, name: "uploading.las" }, true);
@@ -58,6 +64,13 @@ describe("契約ファイル一覧に表示する状態ラベル", () => {
     expect(labels).toEqual({ upload: "完了", pclod: "完了" });
     expect(isFileStatusActive(labels)).toBe(false);
   });
+
+  it("batchProcessingResult.status が既知値以外のときは、アップロード：完了、PCLOD：不明として表示する", () => {
+    const labels = deriveFileStatusLabels(unknownBatchStatusFile, false);
+
+    expect(labels).toEqual({ upload: "完了", pclod: "不明" });
+    expect(isFileStatusActive(labels)).toBe(false);
+  });
 });
 
 describe("契約ファイル一覧の自動更新", () => {
@@ -80,5 +93,9 @@ describe("契約ファイル一覧の自動更新", () => {
 
   it("全ファイルが PCLOD 完了のときは更新を止める", () => {
     expect(needsPolling([pclodCompletedFile], {})).toBe(false);
+  });
+
+  it("batchProcessingResult.status が既知値以外のファイルのみのときは更新を止める", () => {
+    expect(needsPolling([unknownBatchStatusFile], {})).toBe(false);
   });
 });

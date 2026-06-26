@@ -1,7 +1,7 @@
 import type { ContractFile } from "./rcde-client";
 
 export type UploadStatusLabel = "アップロード中" | "完了";
-export type PclodStatusLabel = "待機中" | "処理中" | "完了" | "-";
+export type PclodStatusLabel = "待機中" | "処理中" | "完了" | "不明" | "-";
 
 export type PendingUpload = {
   name: string;
@@ -20,7 +20,14 @@ function isUploaded(file: ContractFile): boolean {
   return file.uploadedAt !== undefined && file.uploadedAt.length > 0;
 }
 
+function hasUnknownBatchStatus(file: ContractFile): boolean {
+  return file.hasUnknownBatchStatus === true;
+}
+
 function isPclodCompleted(file: ContractFile): boolean {
+  if (hasUnknownBatchStatus(file)) {
+    return false;
+  }
   const batchStatus = file.batchProcessingResult?.status;
   return batchStatus === BATCH_STATUS_COMPLETED;
 }
@@ -28,6 +35,9 @@ function isPclodCompleted(file: ContractFile): boolean {
 export { isPclodCompleted };
 
 function isPclodProcessing(file: ContractFile): boolean {
+  if (hasUnknownBatchStatus(file)) {
+    return false;
+  }
   const batchStatus = file.batchProcessingResult?.status;
   if (batchStatus === undefined) {
     return false;
@@ -54,6 +64,13 @@ export function deriveFileStatusLabels(
     return {
       upload: "アップロード中",
       pclod: "待機中",
+    };
+  }
+
+  if (hasUnknownBatchStatus(file)) {
+    return {
+      upload: "完了",
+      pclod: "不明",
     };
   }
 
@@ -91,6 +108,9 @@ export function needsPolling(files: ContractFile[], pendingUploads: PendingUploa
   }
 
   for (const file of files) {
+    if (hasUnknownBatchStatus(file)) {
+      continue;
+    }
     const uploaded = isUploaded(file);
     if (!uploaded) {
       return true;
