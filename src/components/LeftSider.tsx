@@ -1,81 +1,63 @@
-import { Adjust } from "@mui/icons-material";
-import { ListItemIcon, ListItemText, MenuItem, MenuList } from "@mui/material";
-import { FC, useMemo } from "react";
-import { GlobalStateContext } from "../contexts/state";
+import { Box, Typography } from "@mui/material";
+import { FC, ReactNode } from "react";
+import { ContractFile } from "../contexts/contractFiles";
+import type { PendingUploads } from "../lib/contractFileStatus";
+import { ContractFileList } from "./right/ContractFileList";
 
-type Menu = {
-  icon: JSX.Element;
-  text: string;
-  selected?: boolean;
-  onClick?: () => void;
+export type LeftSiderProps = {
+  onFileFocus: (file: ContractFile) => void;
+  onFileDelete: (file: ContractFile) => void;
+  pendingUploads: PendingUploads;
+  headerActions?: ReactNode;
 };
 
-const LeftSider: FC = () => {
-  const state = GlobalStateContext.useSelector((s) => s);
-  const actor = GlobalStateContext.useActorRef();
+const LEFT_SIDER_WIDTH = 320;
 
-  const menus: Menu[] = useMemo(() => {
-    return [
-      /*
-      {
-        icon: <Palette />,
-        text: "外観",
-        selected: state.matches("appearance"),
-      },
-      */
-      {
-        icon: <Adjust />,
-        text: "基準点",
-        selected: state.matches("reference_point"),
-        onClick: () => {
-          if (state.matches("reference_point")) {
-            actor.send({ type: "IDLE" });
-          } else {
-            actor.send({ type: "REFERENCE_POINT" });
-          }
-        },
-      },
-      /*
-      {
-        icon: <OpenWith />,
-        text: "移動",
-        selected: state.matches("transform.position"),
-      },
-      {
-        icon: <RotateLeft />,
-        text: "回転",
-        selected: state.matches("transform.rotation"),
-      },
-      {
-        icon: <SquareFoot />,
-        text: "寸法",
-        selected: state.matches("metric"),
-      },
-      {
-        icon: <ThreeDRotation />,
-        text: "モデリング",
-        selected: state.matches("modeling"),
-      },
-      */
-    ];
-  }, [state, actor]);
-
+const LeftSider: FC<LeftSiderProps> = ({
+  onFileFocus,
+  onFileDelete,
+  pendingUploads,
+  headerActions,
+}) => {
   return (
-    <MenuList
-      dense
+    <Box
       sx={{
-        flex: "0 0 auto",
+        display: "flex",
+        flexDirection: "column",
+        flex: `0 0 ${LEFT_SIDER_WIDTH}px`,
+        width: LEFT_SIDER_WIDTH,
+        height: "100%",
+        borderRight: 1,
+        borderColor: "divider",
+        bgcolor: "background.paper",
+        overflow: "hidden",
       }}
     >
-      {menus.map((menu, index) => {
-        return (
-          <MenuItem key={index} onClick={menu.onClick} selected={menu.selected}>
-            <ListItemIcon>{menu.icon}</ListItemIcon>
-            <ListItemText primary={menu.text} />
-          </MenuItem>
-        );
-      })}
-    </MenuList>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 2,
+          py: 1.5,
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
+      >
+        <Typography variant="subtitle1" fontWeight={600}>
+          ファイル
+        </Typography>
+        {headerActions}
+      </Box>
+
+      <Box sx={{ flex: 1, overflow: "auto", px: 1, py: 1 }}>
+        <ContractFileList
+          onFileFocus={onFileFocus}
+          onFileDelete={onFileDelete}
+          pendingUploads={pendingUploads}
+        />
+      </Box>
+    </Box>
   );
 };
 

@@ -2,7 +2,7 @@ import { Box } from "@mui/material";
 import { GizmoHelper, GizmoViewport, Grid, MapControls } from "@react-three/drei";
 import { Canvas, CanvasProps, useThree } from "@react-three/fiber";
 import { PointCloudMeta } from "@i-con/pcd-viewer";
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Box3,
   Color,
@@ -73,10 +73,14 @@ export type ViewerProps = {
   contractId: number;
   contractFileIds?: number[];
   r3f?: R3FProps;
-  children?: React.ReactNode;
-  positionOffsetComponent?: React.ReactNode;
+  children?: ReactNode;
+  positionOffsetComponent?: ReactNode;
+  auxiliaryContent?: ReactNode;
   showLeftSider?: boolean;
   showRightSider?: boolean;
+  leftSiderHeaderActions?: ReactNode;
+  pendingUploads?: PendingUploads;
+  contractFilesRefetchKey?: number;
   selectedFileId?: number;
   onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
 };
@@ -177,15 +181,19 @@ const Viewer: FC<ViewerProps> = (props) => {
     r3f,
     children,
     positionOffsetComponent,
+    auxiliaryContent,
     showLeftSider = true,
-    showRightSider = true,
+    showRightSider = false,
+    leftSiderHeaderActions,
+    pendingUploads: pendingUploadsProp,
+    contractFilesRefetchKey,
     selectedFileId,
     onContractFileClick,
   } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point, change: changeReferencePoint } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
-  const [pendingUploads] = useState<PendingUploads>({});
+  const pendingUploads = pendingUploadsProp ?? {};
 
   const transformRootRef = useRef<Group>(null);
   const cameraRef = useRef<PerspectiveCamera>(null);
@@ -270,6 +278,13 @@ const Viewer: FC<ViewerProps> = (props) => {
       fetchContractFiles();
     }
   }, [client, contractId, fetchContractFiles]);
+
+  useEffect(() => {
+    if (contractFilesRefetchKey === undefined) {
+      return;
+    }
+    fetchContractFiles();
+  }, [contractFilesRefetchKey, fetchContractFiles]);
 
   const camera = useMemo(
     () => ({
@@ -453,7 +468,14 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   return (
     <Box width={1} height={1} display="flex">
-      {showLeftSider && <LeftSider />}
+      {showLeftSider && (
+        <LeftSider
+          onFileFocus={handleFileFocus}
+          onFileDelete={handleFileDelete}
+          pendingUploads={pendingUploads}
+          headerActions={leftSiderHeaderActions}
+        />
+      )}
       <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
         <Canvas camera={camera} {...r3f?.canvas}>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -532,6 +554,7 @@ const Viewer: FC<ViewerProps> = (props) => {
           pendingUploads={pendingUploads}
         />
       )}
+      {auxiliaryContent}
     </Box>
   );
 };
