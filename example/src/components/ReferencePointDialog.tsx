@@ -13,10 +13,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import { CoordinateNumberInput } from "@/components/CoordinateNumberInput";
-import {
-  referencePointBridge,
-  type ReferencePointCoordinates,
-} from "@/lib/reference-point-bridge";
+import { referencePointBridge, type ReferencePointCoordinates } from "@/lib/reference-point-bridge";
 
 type ReferencePointDialogProps = {
   open: boolean;
