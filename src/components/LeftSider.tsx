@@ -1,119 +1,108 @@
-import { Adjust, InsertDriveFile } from "@mui/icons-material";
-import { ListItemIcon, ListItemText, MenuItem, MenuList } from "@mui/material";
-import { FC, useCallback, useMemo, useState } from "react";
-import { GlobalStateContext } from "../contexts/state";
+import { UploadFile } from "@mui/icons-material";
+import { Box, Button, Divider, Typography } from "@mui/material";
+import { FC, useCallback, useState } from "react";
+import { ContractFile } from "../contexts/contractFiles";
+import type { PendingUploads } from "../lib/contractFileStatus";
+import type { RCDEClient } from "../lib/rcde-client";
+import { ContractFileList } from "./right/ContractFileList";
 import { FileUploadModal } from "./FileUploadModal";
-
-type Menu = {
-  icon: JSX.Element;
-  text: string;
-  selected?: boolean;
-  onClick?: () => void;
-};
 
 export type LeftSiderProps = {
   contractId: number;
-  onUploaded?: () => void;
+  onUploaded?: (res: Awaited<ReturnType<RCDEClient["uploadContractFile"]>>) => void;
+  onUploadStarted?: (params: { contractFileId: number; name: string }) => void;
+  onUploadFinished?: (contractFileId: number) => void;
+  onFileFocus: (file: ContractFile) => void;
+  onFileDelete: (file: ContractFile) => void;
+  pendingUploads: PendingUploads;
 };
 
-const LeftSider: FC<LeftSiderProps> = ({ contractId, onUploaded }) => {
-  const state = GlobalStateContext.useSelector((s) => s);
-  const actor = GlobalStateContext.useActorRef();
+const LEFT_SIDER_WIDTH = 320;
 
-  const [open, setOpen] = useState<{
-    file?: boolean;
-  }>({
-    file: false,
-  });
+const LeftSider: FC<LeftSiderProps> = ({
+  contractId,
+  onUploaded,
+  onUploadStarted,
+  onUploadFinished,
+  onFileFocus,
+  onFileDelete,
+  pendingUploads,
+}) => {
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
-  const handleOnClose = useCallback(
-    (key: keyof typeof open) => () => {
-      setOpen((prev) => ({ ...prev, [key]: false }));
+  const handleUploadClose = useCallback(() => {
+    setIsUploadOpen(false);
+  }, []);
+
+  const handleUploadOpen = useCallback(() => {
+    setIsUploadOpen(true);
+  }, []);
+
+  const handleUploaded = useCallback(
+    (res: Awaited<ReturnType<RCDEClient["uploadContractFile"]>>) => {
+      onUploaded?.(res);
+      handleUploadClose();
     },
-    []
+    [onUploaded, handleUploadClose]
   );
 
-  const menus: Menu[] = useMemo(() => {
-    return [
-      {
-        icon: <InsertDriveFile />,
-        text: "ファイル",
-        onClick: () => {
-          setOpen({ file: true });
-          actor.send({ type: "IDLE" });
-        },
-      },
-      /*
-      {
-        icon: <Palette />,
-        text: "外観",
-        selected: state.matches("appearance"),
-      },
-      */
-      {
-        icon: <Adjust />,
-        text: "基準点",
-        selected: state.matches("reference_point"),
-        onClick: () => {
-          if (state.matches("reference_point")) {
-            actor.send({ type: "IDLE" });
-          } else {
-            actor.send({ type: "REFERENCE_POINT" });
-          }
-        },
-      },
-      /*
-      {
-        icon: <OpenWith />,
-        text: "移動",
-        selected: state.matches("transform.position"),
-      },
-      {
-        icon: <RotateLeft />,
-        text: "回転",
-        selected: state.matches("transform.rotation"),
-      },
-      {
-        icon: <SquareFoot />,
-        text: "寸法",
-        selected: state.matches("metric"),
-      },
-      {
-        icon: <ThreeDRotation />,
-        text: "モデリング",
-        selected: state.matches("modeling"),
-      },
-      */
-    ];
-  }, [state, actor]);
-
-  const handleUploaded = useCallback(() => {
-    onUploaded?.();
-    handleOnClose("file")();
-  }, [onUploaded, handleOnClose]);
-
   return (
-    <MenuList
-      dense
+    <Box
       sx={{
-        flex: "0 0 auto",
+        display: "flex",
+        flexDirection: "column",
+        flex: `0 0 ${LEFT_SIDER_WIDTH}px`,
+        width: LEFT_SIDER_WIDTH,
+        height: "100%",
+        borderRight: 1,
+        borderColor: "divider",
+        bgcolor: "background.paper",
+        overflow: "hidden",
       }}
     >
-      {menus.map((menu, index) => {
-        return (
-          <MenuItem key={index} onClick={menu.onClick} selected={menu.selected}>
-            <ListItemIcon>{menu.icon}</ListItemIcon>
-            <ListItemText primary={menu.text} />
-          </MenuItem>
-        );
-      })}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 2,
+          py: 1.5,
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
+      >
+        <Typography variant="subtitle1" fontWeight={600}>
+          ファイル
+        </Typography>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<UploadFile />}
+          onClick={handleUploadOpen}
+        >
+          アップロード
+        </Button>
+      </Box>
+
+      <Box sx={{ flex: 1, overflow: "auto", px: 1, py: 1 }}>
+        <ContractFileList
+          onFileFocus={onFileFocus}
+          onFileDelete={onFileDelete}
+          pendingUploads={pendingUploads}
+        />
+      </Box>
+
+      <Divider />
+
       <FileUploadModal
         contractId={contractId}
-        open={open.file ?? false}
+        open={isUploadOpen}
         onUploaded={handleUploaded}
-        onClose={handleOnClose("file")}
+        onUploadStarted={onUploadStarted}
+        onUploadFinished={onUploadFinished}
+        onClose={handleUploadClose}
       />
-    </MenuList>
+    </Box>
   );
 };
 

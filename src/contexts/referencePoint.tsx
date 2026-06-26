@@ -3,6 +3,7 @@ import { Box3, Vector3 } from "three";
 import { PointCloudMeta } from "@i-con/pcd-viewer";
 import { useClient } from "./client";
 import { useContractFiles } from "./contractFiles";
+import { isPclodCompleted } from "../lib/contractFileStatus";
 
 /**
  * Context provider props for reference point.
@@ -43,6 +44,7 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
       // Find the container with the matching file ID
       const container = containers.find((c) => c.file.id === fileId);
       if (!container) return;
+      if (!isPclodCompleted(container.file)) return;
 
       try {
         // Get file metadata to calculate bounding box
