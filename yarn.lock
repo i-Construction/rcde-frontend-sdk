@@ -548,10 +548,10 @@
   resolved "https://registry.yarnpkg.com/@humanwhocodes/retry/-/retry-0.4.3.tgz#c2b9d2e374ee62c586d3adbea87199b1d7a7a6ba"
   integrity sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==
 
-"@i-con/pcd-viewer@0.0.26":
-  version "0.0.26"
-  resolved "https://registry.yarnpkg.com/@i-con/pcd-viewer/-/pcd-viewer-0.0.26.tgz#2f7914eee9de4352b2b047cadeacdeede857ce04"
-  integrity sha512-4FdTfjlKXNGZMomlcTqZUP64esPTJRPIutALs4IEAvZpltH0eSEtSAEaEsGSkA1YNzRDWJBtD3NtWfJ7jbbIbw==
+"@i-con/pcd-viewer@0.0.27":
+  version "0.0.27"
+  resolved "https://registry.yarnpkg.com/@i-con/pcd-viewer/-/pcd-viewer-0.0.27.tgz#e83510985b95b8a769aa4c7ccfa97aee7211e03f"
+  integrity sha512-VGmnzTveAo3e59hbIw3ltEhBH303ocRv23DdkWcASS0zA1kDSoLh35WZ8K9YrVyXU25CjySPXDojGc63ID2JZQ==
 
 "@jridgewell/gen-mapping@^0.3.12":
   version "0.3.13"
