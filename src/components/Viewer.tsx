@@ -184,7 +184,7 @@ const Viewer: FC<ViewerProps> = (props) => {
   const { initialize, client, project, setProject } = useClient();
   const { point, change: changeReferencePoint } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
-  const [pendingUploads, setPendingUploads] = useState<PendingUploads>({});
+  const pendingUploads: PendingUploads = {};
 
   const transformRootRef = useRef<Group>(null);
   const cameraRef = useRef<PerspectiveCamera>(null);
@@ -339,28 +339,6 @@ const Viewer: FC<ViewerProps> = (props) => {
     console.log(file);
   }, []);
 
-  const handleUploadStarted = useCallback(
-    ({ contractFileId, name }: { contractFileId: number; name: string }) => {
-      setPendingUploads((prev) => ({
-        ...prev,
-        [contractFileId]: { name },
-      }));
-    },
-    []
-  );
-
-  const handleUploadFinished = useCallback((contractFileId: number) => {
-    setPendingUploads((prev) => {
-      const next = { ...prev };
-      delete next[contractFileId];
-      return next;
-    });
-  }, []);
-
-  const handleUploaded = useCallback(() => {
-    fetchContractFiles();
-  }, [fetchContractFiles]);
-
   const applyAppearanceToScene = useCallback(
     (root: Group | null, ps: number, opPercent: number) => {
       if (!root) return;
@@ -476,10 +454,6 @@ const Viewer: FC<ViewerProps> = (props) => {
     <Box width={1} height={1} display="flex">
       {showLeftSider && (
         <LeftSider
-          contractId={contractId}
-          onUploaded={handleUploaded}
-          onUploadStarted={handleUploadStarted}
-          onUploadFinished={handleUploadFinished}
           onFileFocus={handleFileFocus}
           onFileDelete={handleFileDelete}
           pendingUploads={pendingUploads}
