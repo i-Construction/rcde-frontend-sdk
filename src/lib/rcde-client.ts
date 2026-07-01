@@ -7,10 +7,19 @@ export type RCDEClientOptions = {
   fetchImpl?: typeof fetch;
 };
 
+export type BatchProcessingResult = {
+  id: number;
+  status: 1 | 2 | 3;
+};
+
 export type ContractFile = {
   id: number;
   name: string;
   status?: string;
+  uploadedAt?: string;
+  batchProcessingResult?: BatchProcessingResult;
+  /** batchProcessingResult.status が RCDE 既知値 (1|2|3) 以外のとき true */
+  hasUnknownBatchStatus?: boolean;
 };
 
 type Json = Record<string, unknown>;
@@ -54,7 +63,8 @@ export class RCDEClient {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as { contractFiles: ContractFile[]; total?: number };
-    return { contractFiles: data.contractFiles ?? [] };
+    const contractFiles = (data.contractFiles ?? []).map(parseContractFile);
+    return { contractFiles };
   }
 
   async getContractFileMetadata(params: {
@@ -150,6 +160,7 @@ export class RCDEClient {
     name: string;
     buffer: ArrayBuffer;
     pointCloudAttribute?: Record<string, unknown>;
+    onContractFileCreated?: (contractFileId: number) => void;
   }): Promise<Json> {
     const { contractId, name, buffer, pointCloudAttribute } = params;
     // まずアップロード開始APIを呼び出してpresignedURLを取得
@@ -167,6 +178,9 @@ export class RCDEClient {
     });
     if (!uploadRes.ok) throw new Error(`HTTP ${uploadRes.status}`);
     const uploadData = (await uploadRes.json()) as { presignedURL: string; contractFileId: number };
+    if (params.onContractFileCreated !== undefined) {
+      params.onContractFileCreated(uploadData.contractFileId);
+    }
 
     // presignedURLにファイルをアップロード
     const uploadFileRes = await this.fetchImpl(uploadData.presignedURL, {
@@ -276,6 +290,45 @@ export type Contract = {
   contractedAt?: string;
   status?: string;
 };
+
+function isKnownBatchStatus(status: number): status is BatchProcessingResult["status"] {
+  const isStart = status === 1;
+  const isInProgress = status === 2;
+  const isFinish = status === 3;
+  return isStart || isInProgress || isFinish;
+}
+
+function parseContractFile(raw: ContractFile): ContractFile {
+  const batchProcessingResult = raw.batchProcessingResult;
+  const hasBatchResult =
+    batchProcessingResult !== undefined &&
+    typeof batchProcessingResult.id === "number" &&
+    typeof batchProcessingResult.status === "number";
+
+  let normalizedBatchResult: BatchProcessingResult | undefined;
+  let hasUnknownBatchStatus = false;
+
+  if (hasBatchResult) {
+    const status = batchProcessingResult.status;
+    if (isKnownBatchStatus(status)) {
+      normalizedBatchResult = {
+        id: batchProcessingResult.id,
+        status,
+      };
+    } else {
+      hasUnknownBatchStatus = true;
+    }
+  }
+
+  return {
+    id: raw.id,
+    name: raw.name,
+    status: raw.status,
+    uploadedAt: raw.uploadedAt,
+    batchProcessingResult: normalizedBatchResult,
+    hasUnknownBatchStatus: hasUnknownBatchStatus ? true : undefined,
+  };
+}
 
 export type CreateConstructionParams = {
   name: string;

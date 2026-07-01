@@ -2,7 +2,7 @@ import { Box } from "@mui/material";
 import { GizmoHelper, GizmoViewport, Grid, MapControls } from "@react-three/drei";
 import { Canvas, CanvasProps, useThree } from "@react-three/fiber";
 import { PointCloudMeta } from "@i-con/pcd-viewer";
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Box3,
   Color,
@@ -18,6 +18,8 @@ import {
 import { useClient } from "../contexts/client";
 import { ContractFile, useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
+import { useContractFilesPolling } from "../hooks/useContractFilesPolling";
+import { isPclodCompleted, type PendingUploads } from "../lib/contractFileStatus";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { LeftSider } from "./LeftSider";
 import { ReferencePointView } from "./ReferencePointView";
@@ -71,10 +73,14 @@ export type ViewerProps = {
   contractId: number;
   contractFileIds?: number[];
   r3f?: R3FProps;
-  children?: React.ReactNode;
-  positionOffsetComponent?: React.ReactNode;
+  children?: ReactNode;
+  positionOffsetComponent?: ReactNode;
+  auxiliaryContent?: ReactNode;
   showLeftSider?: boolean;
   showRightSider?: boolean;
+  leftSiderHeaderActions?: ReactNode;
+  pendingUploads?: PendingUploads;
+  contractFilesRefetchKey?: number;
   selectedFileId?: number;
   onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
 };
@@ -166,7 +172,7 @@ const ClickHandler: FC<{
 };
 
 const Viewer: FC<ViewerProps> = (props) => {
-  const { load, containers } = useContractFiles();
+  const { load, updateFiles, containers } = useContractFiles();
   const {
     app,
     constructionId,
@@ -175,14 +181,19 @@ const Viewer: FC<ViewerProps> = (props) => {
     r3f,
     children,
     positionOffsetComponent,
+    auxiliaryContent,
     showLeftSider = true,
-    showRightSider = true,
+    showRightSider = false,
+    leftSiderHeaderActions,
+    pendingUploads: pendingUploadsProp,
+    contractFilesRefetchKey,
     selectedFileId,
     onContractFileClick,
   } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point, change: changeReferencePoint } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
+  const pendingUploads = pendingUploadsProp ?? {};
 
   const transformRootRef = useRef<Group>(null);
   const cameraRef = useRef<PerspectiveCamera>(null);
@@ -244,11 +255,36 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
   }, [client, contractId, memoizedContractFileIds, load]);
 
+  const contractFiles = useMemo(() => containers.map((container) => container.file), [containers]);
+
+  const handleFilesUpdated = useCallback(
+    (files: ContractFile[]) => {
+      updateFiles(files);
+    },
+    [updateFiles]
+  );
+
+  useContractFilesPolling({
+    client,
+    contractId,
+    contractFiles,
+    pendingUploads,
+    onFilesUpdated: handleFilesUpdated,
+    enabled: client !== undefined && contractId > 0,
+  });
+
   useEffect(() => {
     if (client && contractId) {
       fetchContractFiles();
     }
   }, [client, contractId, fetchContractFiles]);
+
+  useEffect(() => {
+    if (contractFilesRefetchKey === undefined) {
+      return;
+    }
+    fetchContractFiles();
+  }, [contractFilesRefetchKey, fetchContractFiles]);
 
   const camera = useMemo(
     () => ({
@@ -261,34 +297,49 @@ const Viewer: FC<ViewerProps> = (props) => {
     []
   );
 
+  const metadataFetchKey = useMemo(() => {
+    return containers
+      .filter((container) => container.visible && isPclodCompleted(container.file))
+      .map((container) => container.file.id)
+      .sort((left, right) => left - right)
+      .join(",");
+  }, [containers]);
+
   useEffect(() => {
     if (project === undefined) return;
-    const promises = containers
-      .filter((c) => c.visible)
-      .map((c) => {
-        const id = c.file.id;
-        if (id === undefined) return Promise.resolve(undefined);
-        return client
-          ?.getContractFileMetadata({ ...project, contractFileId: id })
-          .then((d) => {
-            const meta = d as unknown as PointCloudMeta;
-            const { min, max } = meta.bounds;
-            const boundingBox = new Box3(
-              new Vector3().fromArray(min),
-              new Vector3().fromArray(max)
-            );
-            return { file: c.file, meta, boundingBox };
-          })
-          .catch((e) => {
-            console.error(e);
-            return undefined;
-          });
-      });
+    if (client === undefined) return;
+
+    const targets = containers.filter(
+      (container) => container.visible && isPclodCompleted(container.file)
+    );
+
+    if (targets.length === 0) {
+      setViews([]);
+      return;
+    }
+
+    const promises = targets.map((container) => {
+      const id = container.file.id;
+      return client
+        .getContractFileMetadata({ ...project, contractFileId: id })
+        .then((d) => {
+          const meta = d as unknown as PointCloudMeta;
+          const { min, max } = meta.bounds;
+          const boundingBox = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
+          return { file: container.file, meta, boundingBox };
+        })
+        .catch((e) => {
+          console.error(e);
+          return undefined;
+        });
+    });
 
     Promise.all(promises).then((vs) => {
       setViews(vs.filter((v): v is ContractFileProps & { boundingBox: Box3 } => v !== undefined));
     });
-  }, [containers, project, client]);
+    // metadataFetchKey が同じなら poll による containers 参照更新では再取得しない
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metadataFetchKey, project, client]);
 
   const handleFileFocus = useCallback(
     (file: ContractFile) => {
@@ -417,7 +468,14 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   return (
     <Box width={1} height={1} display="flex">
-      {showLeftSider && <LeftSider />}
+      {showLeftSider && (
+        <LeftSider
+          onFileFocus={handleFileFocus}
+          onFileDelete={handleFileDelete}
+          pendingUploads={pendingUploads}
+          headerActions={leftSiderHeaderActions}
+        />
+      )}
       <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
         <Canvas camera={camera} {...r3f?.canvas}>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -490,8 +548,13 @@ const Viewer: FC<ViewerProps> = (props) => {
         </Box>
       </Box>
       {showRightSider && (
-        <RightSider onFileFocus={handleFileFocus} onFileDelete={handleFileDelete} />
+        <RightSider
+          onFileFocus={handleFileFocus}
+          onFileDelete={handleFileDelete}
+          pendingUploads={pendingUploads}
+        />
       )}
+      {auxiliaryContent}
     </Box>
   );
 };
