@@ -26,6 +26,14 @@ export { ReferencePointAxis } from "./components/ReferencePointAxis";
 export type { ReferencePointAxisProps } from "./components/ReferencePointAxis";
 export { CrossSectionHandler, CrossSectionPlane } from "./components/CrossSectionHandler";
 export {
+  useContractFileActions,
+  type UseContractFileActionsOptions,
+} from "./hooks/useContractFileActions";
+export {
+  useReferencePointActions,
+  type ReferencePointComponent,
+} from "./hooks/useReferencePointActions";
+export {
   ClippingPlanesProvider,
   useClippingPlanes,
   ClippingPlanesContext,
