@@ -3,20 +3,29 @@ import {
   buildCompleteApiFetchInit,
   buildPointCloudUploadRequest,
   buildPresignedFileUpload,
+  buildS3PartsFromUploadResults,
   buildStartApiFetchInit,
   buildUploadCompleteRequest,
+  calculatePartTotal,
+  DEFAULT_CHUNK_SIZE_BYTES,
+  getBufferChunk,
   uploadPointCloudFile,
+  uploadPointCloudFileMultipart,
 } from "./pointCloudUpload";
 
 const baseUrl = "https://example.com";
 const contractFileId = 777;
 const presignedURL = "https://storage.example.com/upload/abc123";
+const s3UploadId = "s3-upload-id-abc";
+const blockChainUploadId = "bc-upload-id-xyz";
+const MB = 1024 * 1024;
 
 /** URL ごとに返すレスポンスの定義（ok=false にすると失敗を再現できる） */
 type StubResponse = {
   ok?: boolean;
   status?: number;
   json?: unknown;
+  etag?: string;
 };
 
 function createFetchMock(rules: { match: string; response: StubResponse }[]) {
@@ -28,10 +37,29 @@ function createFetchMock(rules: { match: string; response: StubResponse }[]) {
       ok: res.ok ?? true,
       status: res.status ?? 200,
       json: async () => res.json ?? {},
+      headers: {
+        get: (name: string) => (name.toLowerCase() === "etag" ? (res.etag ?? null) : null),
+      },
     } as Response;
   }) as typeof fetch;
 
   return { fetchImpl };
+}
+
+function createMultipartStartResponse(partTotal: number) {
+  return {
+    contractFileId,
+    s3UploadId,
+    blockChainUploadId,
+    presignedUploadParts: Array.from({ length: partTotal }, (_, i) => ({
+      partNumber: i + 1,
+      presignedURL: `https://storage.example.com/part/${i + 1}`,
+    })),
+    blockChainUploadURLs: Array.from(
+      { length: partTotal },
+      (_, i) => `https://blockchain.example.com/part/${i + 1}`
+    ),
+  };
 }
 
 const defaultDeps = (fetchImpl: typeof fetch) => ({
@@ -220,6 +248,258 @@ describe("点群ファイルのアップロード手順（3 段階の実行）",
           buffer: new ArrayBuffer(4),
         })
       ).rejects.toThrow("Complete upload failed: HTTP 500");
+    });
+  });
+});
+
+describe("点群ファイルのチャンク分割（partTotal とバッファ境界）", () => {
+  describe("正常系", () => {
+    it("100MB ちょうどのファイルを 100MB チャンクで分割するとき、partTotal は 1 になる", () => {
+      expect(calculatePartTotal(100 * MB, DEFAULT_CHUNK_SIZE_BYTES)).toBe(1);
+    });
+
+    it("250MB のファイルを 100MB チャンクで分割するとき、partTotal は 3 になる", () => {
+      expect(calculatePartTotal(250 * MB, DEFAULT_CHUNK_SIZE_BYTES)).toBe(3);
+    });
+
+    it("250MB のファイルを 3 パートに分割したとき、各チャンクのバイト長は 100MB・100MB・50MB になる", () => {
+      const buffer = new ArrayBuffer(250 * MB);
+      expect(getBufferChunk(buffer, 0, 100 * MB).byteLength).toBe(100 * MB);
+      expect(getBufferChunk(buffer, 1, 100 * MB).byteLength).toBe(100 * MB);
+      expect(getBufferChunk(buffer, 2, 100 * MB).byteLength).toBe(50 * MB);
+    });
+
+    it("S3 パートアップロード結果から s3Parts 配列を組み立てる", () => {
+      const results = [
+        { partNumber: 1, etag: '"etag-part-1"' },
+        { partNumber: 2, etag: '"etag-part-2"' },
+      ];
+
+      expect(buildS3PartsFromUploadResults(results)).toEqual([
+        { partNumber: 1, etag: '"etag-part-1"' },
+        { partNumber: 2, etag: '"etag-part-2"' },
+      ]);
+    });
+  });
+});
+
+describe("点群ファイルのチャンク分割アップロード手順（multipart 実行）", () => {
+  describe("正常系", () => {
+    it("チャンク分割アップロードがすべて成功したとき、contractFileId を返す", async () => {
+      const partTotal = 2;
+      const startResponse = createMultipartStartResponse(partTotal);
+      const { fetchImpl } = createFetchMock([
+        {
+          match: "/contractFile/pointCloud/multipartUpload",
+          response: { json: startResponse },
+        },
+        { match: "storage.example.com/part", response: { etag: '"etag-1"' } },
+        { match: "blockchain.example.com/part", response: {} },
+        {
+          match: "/contractFile/pointCloud/completeMultipartUpload",
+          response: {},
+        },
+      ]);
+
+      const result = await uploadPointCloudFileMultipart(defaultDeps(fetchImpl), {
+        contractId: 1,
+        name: "big.las",
+        buffer: new ArrayBuffer(150 * MB),
+        chunkSize: 100 * MB,
+      });
+
+      expect(result).toEqual({ contractFileId });
+    });
+
+    it("multipart 開始 API が contractFileId を返したとき、onContractFileCreated がその ID で 1 回呼ばれる", async () => {
+      const partTotal = 1;
+      const startResponse = createMultipartStartResponse(partTotal);
+      const { fetchImpl } = createFetchMock([
+        {
+          match: "/contractFile/pointCloud/multipartUpload",
+          response: { json: startResponse },
+        },
+        { match: "storage.example.com/part", response: { etag: '"etag-1"' } },
+        { match: "blockchain.example.com/part", response: {} },
+        {
+          match: "/contractFile/pointCloud/completeMultipartUpload",
+          response: {},
+        },
+      ]);
+      const onContractFileCreated = vi.fn();
+
+      await uploadPointCloudFileMultipart(defaultDeps(fetchImpl), {
+        contractId: 1,
+        name: "sample.las",
+        buffer: new ArrayBuffer(50 * MB),
+        chunkSize: 100 * MB,
+        onContractFileCreated,
+      });
+
+      expect(onContractFileCreated).toHaveBeenCalledOnce();
+      expect(onContractFileCreated).toHaveBeenCalledWith(contractFileId);
+    });
+
+    it("2 パートのアップロード中、onUploadProgress が 1/2 → 2/2 の順で進捗を通知する", async () => {
+      const partTotal = 2;
+      const startResponse = createMultipartStartResponse(partTotal);
+      const { fetchImpl } = createFetchMock([
+        {
+          match: "/contractFile/pointCloud/multipartUpload",
+          response: { json: startResponse },
+        },
+        { match: "storage.example.com/part", response: { etag: '"etag-1"' } },
+        { match: "blockchain.example.com/part", response: {} },
+        {
+          match: "/contractFile/pointCloud/completeMultipartUpload",
+          response: {},
+        },
+      ]);
+      const progressCalls: [number, number][] = [];
+      const onUploadProgress = (completed: number, total: number) => {
+        progressCalls.push([completed, total]);
+      };
+
+      await uploadPointCloudFileMultipart(defaultDeps(fetchImpl), {
+        contractId: 1,
+        name: "big.las",
+        buffer: new ArrayBuffer(150 * MB),
+        chunkSize: 100 * MB,
+        onUploadProgress,
+      });
+
+      expect(progressCalls).toHaveLength(2);
+      expect(progressCalls).toContainEqual([1, 2]);
+      expect(progressCalls).toContainEqual([2, 2]);
+    });
+  });
+
+  describe("異常系", () => {
+    it("multipart 開始 API がエラーのとき、HTTP 400 で失敗する", async () => {
+      const { fetchImpl } = createFetchMock([
+        {
+          match: "/contractFile/pointCloud/multipartUpload",
+          response: { ok: false, status: 400 },
+        },
+      ]);
+
+      await expect(
+        uploadPointCloudFileMultipart(defaultDeps(fetchImpl), {
+          contractId: 1,
+          name: "sample.las",
+          buffer: new ArrayBuffer(150 * MB),
+          chunkSize: 100 * MB,
+        })
+      ).rejects.toThrow("HTTP 400");
+    });
+
+    it("S3 パート PUT がエラーのとき、Upload failed で失敗する", async () => {
+      const partTotal = 1;
+      const startResponse = createMultipartStartResponse(partTotal);
+      const { fetchImpl } = createFetchMock([
+        {
+          match: "/contractFile/pointCloud/multipartUpload",
+          response: { json: startResponse },
+        },
+        {
+          match: "storage.example.com/part/1",
+          response: { ok: false, status: 403 },
+        },
+        {
+          match: "/contractFile/pointCloud/deleteMultipartUpload",
+          response: {},
+        },
+      ]);
+
+      await expect(
+        uploadPointCloudFileMultipart(defaultDeps(fetchImpl), {
+          contractId: 1,
+          name: "sample.las",
+          buffer: new ArrayBuffer(50 * MB),
+          chunkSize: 100 * MB,
+        })
+      ).rejects.toThrow("Upload failed: HTTP 403");
+    });
+
+    it("S3 パート PUT 失敗時、deleteMultipartUpload が呼ばれる", async () => {
+      const partTotal = 1;
+      const startResponse = createMultipartStartResponse(partTotal);
+      let deleteCalled = false;
+      const fetchImpl = (async (input: unknown) => {
+        const url = String(input);
+        if (url.includes("/contractFile/pointCloud/multipartUpload")) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => startResponse,
+            headers: { get: () => null },
+          } as unknown as Response;
+        }
+        if (url.includes("storage.example.com/part/1")) {
+          return {
+            ok: false,
+            status: 403,
+            json: async () => ({}),
+            headers: { get: () => null },
+          } as unknown as Response;
+        }
+        if (url.includes("/contractFile/pointCloud/deleteMultipartUpload")) {
+          deleteCalled = true;
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({}),
+            headers: { get: () => null },
+          } as unknown as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+          headers: { get: () => null },
+        } as unknown as Response;
+      }) as typeof fetch;
+
+      await expect(
+        uploadPointCloudFileMultipart(defaultDeps(fetchImpl), {
+          contractId: 1,
+          name: "sample.las",
+          buffer: new ArrayBuffer(50 * MB),
+          chunkSize: 100 * MB,
+        })
+      ).rejects.toThrow("Upload failed: HTTP 403");
+
+      expect(deleteCalled).toBe(true);
+    });
+
+    it("完了 API がエラーのとき、Complete multipart upload failed で失敗する", async () => {
+      const partTotal = 1;
+      const startResponse = createMultipartStartResponse(partTotal);
+      const { fetchImpl } = createFetchMock([
+        {
+          match: "/contractFile/pointCloud/multipartUpload",
+          response: { json: startResponse },
+        },
+        { match: "storage.example.com/part", response: { etag: '"etag-1"' } },
+        { match: "blockchain.example.com/part", response: {} },
+        {
+          match: "/contractFile/pointCloud/completeMultipartUpload",
+          response: { ok: false, status: 500 },
+        },
+        {
+          match: "/contractFile/pointCloud/deleteMultipartUpload",
+          response: {},
+        },
+      ]);
+
+      await expect(
+        uploadPointCloudFileMultipart(defaultDeps(fetchImpl), {
+          contractId: 1,
+          name: "sample.las",
+          buffer: new ArrayBuffer(50 * MB),
+          chunkSize: 100 * MB,
+        })
+      ).rejects.toThrow("Complete multipart upload failed: HTTP 500");
     });
   });
 });
