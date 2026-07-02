@@ -20,7 +20,7 @@ type StubResponse = {
 };
 
 function createFetchMock(rules: { match: string; response: StubResponse }[]) {
-  const fetchImpl = (async (input: unknown, init?: RequestInit) => {
+  const fetchImpl = (async (input: unknown) => {
     const url = String(input);
     const rule = rules.find((r) => url.includes(r.match));
     const res = rule?.response ?? {};
