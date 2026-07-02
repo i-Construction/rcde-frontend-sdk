@@ -217,7 +217,6 @@ export async function uploadPointCloudFileMultipart(
   const { getApiPath, fetchImpl, getAuthHeaders } = deps;
 
   const resolvedChunkSize = chunkSize ?? DEFAULT_CHUNK_SIZE_BYTES;
-  const partTotal = calculatePartTotal(buffer.byteLength, resolvedChunkSize);
 
   const startUrl = getApiPath("/contractFile/pointCloud/multipartUpload");
   const uploadRequest = buildPointCloudMultipartUploadRequest({
@@ -272,7 +271,7 @@ export async function uploadPointCloudFileMultipart(
 
         completedParts += 1;
         if (onUploadProgress !== undefined) {
-          onUploadProgress(completedParts, partTotal);
+          onUploadProgress(completedParts, presignedUploadParts.length);
         }
 
         return { partNumber: presignedUploadPart.partNumber, etag };
