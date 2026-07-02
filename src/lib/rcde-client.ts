@@ -1,5 +1,5 @@
 import type { AuthType } from "../types/rcdeApiTypes";
-import { uploadPointCloudFile } from "./pointCloudUpload";
+import { uploadPointCloudFile, type PointCloudUploadParams } from "./pointCloudUpload";
 
 export type { AuthType };
 
@@ -161,13 +161,7 @@ export class RCDEClient {
   }
 
   // アップロード開始（点群アップロードAPIを使用）
-  async uploadContractFile(params: {
-    contractId: number;
-    name: string;
-    buffer: ArrayBuffer;
-    pointCloudAttribute?: Record<string, unknown>;
-    onContractFileCreated?: (contractFileId: number) => void;
-  }): Promise<Json> {
+  async uploadContractFile(params: PointCloudUploadParams): Promise<Json> {
     return uploadPointCloudFile(
       {
         getApiPath: (segment) => this.getApiPath(segment),
@@ -175,7 +169,7 @@ export class RCDEClient {
         getAuthHeaders: () => this.headers(),
       },
       params
-    ) as Promise<Json>;
+    );
   }
 
   // Construction関連のAPI

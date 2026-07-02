@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildCompleteApiFetchInit,
   buildPointCloudUploadRequest,
@@ -139,6 +139,31 @@ describe("点群ファイルのアップロード手順（3 段階の実行）",
       });
 
       expect(result).toEqual({ contractFileId, status: "uploaded" });
+    });
+
+    it("アップロード開始 API が contractFileId を返したとき、onContractFileCreated がその ID で 1 回呼ばれる", async () => {
+      const { fetchImpl } = createFetchMock([
+        {
+          match: "/contractFile/pointCloud",
+          response: { json: { presignedURL, contractFileId } },
+        },
+        { match: presignedURL, response: {} },
+        {
+          match: `/contractFile/uploaded/${contractFileId}`,
+          response: { json: { contractFileId, status: "uploaded" } },
+        },
+      ]);
+      const onContractFileCreated = vi.fn();
+
+      await uploadPointCloudFile(defaultDeps(fetchImpl), {
+        contractId: 1,
+        name: "sample.las",
+        buffer: new ArrayBuffer(4),
+        onContractFileCreated,
+      });
+
+      expect(onContractFileCreated).toHaveBeenCalledOnce();
+      expect(onContractFileCreated).toHaveBeenCalledWith(contractFileId);
     });
   });
 
