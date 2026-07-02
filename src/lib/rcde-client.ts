@@ -1,4 +1,7 @@
-export type AuthType = "2legged" | "3legged";
+import type { AuthType } from "../types/rcdeApiTypes";
+import { uploadPointCloudFile } from "./pointCloudUpload";
+
+export type { AuthType };
 
 export type RCDEClientOptions = {
   baseUrl?: string;
@@ -24,6 +27,11 @@ export type ContractFile = {
 
 type Json = Record<string, unknown>;
 
+const AUTH_API_PREFIX: Record<AuthType, string> = {
+  "2legged": "/ext/v2/authenticated",
+  "3legged": "/ext/v2/userAuthenticated",
+};
+
 export class RCDEClient {
   private baseUrl: string;
   private token?: string;
@@ -44,9 +52,7 @@ export class RCDEClient {
   }
 
   private getApiPath(segment: string): string {
-    const prefix =
-      this.authType === "3legged" ? "/ext/v2/userAuthenticated" : "/ext/v2/authenticated";
-    return `${this.baseUrl}${prefix}${segment}`;
+    return `${this.baseUrl}${AUTH_API_PREFIX[this.authType]}${segment}`;
   }
 
   // ---- 既存で使われている想定のAPI ----
@@ -162,42 +168,14 @@ export class RCDEClient {
     pointCloudAttribute?: Record<string, unknown>;
     onContractFileCreated?: (contractFileId: number) => void;
   }): Promise<Json> {
-    const { contractId, name, buffer, pointCloudAttribute } = params;
-    // まずアップロード開始APIを呼び出してpresignedURLを取得
-    const uploadUrl = this.getApiPath("/contractFile/pointCloud");
-    const uploadRequest = {
-      contractId,
-      name,
-      size: buffer.byteLength,
-      pointCloudAttribute: pointCloudAttribute ?? {},
-    };
-    const uploadRes = await this.fetchImpl(uploadUrl, {
-      method: "POST",
-      headers: this.headers(),
-      body: JSON.stringify(uploadRequest),
-    });
-    if (!uploadRes.ok) throw new Error(`HTTP ${uploadRes.status}`);
-    const uploadData = (await uploadRes.json()) as { presignedURL: string; contractFileId: number };
-    if (params.onContractFileCreated !== undefined) {
-      params.onContractFileCreated(uploadData.contractFileId);
-    }
-
-    // presignedURLにファイルをアップロード
-    const uploadFileRes = await this.fetchImpl(uploadData.presignedURL, {
-      method: "PUT",
-      body: buffer,
-    });
-    if (!uploadFileRes.ok) throw new Error(`Upload failed: HTTP ${uploadFileRes.status}`);
-
-    // アップロード完了を通知
-    const completeUrl = this.getApiPath(`/contractFile/uploaded/${uploadData.contractFileId}`);
-    const completeRes = await this.fetchImpl(completeUrl, {
-      method: "PUT",
-      headers: this.headers(),
-      body: JSON.stringify({ contractId }),
-    });
-    if (!completeRes.ok) throw new Error(`Complete upload failed: HTTP ${completeRes.status}`);
-    return (await completeRes.json()) as Json;
+    return uploadPointCloudFile(
+      {
+        getApiPath: (segment) => this.getApiPath(segment),
+        fetchImpl: this.fetchImpl,
+        getAuthHeaders: () => this.headers(),
+      },
+      params
+    ) as Promise<Json>;
   }
 
   // Construction関連のAPI
