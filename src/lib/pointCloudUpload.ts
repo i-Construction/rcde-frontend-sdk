@@ -198,6 +198,17 @@ type MultipartUploadStartResponse = {
   blockChainUploadURLs: string[];
 };
 
+export function validateMultipartUploadStartResponse(
+  presignedUploadParts: MultipartUploadStartResponse["presignedUploadParts"],
+  blockChainUploadURLs: string[]
+): void {
+  if (presignedUploadParts.length !== blockChainUploadURLs.length) {
+    throw new Error(
+      `Invalid multipart upload start response: presignedUploadParts length (${presignedUploadParts.length}) does not match blockChainUploadURLs length (${blockChainUploadURLs.length})`
+    );
+  }
+}
+
 async function deleteMultipartUpload(
   deps: PointCloudUploadDeps,
   params: { contractFileId: number; s3UploadId: string; blockChainUploadId: string }
@@ -241,6 +252,8 @@ export async function uploadPointCloudFileMultipart(
     blockChainUploadURLs,
   } = startData;
 
+  validateMultipartUploadStartResponse(presignedUploadParts, blockChainUploadURLs);
+
   if (params.onContractFileCreated !== undefined) {
     params.onContractFileCreated(contractFileId);
   }
@@ -258,7 +271,10 @@ export async function uploadPointCloudFileMultipart(
         });
         if (!s3Res.ok) throw new Error(`Upload failed: HTTP ${s3Res.status}`);
 
-        const etag = s3Res.headers.get("etag") ?? "";
+        const etag = s3Res.headers.get("etag");
+        if (etag === null || etag === "") {
+          throw new Error("Upload failed: missing ETag in S3 response");
+        }
         const blockChainUrl = blockChainUploadURLs[index];
         const formData = new FormData();
         formData.append("file", new Blob([chunk]));

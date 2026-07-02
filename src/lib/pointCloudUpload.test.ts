@@ -11,6 +11,7 @@ import {
   getBufferChunk,
   uploadPointCloudFile,
   uploadPointCloudFileMultipart,
+  validateMultipartUploadStartResponse,
 } from "./pointCloudUpload";
 
 const baseUrl = "https://example.com";
@@ -280,6 +281,15 @@ describe("点群ファイルのチャンク分割（partTotal とバッファ境
         { partNumber: 2, etag: '"etag-part-2"' },
       ]);
     });
+
+    it("presignedUploadParts と blockChainUploadURLs の件数が一致しないとき、Invalid multipart upload start response で失敗する", () => {
+      expect(() =>
+        validateMultipartUploadStartResponse(
+          [{ partNumber: 1, presignedURL: "https://storage.example.com/part/1" }],
+          []
+        )
+      ).toThrow("Invalid multipart upload start response");
+    });
   });
 });
 
@@ -391,6 +401,53 @@ describe("点群ファイルのチャンク分割アップロード手順（mult
           chunkSize: 100 * MB,
         })
       ).rejects.toThrow("HTTP 400");
+    });
+
+    it("開始 API の presignedUploadParts と blockChainUploadURLs の件数が一致しないとき、Invalid multipart upload start response で失敗する", async () => {
+      const startResponse = {
+        ...createMultipartStartResponse(2),
+        blockChainUploadURLs: ["https://blockchain.example.com/part/1"],
+      };
+      const { fetchImpl } = createFetchMock([
+        {
+          match: "/contractFile/pointCloud/multipartUpload",
+          response: { json: startResponse },
+        },
+      ]);
+
+      await expect(
+        uploadPointCloudFileMultipart(defaultDeps(fetchImpl), {
+          contractId: 1,
+          name: "sample.las",
+          buffer: new ArrayBuffer(150 * MB),
+          chunkSize: 100 * MB,
+        })
+      ).rejects.toThrow("Invalid multipart upload start response");
+    });
+
+    it("S3 パート PUT のレスポンスに ETag が無いとき、missing ETag で失敗する", async () => {
+      const partTotal = 1;
+      const startResponse = createMultipartStartResponse(partTotal);
+      const { fetchImpl } = createFetchMock([
+        {
+          match: "/contractFile/pointCloud/multipartUpload",
+          response: { json: startResponse },
+        },
+        { match: "storage.example.com/part", response: {} },
+        {
+          match: "/contractFile/pointCloud/deleteMultipartUpload",
+          response: {},
+        },
+      ]);
+
+      await expect(
+        uploadPointCloudFileMultipart(defaultDeps(fetchImpl), {
+          contractId: 1,
+          name: "sample.las",
+          buffer: new ArrayBuffer(50 * MB),
+          chunkSize: 100 * MB,
+        })
+      ).rejects.toThrow("Upload failed: missing ETag in S3 response");
     });
 
     it("S3 パート PUT がエラーのとき、Upload failed で失敗する", async () => {
