@@ -233,8 +233,13 @@ export async function uploadPointCloudFileMultipart(
   if (!startRes.ok) throw new Error(`HTTP ${startRes.status}`);
 
   const startData = (await startRes.json()) as MultipartUploadStartResponse;
-  const { contractFileId, s3UploadId, presignedUploadParts, blockChainUploadId, blockChainUploadURLs } =
-    startData;
+  const {
+    contractFileId,
+    s3UploadId,
+    presignedUploadParts,
+    blockChainUploadId,
+    blockChainUploadURLs,
+  } = startData;
 
   if (params.onContractFileCreated !== undefined) {
     params.onContractFileCreated(contractFileId);
@@ -285,7 +290,8 @@ export async function uploadPointCloudFileMultipart(
       completeUrl,
       buildCompleteMultipartApiFetchInit(completeRequest, getAuthHeaders())
     );
-    if (!completeRes.ok) throw new Error(`Complete multipart upload failed: HTTP ${completeRes.status}`);
+    if (!completeRes.ok)
+      throw new Error(`Complete multipart upload failed: HTTP ${completeRes.status}`);
 
     return { contractFileId };
   } catch (error) {
