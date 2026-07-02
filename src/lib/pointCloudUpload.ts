@@ -205,6 +205,7 @@ async function deleteMultipartUpload(
   const { getApiPath, fetchImpl, getAuthHeaders } = deps;
   const deleteUrl = getApiPath("/contractFile/pointCloud/deleteMultipartUpload");
   const deleteRequest = buildDeleteMultipartUploadRequest(params);
+  // best-effort: HTTP エラーでも reject せず、呼び出し元の本来エラーを優先する
   await fetchImpl(deleteUrl, buildDeleteMultipartApiFetchInit(deleteRequest, getAuthHeaders()));
 }
 
@@ -295,7 +296,11 @@ export async function uploadPointCloudFileMultipart(
 
     return { contractFileId };
   } catch (error) {
-    await deleteMultipartUpload(deps, { contractFileId, s3UploadId, blockChainUploadId });
+    try {
+      await deleteMultipartUpload(deps, { contractFileId, s3UploadId, blockChainUploadId });
+    } catch {
+      // クリーンアップ失敗は握りつぶし、本来のアップロードエラーを優先して投げる
+    }
     throw error;
   }
 }
