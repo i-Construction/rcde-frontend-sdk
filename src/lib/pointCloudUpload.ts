@@ -72,6 +72,254 @@ export type PointCloudUploadDeps = {
   getAuthHeaders: () => Record<string, string>;
 };
 
+export const DEFAULT_CHUNK_SIZE_BYTES = 100 * 1024 * 1024;
+
+export function calculatePartTotal(fileSize: number, chunkSize: number): number {
+  return Math.ceil(fileSize / chunkSize);
+}
+
+export function getBufferChunk(
+  buffer: ArrayBuffer,
+  partIndex: number,
+  chunkSize: number
+): ArrayBuffer {
+  const start = partIndex * chunkSize;
+  const end = Math.min(start + chunkSize, buffer.byteLength);
+  return buffer.slice(start, end);
+}
+
+export type PointCloudMultipartUploadRequest = PointCloudUploadRequest & {
+  partTotal: number;
+};
+
+export function buildPointCloudMultipartUploadRequest(params: {
+  contractId: number;
+  name: string;
+  buffer: ArrayBuffer;
+  chunkSize: number;
+  pointCloudAttribute?: Record<string, unknown>;
+}): PointCloudMultipartUploadRequest {
+  const { contractId, name, buffer, chunkSize, pointCloudAttribute } = params;
+  return {
+    ...buildPointCloudUploadRequest({ contractId, name, buffer, pointCloudAttribute }),
+    partTotal: calculatePartTotal(buffer.byteLength, chunkSize),
+  };
+}
+
+export type S3UploadPart = {
+  partNumber: number;
+  etag: string;
+};
+
+export function buildS3PartsFromUploadResults(
+  results: { partNumber: number; etag: string }[]
+): S3UploadPart[] {
+  return results.map(({ partNumber, etag }) => ({ partNumber, etag }));
+}
+
+export function buildCompleteMultipartUploadRequest(params: {
+  contractFileId: number;
+  s3UploadId: string;
+  s3Parts: S3UploadPart[];
+  blockChainUploadId: string;
+}): {
+  contractFileId: number;
+  s3UploadId: string;
+  s3Parts: S3UploadPart[];
+  blockChainUploadId: string;
+} {
+  return {
+    contractFileId: params.contractFileId,
+    s3UploadId: params.s3UploadId,
+    s3Parts: params.s3Parts,
+    blockChainUploadId: params.blockChainUploadId,
+  };
+}
+
+export function buildDeleteMultipartUploadRequest(params: {
+  contractFileId: number;
+  s3UploadId: string;
+  blockChainUploadId: string;
+}): {
+  contractFileId: number;
+  s3UploadId: string;
+  blockChainUploadId: string;
+} {
+  return {
+    contractFileId: params.contractFileId,
+    s3UploadId: params.s3UploadId,
+    blockChainUploadId: params.blockChainUploadId,
+  };
+}
+
+export function buildMultipartStartApiFetchInit(
+  uploadRequest: PointCloudMultipartUploadRequest,
+  headers: Record<string, string>
+): { method: "POST"; headers: Record<string, string>; body: string } {
+  return {
+    method: "POST",
+    headers,
+    body: JSON.stringify(uploadRequest),
+  };
+}
+
+export function buildCompleteMultipartApiFetchInit(
+  request: ReturnType<typeof buildCompleteMultipartUploadRequest>,
+  headers: Record<string, string>
+): { method: "PUT"; headers: Record<string, string>; body: string } {
+  return {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(request),
+  };
+}
+
+export function buildDeleteMultipartApiFetchInit(
+  request: ReturnType<typeof buildDeleteMultipartUploadRequest>,
+  headers: Record<string, string>
+): { method: "DELETE"; headers: Record<string, string>; body: string } {
+  return {
+    method: "DELETE",
+    headers,
+    body: JSON.stringify(request),
+  };
+}
+
+export type PointCloudMultipartUploadParams = PointCloudUploadParams & {
+  chunkSize?: number;
+  onUploadProgress?: (completedParts: number, totalParts: number) => void;
+};
+
+type MultipartUploadStartResponse = {
+  contractFileId: number;
+  s3UploadId: string;
+  presignedUploadParts: { partNumber: number; presignedURL: string }[];
+  blockChainUploadId: string;
+  blockChainUploadURLs: string[];
+};
+
+export function validateMultipartUploadStartResponse(
+  presignedUploadParts: MultipartUploadStartResponse["presignedUploadParts"],
+  blockChainUploadURLs: string[]
+): void {
+  if (presignedUploadParts.length !== blockChainUploadURLs.length) {
+    throw new Error(
+      `Invalid multipart upload start response: presignedUploadParts length (${presignedUploadParts.length}) does not match blockChainUploadURLs length (${blockChainUploadURLs.length})`
+    );
+  }
+}
+
+async function deleteMultipartUpload(
+  deps: PointCloudUploadDeps,
+  params: { contractFileId: number; s3UploadId: string; blockChainUploadId: string }
+): Promise<void> {
+  const { getApiPath, fetchImpl, getAuthHeaders } = deps;
+  const deleteUrl = getApiPath("/contractFile/pointCloud/deleteMultipartUpload");
+  const deleteRequest = buildDeleteMultipartUploadRequest(params);
+  // best-effort: HTTP エラーでも reject せず、呼び出し元の本来エラーを優先する
+  await fetchImpl(deleteUrl, buildDeleteMultipartApiFetchInit(deleteRequest, getAuthHeaders()));
+}
+
+export async function uploadPointCloudFileMultipart(
+  deps: PointCloudUploadDeps,
+  params: PointCloudMultipartUploadParams
+): Promise<{ contractFileId: number }> {
+  const { contractId, name, buffer, pointCloudAttribute, chunkSize, onUploadProgress } = params;
+  const { getApiPath, fetchImpl, getAuthHeaders } = deps;
+
+  const resolvedChunkSize = chunkSize ?? DEFAULT_CHUNK_SIZE_BYTES;
+
+  const startUrl = getApiPath("/contractFile/pointCloud/multipartUpload");
+  const uploadRequest = buildPointCloudMultipartUploadRequest({
+    contractId,
+    name,
+    buffer,
+    chunkSize: resolvedChunkSize,
+    pointCloudAttribute,
+  });
+  const startRes = await fetchImpl(
+    startUrl,
+    buildMultipartStartApiFetchInit(uploadRequest, getAuthHeaders())
+  );
+  if (!startRes.ok) throw new Error(`HTTP ${startRes.status}`);
+
+  const startData = (await startRes.json()) as MultipartUploadStartResponse;
+  const {
+    contractFileId,
+    s3UploadId,
+    presignedUploadParts,
+    blockChainUploadId,
+    blockChainUploadURLs,
+  } = startData;
+
+  validateMultipartUploadStartResponse(presignedUploadParts, blockChainUploadURLs);
+
+  if (params.onContractFileCreated !== undefined) {
+    params.onContractFileCreated(contractFileId);
+  }
+
+  let completedParts = 0;
+
+  try {
+    const uploadResults = await Promise.all(
+      presignedUploadParts.map(async (presignedUploadPart, index) => {
+        const chunk = getBufferChunk(buffer, index, resolvedChunkSize);
+
+        const s3Res = await fetchImpl(presignedUploadPart.presignedURL, {
+          method: "PUT",
+          body: chunk,
+        });
+        if (!s3Res.ok) throw new Error(`Upload failed: HTTP ${s3Res.status}`);
+
+        const etag = s3Res.headers.get("etag");
+        if (etag === null || etag === "") {
+          throw new Error("Upload failed: missing ETag in S3 response");
+        }
+        const blockChainUrl = blockChainUploadURLs[index];
+        const formData = new FormData();
+        formData.append("file", new Blob([chunk]));
+
+        const blockChainRes = await fetchImpl(blockChainUrl, {
+          method: "PUT",
+          body: formData,
+        });
+        if (!blockChainRes.ok) throw new Error(`Upload failed: HTTP ${blockChainRes.status}`);
+
+        completedParts += 1;
+        if (onUploadProgress !== undefined) {
+          onUploadProgress(completedParts, presignedUploadParts.length);
+        }
+
+        return { partNumber: presignedUploadPart.partNumber, etag };
+      })
+    );
+
+    const s3Parts = buildS3PartsFromUploadResults(uploadResults);
+    const completeUrl = getApiPath("/contractFile/pointCloud/completeMultipartUpload");
+    const completeRequest = buildCompleteMultipartUploadRequest({
+      contractFileId,
+      s3UploadId,
+      s3Parts,
+      blockChainUploadId,
+    });
+    const completeRes = await fetchImpl(
+      completeUrl,
+      buildCompleteMultipartApiFetchInit(completeRequest, getAuthHeaders())
+    );
+    if (!completeRes.ok)
+      throw new Error(`Complete multipart upload failed: HTTP ${completeRes.status}`);
+
+    return { contractFileId };
+  } catch (error) {
+    try {
+      await deleteMultipartUpload(deps, { contractFileId, s3UploadId, blockChainUploadId });
+    } catch {
+      // クリーンアップ失敗は握りつぶし、本来のアップロードエラーを優先して投げる
+    }
+    throw error;
+  }
+}
+
 export async function uploadPointCloudFile(
   deps: PointCloudUploadDeps,
   params: PointCloudUploadParams

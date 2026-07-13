@@ -1,5 +1,10 @@
 import type { AuthType } from "../types/rcdeApiTypes";
-import { uploadPointCloudFile, type PointCloudUploadParams } from "./pointCloudUpload";
+import {
+  uploadPointCloudFile,
+  uploadPointCloudFileMultipart,
+  type PointCloudMultipartUploadParams,
+  type PointCloudUploadParams,
+} from "./pointCloudUpload";
 
 export type { AuthType };
 
@@ -163,6 +168,20 @@ export class RCDEClient {
   // アップロード開始（点群アップロードAPIを使用）
   async uploadContractFile(params: PointCloudUploadParams): Promise<Json> {
     return uploadPointCloudFile(
+      {
+        getApiPath: (segment) => this.getApiPath(segment),
+        fetchImpl: this.fetchImpl,
+        getAuthHeaders: () => this.headers(),
+      },
+      params
+    );
+  }
+
+  // チャンク分割アップロード（点群マルチパートアップロードAPIを使用）
+  async uploadContractFileMultipart(
+    params: PointCloudMultipartUploadParams
+  ): Promise<{ contractFileId: number }> {
+    return uploadPointCloudFileMultipart(
       {
         getApiPath: (segment) => this.getApiPath(segment),
         fetchImpl: this.fetchImpl,
