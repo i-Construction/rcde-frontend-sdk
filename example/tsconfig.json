@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@i-con/frontend-sdk": ["../src/index.ts"],
+      "@i-con/frontend-sdk/*": ["../src/*"],
+      "@i-con/pcd-viewer": ["./node_modules/@i-con/pcd-viewer"],
+      "@i-con/pcd-viewer/*": ["./node_modules/@i-con/pcd-viewer/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "../src/types/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", "../node_modules"]
+}

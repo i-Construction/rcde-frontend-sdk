@@ -1,0 +1,154 @@
+"use client";
+
+import { RCDE, type PendingUploads, type RCDEAppConfig } from "@i-con/frontend-sdk";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import { Box, Button } from "@mui/material";
+import { useCallback, useState } from "react";
+
+import { FileUploadModal } from "@/components/FileUploadModal";
+import { ReferencePointBridgeHandler } from "@/components/ReferencePointBridgeHandler";
+import { ReferencePointDialog } from "@/components/ReferencePointDialog";
+import { ViewerBottomToolbar } from "@/components/ViewerBottomToolbar";
+import { ViewerHeader } from "@/components/ViewerHeader";
+
+/** SDK の ReferencePointView より上にツールバーを置くオフセット（px） */
+const VIEWER_TOOLBAR_BOTTOM_OFFSET = 48;
+
+type ViewerClientProps = {
+  token: string;
+  constructionId: number;
+  contractId: number;
+  constructionName?: string;
+  contractName?: string;
+};
+
+export function ViewerClient({
+  token,
+  constructionId,
+  contractId,
+  constructionName,
+  contractName,
+}: ViewerClientProps) {
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isReferencePointDialogOpen, setIsReferencePointDialogOpen] = useState(false);
+  const [pendingUploads, setPendingUploads] = useState<PendingUploads>({});
+  const [contractFilesRefetchKey, setContractFilesRefetchKey] = useState<number | undefined>(
+    undefined
+  );
+
+  const app: RCDEAppConfig = {
+    token,
+    // ブラウザから RCDE API への直接呼び出しは CORS で POST 等が失敗するためプロキシ経由
+    baseUrl: "/api/rcde",
+    authType: "2legged",
+  };
+
+  const handleUploadOpen = useCallback(() => {
+    setIsUploadOpen(true);
+  }, []);
+
+  const handleUploadClose = useCallback(() => {
+    setIsUploadOpen(false);
+  }, []);
+
+  const handleUploadStarted = useCallback(
+    ({ contractFileId, name }: { contractFileId: number; name: string }) => {
+      setPendingUploads((prev) => ({
+        ...prev,
+        [contractFileId]: { name },
+      }));
+    },
+    []
+  );
+
+  const handleUploadFinished = useCallback((contractFileId: number) => {
+    setPendingUploads((prev) => {
+      const next = { ...prev };
+      delete next[contractFileId];
+      return next;
+    });
+  }, []);
+
+  const handleUploaded = useCallback(() => {
+    setContractFilesRefetchKey((prev) => (prev === undefined ? 1 : prev + 1));
+    handleUploadClose();
+  }, [handleUploadClose]);
+
+  const handleReferencePointToolbarClick = useCallback(() => {
+    setIsReferencePointDialogOpen(true);
+  }, []);
+
+  const handleReferencePointDialogClose = useCallback(() => {
+    setIsReferencePointDialogOpen(false);
+  }, []);
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        width: "100vw",
+        height: "100vh",
+        overflow: "hidden",
+      }}
+    >
+      <ViewerHeader
+        accessToken={token}
+        constructionId={constructionId}
+        contractId={contractId}
+        constructionName={constructionName}
+        contractName={contractName}
+      />
+      <ReferencePointDialog
+        open={isReferencePointDialogOpen}
+        onClose={handleReferencePointDialogClose}
+      />
+      <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
+        <RCDE
+          app={app}
+          constructionId={constructionId}
+          contractId={contractId}
+          pendingUploads={pendingUploads}
+          contractFilesRefetchKey={contractFilesRefetchKey}
+          leftSiderHeaderActions={
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<UploadFileIcon />}
+              onClick={handleUploadOpen}
+            >
+              アップロード
+            </Button>
+          }
+          auxiliaryContent={
+            <FileUploadModal
+              contractId={contractId}
+              open={isUploadOpen}
+              onClose={handleUploadClose}
+              onUploaded={handleUploaded}
+              onUploadStarted={handleUploadStarted}
+              onUploadFinished={handleUploadFinished}
+            />
+          }
+        >
+          <ReferencePointBridgeHandler />
+        </RCDE>
+        <Box
+          sx={{
+            position: "absolute",
+            bottom: VIEWER_TOOLBAR_BOTTOM_OFFSET,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 10,
+            pointerEvents: "auto",
+          }}
+        >
+          <ViewerBottomToolbar
+            isReferencePointActive={isReferencePointDialogOpen}
+            onReferencePointClick={handleReferencePointToolbarClick}
+          />
+        </Box>
+      </Box>
+    </Box>
+  );
+}
