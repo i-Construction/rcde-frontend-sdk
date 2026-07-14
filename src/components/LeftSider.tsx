@@ -1,5 +1,5 @@
 import { Box, Typography } from "@mui/material";
-import { FC } from "react";
+import { FC, ReactNode } from "react";
 import { ContractFile } from "../contexts/contractFiles";
 import type { PendingUploads } from "../lib/contractFileStatus";
 import { ContractFileList } from "./right/ContractFileList";
@@ -8,11 +8,17 @@ export type LeftSiderProps = {
   onFileFocus: (file: ContractFile) => void;
   onFileDelete: (file: ContractFile) => void;
   pendingUploads: PendingUploads;
+  headerActions?: ReactNode;
 };
 
 const LEFT_SIDER_WIDTH = 320;
 
-const LeftSider: FC<LeftSiderProps> = ({ onFileFocus, onFileDelete, pendingUploads }) => {
+const LeftSider: FC<LeftSiderProps> = ({
+  onFileFocus,
+  onFileDelete,
+  pendingUploads,
+  headerActions,
+}) => {
   return (
     <Box
       sx={{
@@ -41,6 +47,7 @@ const LeftSider: FC<LeftSiderProps> = ({ onFileFocus, onFileDelete, pendingUploa
         <Typography variant="subtitle1" fontWeight={600}>
           ファイル
         </Typography>
+        {headerActions}
       </Box>
 
       <Box sx={{ flex: 1, overflow: "auto", px: 1, py: 1 }}>
