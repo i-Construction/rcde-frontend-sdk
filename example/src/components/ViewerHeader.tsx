@@ -82,8 +82,8 @@ export function ViewerHeader({
           headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (!res.ok) return [];
-        const data = await res.json();
-        return data.contracts ?? [];
+        const contractListResponse = await res.json();
+        return contractListResponse.contracts ?? [];
       } catch {
         return [];
       }
@@ -97,8 +97,8 @@ export function ViewerHeader({
       headers: { Authorization: `Bearer ${accessToken}` },
     })
       .then((res) => (res.ok ? res.json() : { constructions: [] }))
-      .then((data) => {
-        if (!cancelled) setConstructions(data.constructions ?? []);
+      .then((constructionListResponse) => {
+        if (!cancelled) setConstructions(constructionListResponse.constructions ?? []);
       })
       .catch(() => {
         if (!cancelled) setConstructions([]);

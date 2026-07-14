@@ -53,8 +53,8 @@ export function ConstructionSelector({ accessToken }: Props) {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (res.ok) {
-        const data = await res.json();
-        setConstructions(data.constructions ?? []);
+        const constructionListResponse = await res.json();
+        setConstructions(constructionListResponse.constructions ?? []);
       }
     } catch {
       setError("現場一覧の取得に失敗しました");
@@ -73,8 +73,8 @@ export function ConstructionSelector({ accessToken }: Props) {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (res.ok) {
-        const data = await res.json();
-        setContracts(data.contracts ?? []);
+        const contractListResponse = await res.json();
+        setContracts(contractListResponse.contracts ?? []);
       } else {
         setError("契約一覧の取得に失敗しました");
       }
@@ -108,12 +108,12 @@ export function ConstructionSelector({ accessToken }: Props) {
     setSetupSuccess("");
     try {
       const res = await fetch("/api/setup", { method: "POST" });
-      const data = await res.json();
+      const setupResponse = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "テストデータの作成に失敗しました");
+        setError(setupResponse.error ?? "テストデータの作成に失敗しました");
         return;
       }
-      setSetupSuccess(data.message ?? "テストデータを作成しました");
+      setSetupSuccess(setupResponse.message ?? "テストデータを作成しました");
       await fetchConstructions();
     } catch {
       setError("テストデータの作成に失敗しました");
