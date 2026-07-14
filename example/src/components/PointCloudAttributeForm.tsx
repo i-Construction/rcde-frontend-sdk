@@ -74,15 +74,15 @@ const PointCloudAttributeForm = ({ value, onChange }: PointCloudAttributeFormPro
       >
         施工現場情報
       </FormLabel>
-      {formItems.map((item) => {
+      {formItems.map((formItem) => {
         return (
           <TextField
-            key={`point-cloud-attribute-${item.key}`}
-            id={`point-cloud-attribute-${item.key}`}
+            key={`point-cloud-attribute-${formItem.key}`}
+            id={`point-cloud-attribute-${formItem.key}`}
             size="small"
-            label={item.label}
-            value={value?.[item.key] ?? ""}
-            onChange={(event) => handleChange(event, item.key)}
+            label={formItem.label}
+            value={value?.[formItem.key] ?? ""}
+            onChange={(event) => handleChange(event, formItem.key)}
             sx={{
               marginBottom: 1,
             }}
