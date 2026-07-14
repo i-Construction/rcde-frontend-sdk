@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getStoredToken } from "@/lib/auth-store";
-import { create2LeggedClient } from "@/lib/rcde-server";
+import { create2LeggedClient, resolveAccessToken } from "@/lib/rcde-server";
 import { ConstructionSelector } from "@/components/ConstructionSelector";
 import { ViewerClientLoader } from "./ViewerClientLoader";
 
@@ -13,7 +13,8 @@ type SearchParams = {
 
 /**
  * URLに名前が含まれない場合（手動IDまたはブックマーク経由）は
- * 2-legged APIで現場・契約名をサーバーサイドで取得する
+ * 2-legged APIで現場・契約名をサーバーサイドで取得する。
+ * Cookie の保存済みトークンを再利用し（`resolveAccessToken`）、都度 authenticate はしない。
  */
 async function resolveNames(
   constructionId: number,
@@ -30,8 +31,12 @@ async function resolveNames(
   }
 
   try {
+    const accessToken = await resolveAccessToken();
+    if (!accessToken) {
+      throw new Error("Unauthorized");
+    }
     const client = create2LeggedClient();
-    await client.authenticate();
+    client.setAccessToken(accessToken);
 
     const [constructionRes, contractRes] = await Promise.all([
       constructionNameFromUrl

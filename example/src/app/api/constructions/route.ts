@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { create2LeggedClient } from "@/lib/rcde-server";
-import { getStoredToken } from "@/lib/auth-store";
+import { extractBearerToken } from "@/lib/request-auth";
 
 /**
  * GET /api/constructions - 現場一覧・契約一覧プロキシ
  * ?constructionId=123 を付けると、そのconstruction配下の契約一覧を返す
+ *
+ * standalone 型: クライアントが送る Authorization: Bearer をそのまま使って RCDE API を呼ぶ。
  */
 export async function GET(request: NextRequest) {
-  const token = await getStoredToken();
-  if (!token) {
+  const accessToken = extractBearerToken(request);
+  if (!accessToken) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const client = create2LeggedClient();
-    await client.authenticate();
+    client.setAccessToken(accessToken);
 
     if (constructionId) {
       const result = await client.getContractList({

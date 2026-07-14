@@ -51,6 +51,13 @@ export class RcdeClient2Legged {
     this.token = token;
   }
 
+  /**
+   * standalone 型のクライアントが渡す accessToken のみを設定する（refreshToken は未使用）。
+   */
+  public setAccessToken(accessToken: string): void {
+    this.token = { accessToken, refreshToken: "", expiresAt: 0 };
+  }
+
   public async authenticate(): Promise<void> {
     const res = await fetch(`${this.baseUrl}/ext/v2/auth/token`, {
       method: "POST",

@@ -1,24 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveAccessToken } from "@/lib/rcde-server";
+import { extractBearerToken } from "@/lib/request-auth";
 
 const RCDE_API_BASE_URL = process.env.RCDE_API_BASE_URL ?? "https://api.rcde.jp";
 
 /**
  * ブラウザ → RCDE API の CORS 回避用プロキシ。
- * SDK の RCDEClient が baseUrl="/api/rcde" で呼び出す。
+ * SDK の RCDEClient が baseUrl="/api/rcde" で呼び出し、`app.token` から組み立てた
+ * Authorization: Bearer をそのまま upstream へ転送する（standalone 型）。
  */
 export async function proxyToRcdeApi(
   request: NextRequest,
   pathSegments: string[]
 ): Promise<NextResponse> {
-  let accessToken: string | undefined;
-  try {
-    accessToken = await resolveAccessToken();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Authentication failed";
-    return NextResponse.json({ error: message }, { status: 401 });
-  }
-
+  const accessToken = extractBearerToken(request);
   if (!accessToken) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
