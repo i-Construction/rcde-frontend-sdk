@@ -1,5 +1,5 @@
 import { Add } from "@mui/icons-material";
-import { Box, Button, FormControl, FormHelperText, FormLabel, Typography } from "@mui/material";
+import { Box, Button, FormControl, FormLabel, Typography } from "@mui/material";
 import { useClient, type RCDEClient } from "@i-con/frontend-sdk";
 import React, { FC, useCallback, useMemo, useRef, useState } from "react";
 import { ModalBox, ModalBoxProps } from "./ModalBox";
@@ -19,7 +19,6 @@ const FileUploadModal: FC<FileUploadModalProps> = (props) => {
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string>("");
   const [pointCloudAttribute, setPointCloudAttribute] = useState<PointCloudAttribute>({});
 
   const accept = useMemo(() => {
@@ -28,14 +27,8 @@ const FileUploadModal: FC<FileUploadModalProps> = (props) => {
 
   const handleChangeFile = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const { files: fileList } = event.target;
-    if (fileList !== null) {
-      const inputFiles = Array.from(fileList);
-      if (inputFiles.length > 10) {
-        setErrorMessage("アップロードできるファイル数は10個までです");
-        return;
-      }
-      setErrorMessage("");
-      setFile(inputFiles[0]);
+    if (fileList !== null && fileList.length > 0) {
+      setFile(fileList[0]);
     }
   }, []);
 
@@ -144,7 +137,6 @@ const FileUploadModal: FC<FileUploadModalProps> = (props) => {
                 style={{ display: "none" }}
                 ref={fileInput}
               />
-              <FormHelperText error>{errorMessage}</FormHelperText>
             </FormControl>
             {file !== null && (
               <Box width={1}>
