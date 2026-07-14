@@ -293,8 +293,6 @@ const App = () => {
 
 カスタムオブジェクトを基準点オフセットの変化に追従させたい場合は、軸ギズモとは別に `<group position={point}>` でラップしてください（上記 Example 参照）。
 
-同梱の [example/](example/README.md) でデモパネル付きの動作確認ができます。
-
 ---
 
 ## Three.js／R3F統合に関する注意
