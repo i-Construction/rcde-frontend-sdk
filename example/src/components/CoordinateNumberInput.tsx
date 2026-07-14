@@ -3,7 +3,7 @@
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { Box, IconButton, TextField } from "@mui/material";
-import { ChangeEvent, KeyboardEvent, useCallback, useEffect, useState } from "react";
+import { ChangeEvent, KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 
 const REPEAT_INTERVAL_MS = 100;
 const REPEAT_DELAY_MS = 300;
@@ -25,10 +25,17 @@ export function CoordinateNumberInput({
   onDecrement,
 }: CoordinateNumberInputProps) {
   const [inputValue, setInputValue] = useState(String(value));
+  const stopRepeatRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     setInputValue(String(value));
   }, [value]);
+
+  useEffect(() => {
+    return () => {
+      stopRepeatRef.current?.();
+    };
+  }, []);
 
   const commitValue = useCallback(() => {
     const parsed = Number.parseFloat(inputValue);
@@ -67,7 +74,13 @@ export function CoordinateNumberInput({
         intervalId = null;
       }
       document.removeEventListener("mouseup", stop);
+      if (stopRepeatRef.current === stop) {
+        stopRepeatRef.current = null;
+      }
     };
+
+    stopRepeatRef.current?.();
+    stopRepeatRef.current = stop;
 
     callback();
     timeoutId = setTimeout(() => {
