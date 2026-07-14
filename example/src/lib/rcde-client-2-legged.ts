@@ -44,6 +44,13 @@ export class RcdeClient2Legged {
     return { ...this.token };
   }
 
+  /**
+   * 保存済みトークン（Cookie 等）を読み込ませ、authenticate を省略して再利用する。
+   */
+  public setToken(token: RcdeToken): void {
+    this.token = token;
+  }
+
   public async authenticate(): Promise<void> {
     const res = await fetch(`${this.baseUrl}/ext/v2/auth/token`, {
       method: "POST",
