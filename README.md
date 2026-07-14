@@ -274,6 +274,25 @@ const App = () => {
 };
 ```
 
+### ReferencePointAxis（基準点軸ギズモ）
+
+基準点は点群座標に `point` オフセットを加算した結果、**シフト後のワールド原点 (0, 0, 0)** に固定されます。
+`ReferencePointAxis` はこの基準点位置に X/Y/Z 軸矢印を表示するコンポーネントです。
+
+`Viewer` ではデフォルトで原点に軸が表示されます。SDK 利用者が追加実装なしで基準点軸を使えることを想定した挙動です。
+
+独自に `ReferencePointAxis` を描画している既存アプリでは、二重表示を避けるため `r3f.referencePointAxis` を `false` に指定してください。
+
+```typescript
+<Viewer r3f={{ referencePointAxis: false }} ... />
+```
+
+`ReferencePointAxis` を単体で使う場合は `Viewer` の子要素として配置できます。
+
+`ReferencePointAxis` は常にワールド原点に描画されます。`point` prop を渡しても位置は変わりません（後方互換のため prop 自体は残しています）。
+
+カスタムオブジェクトを基準点オフセットの変化に追従させたい場合は、軸ギズモとは別に `<group position={point}>` でラップしてください（上記 Example 参照）。
+
 ---
 
 ## Three.js／R3F統合に関する注意

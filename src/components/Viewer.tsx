@@ -22,6 +22,7 @@ import { useContractFilesPolling } from "../hooks/useContractFilesPolling";
 import { isPclodCompleted, type PendingUploads } from "../lib/contractFileStatus";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { LeftSider } from "./LeftSider";
+import { ReferencePointAxis } from "./ReferencePointAxis";
 import { ReferencePointView } from "./ReferencePointView";
 import { RightSider } from "./right/RightSider";
 
@@ -59,6 +60,7 @@ type R3FProps = {
   light?: boolean;
   grid?: boolean;
   gizmo?: boolean;
+  referencePointAxis?: boolean;
 };
 
 export type RCDEAppConfig = {
@@ -521,6 +523,9 @@ const Viewer: FC<ViewerProps> = (props) => {
                 />
               );
             })}
+            {r3f?.referencePointAxis !== false && (
+              <ReferencePointAxis length={10} width={0.2} visible />
+            )}
             <group position={point}>{positionOffsetComponent}</group>
             <group>{children}</group>
             {onContractFileClick && (
