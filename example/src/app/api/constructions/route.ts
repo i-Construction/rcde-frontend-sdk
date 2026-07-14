@@ -21,14 +21,14 @@ export async function GET(request: NextRequest) {
     client.setAccessToken(accessToken);
 
     if (constructionId) {
-      const result = await client.getContractList({
+      const contractListResult = await client.getContractList({
         constructionId: Number(constructionId),
       });
-      return NextResponse.json({ contracts: result.contracts ?? [] });
+      return NextResponse.json({ contracts: contractListResult.contracts ?? [] });
     }
 
-    const result = await client.getConstructionList();
-    return NextResponse.json({ constructions: result.constructions ?? [] });
+    const constructionListResult = await client.getConstructionList();
+    return NextResponse.json({ constructions: constructionListResult.constructions ?? [] });
   } catch (error) {
     if (error instanceof Error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
