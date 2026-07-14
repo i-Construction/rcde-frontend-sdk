@@ -67,8 +67,8 @@ export class RcdeClient2Legged {
         clientSecret: this.clientSecret,
       }),
     });
-    const data = await readJsonResponse<RcdeToken>(res);
-    this.token = data;
+    const token = await readJsonResponse<RcdeToken>(res);
+    this.token = token;
   }
 
   public async refreshToken(): Promise<void> {
@@ -96,7 +96,7 @@ export class RcdeClient2Legged {
     return readJsonResponse<{ constructions: ConstructionResponse[] }>(res);
   }
 
-  public async createConstruction(data: {
+  public async createConstruction(construction: {
     name: string;
     address?: string;
     contractedAt: Date;
@@ -108,9 +108,9 @@ export class RcdeClient2Legged {
       method: "POST",
       headers: this.authHeaders,
       body: JSON.stringify({
-        ...data,
-        contractedAt: data.contractedAt.toISOString(),
-        period: data.period.toISOString(),
+        ...construction,
+        contractedAt: construction.contractedAt.toISOString(),
+        period: construction.period.toISOString(),
       }),
     });
     return readJsonResponse<ConstructionResponse>(res);
@@ -135,7 +135,7 @@ export class RcdeClient2Legged {
     return readJsonResponse<{ contracts: ContractResponse[] }>(res);
   }
 
-  public async createContract(data: {
+  public async createContract(contract: {
     constructionId: number;
     name: string;
     contractedAt: Date;
@@ -146,8 +146,8 @@ export class RcdeClient2Legged {
       method: "POST",
       headers: this.authHeaders,
       body: JSON.stringify({
-        ...data,
-        contractedAt: data.contractedAt.toISOString(),
+        ...contract,
+        contractedAt: contract.contractedAt.toISOString(),
       }),
     });
     return readJsonResponse<ContractResponse>(res);
