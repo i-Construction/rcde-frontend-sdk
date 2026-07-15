@@ -6,7 +6,6 @@ import { Box, Button } from "@mui/material";
 import { useCallback, useMemo, useState } from "react";
 
 import { FileUploadModal } from "@/components/FileUploadModal";
-import { ReferencePointBridgeHandler } from "@/components/ReferencePointBridgeHandler";
 import { ReferencePointDialog } from "@/components/ReferencePointDialog";
 import { ViewerBottomToolbar } from "@/components/ViewerBottomToolbar";
 import { ViewerHeader } from "@/components/ViewerHeader";
@@ -106,10 +105,6 @@ export function ViewerClient({
         constructionName={constructionName}
         contractName={contractName}
       />
-      <ReferencePointDialog
-        open={isReferencePointDialogOpen}
-        onClose={handleReferencePointDialogClose}
-      />
       <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
         <RCDE
           app={app}
@@ -130,18 +125,22 @@ export function ViewerClient({
             </Button>
           }
           auxiliaryContent={
-            <FileUploadModal
-              contractId={contractId}
-              open={isUploadOpen}
-              onClose={handleUploadClose}
-              onUploaded={handleUploaded}
-              onUploadStarted={handleUploadStarted}
-              onUploadFinished={handleUploadFinished}
-            />
+            <>
+              <FileUploadModal
+                contractId={contractId}
+                open={isUploadOpen}
+                onClose={handleUploadClose}
+                onUploaded={handleUploaded}
+                onUploadStarted={handleUploadStarted}
+                onUploadFinished={handleUploadFinished}
+              />
+              <ReferencePointDialog
+                open={isReferencePointDialogOpen}
+                onClose={handleReferencePointDialogClose}
+              />
+            </>
           }
-        >
-          <ReferencePointBridgeHandler />
-        </RCDE>
+        />
         <Box
           sx={{
             position: "absolute",

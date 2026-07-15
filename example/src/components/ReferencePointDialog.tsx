@@ -1,5 +1,6 @@
 "use client";
 
+import { useReferencePoint } from "@i-con/frontend-sdk";
 import {
   Box,
   Button,
@@ -13,7 +14,12 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import { CoordinateNumberInput } from "@/components/CoordinateNumberInput";
-import { referencePointBridge, type ReferencePointCoordinates } from "@/lib/reference-point-bridge";
+
+type ReferencePointCoordinates = {
+  x: number;
+  y: number;
+  z: number;
+};
 
 type ReferencePointDialogProps = {
   open: boolean;
@@ -56,7 +62,11 @@ function CoordinateRow({
   );
 }
 
+/**
+ * RCDE の auxiliaryContent など ReferencePointProvider 配下に置くこと。
+ */
 export function ReferencePointDialog({ open, onClose }: ReferencePointDialogProps) {
+  const { point, change } = useReferencePoint();
   const [coordinates, setCoordinates] = useState<ReferencePointCoordinates>({
     x: 0,
     y: 0,
@@ -67,8 +77,8 @@ export function ReferencePointDialog({ open, onClose }: ReferencePointDialogProp
     if (!open) {
       return;
     }
-    setCoordinates(referencePointBridge.getCurrentPoint());
-  }, [open]);
+    setCoordinates({ x: point.x, y: point.y, z: point.z });
+  }, [open, point]);
 
   const handleAxisChange = useCallback((axis: AxisKey, value: number) => {
     setCoordinates((prev) => ({ ...prev, [axis]: value }));
@@ -82,9 +92,11 @@ export function ReferencePointDialog({ open, onClose }: ReferencePointDialogProp
     if (!isValidCoordinates(coordinates)) {
       return;
     }
-    referencePointBridge.apply(coordinates);
+    const next = point.clone();
+    next.set(coordinates.x, coordinates.y, coordinates.z);
+    change(next);
     onClose();
-  }, [coordinates, onClose]);
+  }, [change, coordinates, onClose, point]);
 
   const isValid = isValidCoordinates(coordinates);
 
