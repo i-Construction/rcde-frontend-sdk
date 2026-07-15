@@ -9,7 +9,7 @@
 - Node.js **24.x**（リポジトリルートの Volta 設定: 24.18.0）
 - Docker / DB 不要
 
-## クイックスタート
+## 設定手順
 
 ### 1. RCDE 側の準備
 
@@ -106,36 +106,6 @@ X/Y/Z を入力して「保存」で `useReferencePoint().change()` が呼ばれ
 | `RCDE_CLIENT_SECRET`            | OAuth Client Secret（サーバー側） |
 | `RCDE_API_BASE_URL`             | RCDE API ベース URL（サーバー側） |
 | `NEXT_PUBLIC_RCDE_API_BASE_URL` | ブラウザ向け API URL              |
-
-## トラブルシューティング
-
-| 症状                                    | 対処                                                                           |
-| --------------------------------------- | ------------------------------------------------------------------------------ |
-| `Module not found: @i-con/frontend-sdk` | ルートで `yarn build` を実行する                                               |
-| 認証エラー                              | `.env` の Client ID / Secret を確認する                                        |
-| ビューアが真っ白                        | 現場・契約 ID が存在するか確認する                                             |
-| peer dependency エラー                  | Node 24.x であることを確認し、`yarn install` を再実行する                      |
-| `ENOSPC` / `yarn install` が異常に長い  | 下記「ディスク不足・再帰インストール」を参照                                   |
-| `camera-controls` の engine エラー      | Node 24.x を使用する（Volta 推奨）。一時的には `yarn install --ignore-engines` |
-
-### ディスク不足・再帰インストール
-
-`file:../` だと SDK 全体が Yarn キャッシュへコピーされ、`example/node_modules` 内に再帰的な `@i-con/frontend-sdk` が生成されてディスクを枯渇することがあります。
-本リポジトリでは `link:../`（シンボリックリンク）を使用しています。
-
-再発時は次を実行してください。
-
-```bash
-# 1. 再帰的に膨らんだ node_modules を削除
-rm -rf /Users/shota-hashimoto/rcde-frontend-sdk/example/node_modules
-
-# 2. 古い Yarn キャッシュを削除（数 GB 解放されることが多い）
-yarn cache clean
-
-# 3. 再インストール
-cd /Users/shota-hashimoto/rcde-frontend-sdk/example
-yarn install
-```
 
 ## 補足
 
