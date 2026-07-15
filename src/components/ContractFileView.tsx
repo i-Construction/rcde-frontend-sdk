@@ -75,15 +75,31 @@ const ContractFileView = ({
   const [hasIntensity, setHasIntensity] = useState(false);
   const groupRef = useRef<Group>(null);
 
+  // 基準点変更時に parser の参照が変わり PointCloudGrid 側の読み込み処理が
+  // 再実行されても、同一ファイル・同一LODタイルであれば取得済みのPNGバッファを
+  // 再利用してネットワーク再取得を避けるためのキャッシュ。
+  // file / meta が変わった場合のみキャッシュを作り直す。
+  const pngBufferCache = useMemo(
+    () => new Map<string, Promise<PngBuffer>>(),
+    [file.id, meta?.version]
+  );
+
   const loader: PointCloudLODLoader<PngBuffer> = useCallback(
     (props) => {
       const { address, color } = props;
       const { lod, coordinate } = address;
+      const addr = `${coordinate.x}-${coordinate.y}-${coordinate.z}`;
+      const cacheKey = `${lod}-${addr}-${color ? "color" : "position"}`;
+
+      const cached = pngBufferCache.get(cacheKey);
+      if (cached !== undefined) {
+        return cached;
+      }
+
       // Construct the URL of the PNG file from the address
       // eslint-disable-next-line no-async-promise-executor
-      return new Promise(async (resolve, reject) => {
+      const promise = new Promise<PngBuffer>(async (resolve, reject) => {
         const png = new PNG();
-        const addr = `${coordinate.x}-${coordinate.y}-${coordinate.z}`;
         const props = {
           contractId: project!.contractId!,
           contractFileId: file.id!,
@@ -120,8 +136,14 @@ const ContractFileView = ({
           }
         });
       });
+
+      pngBufferCache.set(cacheKey, promise);
+      promise.catch(() => {
+        pngBufferCache.delete(cacheKey);
+      });
+      return promise;
     },
-    [client, project, file]
+    [client, project, file, pngBufferCache]
   );
 
   useEffect(() => {
