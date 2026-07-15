@@ -1,22 +1,26 @@
 import { NextResponse } from "next/server";
-import { create2LeggedClient } from "@/lib/rcde-server";
-import { getStoredToken } from "@/lib/auth-store";
+import { create2LeggedClient, resolveAccessToken } from "@/lib/rcde-server";
 
 /**
  * POST /api/setup
  * 2-legged API でテスト用の現場と契約を自動作成する。
  * バックエンド側で受注者はダミーユーザーが自動設定され、承認も自動で完了するため、
  * 2つ目のアカウントや手動承認は不要。
+ *
+ * `resolveAccessToken` で Cookie の保存済みトークンを再利用・必要なら更新し、
+ * 更新結果を Cookie に反映する。素の `client.authenticate()` を都度呼ぶと
+ * 新規トークンが Cookie に保存されず、以降の一覧取得・viewer 入場が
+ * 古いトークンのまま失敗する不整合が起きるため避ける。
  */
 export async function POST() {
-  const token = await getStoredToken();
-  if (!token) {
+  const accessToken = await resolveAccessToken();
+  if (!accessToken) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const client = create2LeggedClient();
-    await client.authenticate();
+    client.setAccessToken(accessToken);
 
     const now = new Date();
     const oneYearLater = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
