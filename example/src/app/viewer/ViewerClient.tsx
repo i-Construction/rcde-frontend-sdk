@@ -3,7 +3,7 @@
 import { RCDE, type PendingUploads, type RCDEAppConfig } from "@i-con/frontend-sdk";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import { Box, Button } from "@mui/material";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { FileUploadModal } from "@/components/FileUploadModal";
 import { ReferencePointBridgeHandler } from "@/components/ReferencePointBridgeHandler";
@@ -36,12 +36,19 @@ export function ViewerClient({
     undefined
   );
 
-  const app: RCDEAppConfig = {
-    token,
-    // ブラウザから RCDE API への直接呼び出しは CORS で POST 等が失敗するためプロキシ経由
-    baseUrl: "/api/rcde",
-    authType: "2legged",
-  };
+  // 基準点ダイアログの開閉などで ViewerClient が再レンダーされても、
+  // token が変わらない限り app オブジェクトの参照を保つ。
+  // 参照が変わるたびに Viewer 側で RCDEClient が再生成され、
+  // ファイル一覧が再取得されて表示状態がリセットされてしまうため。
+  const app: RCDEAppConfig = useMemo(
+    () => ({
+      token,
+      // ブラウザから RCDE API への直接呼び出しは CORS で POST 等が失敗するためプロキシ経由
+      baseUrl: "/api/rcde",
+      authType: "2legged",
+    }),
+    [token]
+  );
 
   const handleUploadOpen = useCallback(() => {
     setIsUploadOpen(true);
