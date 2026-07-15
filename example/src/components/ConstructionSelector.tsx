@@ -48,14 +48,17 @@ export function ConstructionSelector({ accessToken }: Props) {
 
   const fetchConstructions = async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/constructions", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (res.ok) {
-        const constructionListResponse = await res.json();
-        setConstructions(constructionListResponse.constructions ?? []);
+      const constructionListResponse = await res.json();
+      if (!res.ok) {
+        setError(constructionListResponse.error ?? "現場一覧の取得に失敗しました");
+        return;
       }
+      setConstructions(constructionListResponse.constructions ?? []);
     } catch {
       setError("現場一覧の取得に失敗しました");
     } finally {
