@@ -78,7 +78,11 @@ const ContractFileView = ({
   // 基準点変更時に parser の参照が変わり PointCloudGrid 側の読み込み処理が
   // 再実行されても、同一ファイル・同一LODタイルであれば取得済みのPNGバッファを
   // 再利用してネットワーク再取得を避けるためのキャッシュ。
-  const pngBufferCache = useMemo(() => new Map<string, Promise<PngBuffer>>(), [file.id, meta?.version]);
+  // file / meta が変わった場合のみキャッシュを作り直す。
+  const pngBufferCache = useMemo(
+    () => new Map<string, Promise<PngBuffer>>(),
+    [file.id, meta?.version]
+  );
 
   const loader: PointCloudLODLoader<PngBuffer> = useCallback(
     (props) => {
