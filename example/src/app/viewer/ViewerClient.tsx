@@ -108,6 +108,8 @@ export function ViewerClient({
           app={app}
           constructionId={constructionId}
           contractId={contractId}
+          // デフォルトで全点群ファイルを非表示にする（空配列 = 表示対象なし）
+          contractFileIds={[]}
           pendingUploads={pendingUploads}
           contractFilesRefetchKey={contractFilesRefetchKey}
           leftSiderHeaderActions={
