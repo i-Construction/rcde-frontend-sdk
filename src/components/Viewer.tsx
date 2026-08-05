@@ -21,10 +21,8 @@ import { useReferencePoint } from "../contexts/referencePoint";
 import { useContractFilesPolling } from "../hooks/useContractFilesPolling";
 import { isPclodCompleted, type PendingUploads } from "../lib/contractFileStatus";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
-import { LeftSider } from "./LeftSider";
 import { ReferencePointAxis } from "./ReferencePointAxis";
 import { ReferencePointView } from "./ReferencePointView";
-import { RightSider } from "./right/RightSider";
 
 type UpAxis = "Y" | "Z";
 
@@ -78,9 +76,6 @@ export type ViewerProps = {
   children?: ReactNode;
   positionOffsetComponent?: ReactNode;
   auxiliaryContent?: ReactNode;
-  showLeftSider?: boolean;
-  showRightSider?: boolean;
-  leftSiderHeaderActions?: ReactNode;
   pendingUploads?: PendingUploads;
   contractFilesRefetchKey?: number;
   selectedFileId?: number;
@@ -184,16 +179,13 @@ const Viewer: FC<ViewerProps> = (props) => {
     children,
     positionOffsetComponent,
     auxiliaryContent,
-    showLeftSider = true,
-    showRightSider = false,
-    leftSiderHeaderActions,
     pendingUploads: pendingUploadsProp,
     contractFilesRefetchKey,
     selectedFileId,
     onContractFileClick,
   } = props;
   const { initialize, client, project, setProject } = useClient();
-  const { point, change: changeReferencePoint } = useReferencePoint();
+  const { point } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
   const pendingUploads = pendingUploadsProp ?? {};
 
@@ -343,20 +335,6 @@ const Viewer: FC<ViewerProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadataFetchKey, project, client]);
 
-  const handleFileFocus = useCallback(
-    (file: ContractFile) => {
-      const view = views.find((v) => v.file.id === file.id);
-      if (!view) return;
-      const center = view.boundingBox.getCenter(new Vector3());
-      changeReferencePoint(center.negate());
-    },
-    [views, changeReferencePoint]
-  );
-
-  const handleFileDelete = useCallback((file: ContractFile) => {
-    console.log(file);
-  }, []);
-
   const applyAppearanceToScene = useCallback(
     (root: Group | null, ps: number, opPercent: number) => {
       if (!root) return;
@@ -470,14 +448,6 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   return (
     <Box width={1} height={1} display="flex">
-      {showLeftSider && (
-        <LeftSider
-          onFileFocus={handleFileFocus}
-          onFileDelete={handleFileDelete}
-          pendingUploads={pendingUploads}
-          headerActions={leftSiderHeaderActions}
-        />
-      )}
       <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
         <Canvas camera={camera} {...r3f?.canvas}>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -552,13 +522,6 @@ const Viewer: FC<ViewerProps> = (props) => {
           <ReferencePointView point={point} />
         </Box>
       </Box>
-      {showRightSider && (
-        <RightSider
-          onFileFocus={handleFileFocus}
-          onFileDelete={handleFileDelete}
-          pendingUploads={pendingUploads}
-        />
-      )}
       {auxiliaryContent}
     </Box>
   );

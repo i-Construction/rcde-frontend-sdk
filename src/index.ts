@@ -1,7 +1,22 @@
 export * from "./components/RCDE";
 export * from "./bridge/viewerBridge";
 export { RCDEClient, type AuthType, type RCDEClientOptions } from "./lib/rcde-client";
-export type { PendingUploads } from "./lib/contractFileStatus";
+export {
+  deriveFileStatusLabels,
+  isPclodCompleted,
+  isFileStatusActive,
+  needsPolling,
+  type PendingUploads,
+  type PendingUpload,
+  type FileStatusLabels,
+  type UploadStatusLabel,
+  type PclodStatusLabel,
+} from "./lib/contractFileStatus";
+export {
+  useContractFileActions,
+  type ContractFileActions,
+  type ContractFileRow,
+} from "./hooks/useContractFileActions";
 export { Viewer, type RCDEAppConfig, type ViewerProps } from "./components/Viewer";
 export { ReferencePointProvider, useReferencePoint } from "./contexts/referencePoint";
 export { ClientProvider, useClient, type ClientContextType } from "./contexts/client";
