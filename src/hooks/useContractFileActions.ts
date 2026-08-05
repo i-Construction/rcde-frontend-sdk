@@ -19,12 +19,21 @@ export type ContractFileActions = {
   rows: ContractFileRow[];
   /** 表示/非表示を切り替える */
   toggleVisibility: (container: ContractFileContainer) => void;
-  /** 指定ファイルのバウンディングボックス中心へ基準点を移動してフォーカスする */
-  focusFile: (file: ContractFile) => Promise<void>;
-  /** ダウンロード用の署名付きURLを取得して別タブで開く */
-  downloadFile: (file: ContractFile) => Promise<void>;
-  /** アップロード/PCLOD のステータスラベルを導出する */
-  getFileStatus: (file: ContractFile, isPendingUpload: boolean) => FileStatusLabels;
+  /**
+   * 指定ファイルのバウンディングボックス中心へ基準点を移動してフォーカスする。
+   * 成功した場合は `true`、対象なし・未完了・失敗時は `false` を返す。
+   */
+  focusFile: (file: ContractFile) => Promise<boolean>;
+  /**
+   * ダウンロード用の署名付きURLを取得して別タブで開く。
+   * 別タブを開いた場合は `true`、URL 取得失敗・無効 URL・前提不足時は `false` を返す。
+   */
+  downloadFile: (file: ContractFile) => Promise<boolean>;
+  /**
+   * アップロード/PCLOD のステータスラベルを導出する。
+   * アップロード中判定はフックが保持する `pendingUploads` から内部で行う。
+   */
+  getFileStatus: (file: ContractFile) => FileStatusLabels;
   /** PCLOD 処理が完了しているか */
   isPclodCompleted: (file: ContractFile) => boolean;
 };
@@ -75,37 +84,43 @@ export const useContractFileActions = (
   }, [containers, pendingUploads]);
 
   const focusFile = useCallback(
-    async (file: ContractFile) => {
+    async (file: ContractFile): Promise<boolean> => {
       // 呼び出し側の誤用（file / id 未指定）に備えた防御的ガード。downloadFile と同じ形に揃える
       const id = file?.id;
-      if (id === undefined) return;
-      await focusFileById(id);
+      if (id === undefined) return false;
+      return focusFileById(id);
     },
     [focusFileById]
   );
 
   const downloadFile = useCallback(
-    async (file: ContractFile) => {
-      if (project === undefined || client === undefined) return;
+    async (file: ContractFile): Promise<boolean> => {
+      if (project === undefined || client === undefined) return false;
       const id = file?.id;
-      if (id === undefined) return;
+      if (id === undefined) return false;
       try {
         const res = await client.getContractFileDownloadUrl(project.contractId, id);
         const presignedURL = res?.presignedURL;
         // 空文字・undefined など無効な URL は開かない
-        if (!presignedURL) return;
+        if (!presignedURL) return false;
         // window.open は <a target="_blank"> と違い暗黙の noopener が付かないため明示する（reverse tabnabbing 対策）
         window.open(presignedURL, "_blank", "noopener,noreferrer");
+        return true;
       } catch (err) {
         console.error("[useContractFileActions] ダウンロードURLの取得に失敗しました:", err);
+        return false;
       }
     },
     [client, project]
   );
 
   const getFileStatus = useCallback(
-    (file: ContractFile, isPendingUpload: boolean) => deriveFileStatusLabels(file, isPendingUpload),
-    []
+    (file: ContractFile): FileStatusLabels => {
+      // アップロード中判定はフックが保持する pendingUploads から行い、呼び出し側に委ねない
+      const isPendingUpload = file?.id !== undefined && pendingUploads[file.id] !== undefined;
+      return deriveFileStatusLabels(file, isPendingUpload);
+    },
+    [pendingUploads]
   );
 
   // 戻り値も毎レンダーで新規参照にならないようメモ化する（利用側の memo / 依存配列を壊さない）

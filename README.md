@@ -316,7 +316,7 @@ function FileList({ pendingUploads }) {
           return <li key={`pending-${row.contractFileId}`}>{row.name}（アップロード中）</li>;
         }
         const { file, visible } = row.container;
-        const status = getFileStatus(file, false);
+        const status = getFileStatus(file);
         const canView = isPclodCompleted(file);
         return (
           <li key={file.id}>
@@ -338,14 +338,14 @@ function FileList({ pendingUploads }) {
 
 戻り値の各メソッド:
 
-| 名前               | 概要                                                            |
-| ------------------ | --------------------------------------------------------------- |
-| `rows`             | 登録済みファイルとアップロード中ファイルをマージした一覧行      |
-| `toggleVisibility` | 表示/非表示の切り替え                                           |
-| `focusFile`        | 対象ファイルの Bounding Box 中心へ基準点を移動しフォーカス      |
-| `downloadFile`     | 署名付き URL を取得し別タブで開く（`noopener,noreferrer` 付与） |
-| `getFileStatus`    | アップロード/PCLOD のステータスラベルを導出                     |
-| `isPclodCompleted` | PCLOD 処理が完了しているか                                      |
+| 名前               | 概要                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------- |
+| `rows`             | 登録済みファイルとアップロード中ファイルをマージした一覧行                                          |
+| `toggleVisibility` | 表示/非表示の切り替え                                                                               |
+| `focusFile`        | 対象ファイルの Bounding Box 中心へ基準点を移動しフォーカス（成功可否を `boolean` で返す）           |
+| `downloadFile`     | 署名付き URL を取得し別タブで開く（`noopener,noreferrer` 付与、成功可否を `boolean` で返す）        |
+| `getFileStatus`    | アップロード/PCLOD のステータスラベルを導出（アップロード中判定は `pendingUploads` から内部で行う） |
+| `isPclodCompleted` | PCLOD 処理が完了しているか                                                                          |
 
 実装例は同梱の `example/src/components/ContractFileSidebar.tsx` を参照してください。
 

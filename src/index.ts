@@ -5,7 +5,6 @@ export {
   deriveFileStatusLabels,
   isPclodCompleted,
   isFileStatusActive,
-  needsPolling,
   type PendingUploads,
   type PendingUpload,
   type FileStatusLabels,

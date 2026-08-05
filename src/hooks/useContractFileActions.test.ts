@@ -11,11 +11,7 @@ import { useClient } from "../contexts/client";
 import type { ContractFile, ContractFileContainer } from "../contexts/contractFiles";
 import { useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
-import {
-  deriveFileStatusLabels,
-  isFileStatusActive,
-  type PendingUploads,
-} from "../lib/contractFileStatus";
+import { deriveFileStatusLabels, type PendingUploads } from "../lib/contractFileStatus";
 import { useContractFileActions } from "./useContractFileActions";
 
 /**
@@ -42,34 +38,8 @@ const completedFile: ContractFile = {
   batchProcessingResult: { id: 100, status: 3 },
 };
 
-// --- A-2（ステータス判定）テスト用フィクスチャ ---
-/** アップロード済み・PCLOD 未着手のファイル */
-const uploadedFile: ContractFile = {
-  id: 1,
-  name: "sample.las",
-  uploadedAt,
-};
-
-/** PCLOD バッチ実行中のファイル */
-const pclodProcessingFile: ContractFile = {
-  ...uploadedFile,
-  batchProcessingResult: { id: 100, status: 2 },
-};
-
-/** PCLOD 処理完了のファイル */
-const pclodCompletedFile: ContractFile = {
-  ...uploadedFile,
-  batchProcessingResult: { id: 100, status: 3 },
-};
-
-/** batchProcessingResult.status が RCDE 既知値以外のファイル */
-const unknownBatchStatusFile: ContractFile = {
-  ...uploadedFile,
-  hasUnknownBatchStatus: true,
-};
-
 const toggleVisibilityMock = vi.fn();
-const focusFileByIdMock = vi.fn<(fileId: number) => Promise<void>>();
+const focusFileByIdMock = vi.fn<(fileId: number) => Promise<boolean>>();
 const getContractFileDownloadUrlMock =
   vi.fn<(contractId: number, contractFileId: number) => Promise<{ presignedURL?: string }>>();
 const windowOpenMock = vi.fn();
@@ -111,7 +81,7 @@ function setupMocks(overrides?: {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  focusFileByIdMock.mockResolvedValue(undefined);
+  focusFileByIdMock.mockResolvedValue(true);
   getContractFileDownloadUrlMock.mockResolvedValue({ presignedURL: "https://dl.example.com/file" });
   vi.stubGlobal("window", { open: windowOpenMock });
   setupMocks();
@@ -175,63 +145,33 @@ describe("1 ファイル一覧の行データ生成（rows）", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2: ステータス判定（アップロード状況・PCLOD状況・完了判定）
-// getFileStatus は deriveFileStatusLabels を、活性判定は isFileStatusActive を利用する。
+// 2: ステータス表示（getFileStatus）
+// ステータスラベルの導出ロジック自体は deriveFileStatusLabels の単体テスト
+// （src/lib/contractFileStatus.test.ts）で網羅する。ここではフックが
+// pendingUploads から isPendingUpload を内部判定して委譲することのみ確認する。
 // テスト内容は以下の通り。
-// 1.【正常系】クライアント側アップロード追跡中 → アップロード:アップロード中 / PCLOD:-
-// 2.【正常系】サーバー側アップロード未完了（uploadedAt なし）→ アップロード:アップロード中 / PCLOD:待機中
-// 3.【正常系】アップロード完了・PCLOD 未着手 → アップロード:完了 / PCLOD:待機中
-// 4.【正常系】PCLOD バッチ実行中 → アップロード:完了 / PCLOD:処理中
-// 5.【正常系】PCLOD 処理完了 → アップロード:完了 / PCLOD:完了
-// 6.【正常系】batchProcessingResult.status が既知値以外 → アップロード:完了 / PCLOD:不明
+// 1.【正常系】pendingUploads に含まれるファイルは「アップロード中」を返す（内部判定）
+// 2.【正常系】pendingUploads に無いファイルは deriveFileStatusLabels(file, false) と一致する
 // ---------------------------------------------------------------------------
-describe("2 ステータス判定（deriveFileStatusLabels / isFileStatusActive）", () => {
-  // 【正常系】
-  it("クライアント側でアップロード追跡中は、アップロード：アップロード中、PCLOD：-として表示する", () => {
-    const labels = deriveFileStatusLabels({ id: 10, name: "uploading.las" }, true);
+describe("2 ステータス表示（getFileStatus）", () => {
+  // 【正常系】呼び出し側に isPendingUpload を委ねず、フックが pendingUploads から判定する
+  it("pendingUploads に含まれるファイルは「アップロード中」を返す", () => {
+    setupMocks({ containers: [makeContainer(completedFile, true)] });
 
-    expect(labels).toEqual({ upload: "アップロード中", pclod: "-" });
-    expect(isFileStatusActive(labels)).toBe(true);
+    const { getFileStatus } = captureHook(() =>
+      useContractFileActions({ 1: { name: "uploading.las" } })
+    );
+
+    expect(getFileStatus(completedFile)).toEqual({ upload: "アップロード中", pclod: "-" });
   });
 
-  // 【正常系】
-  it("サーバー側アップロード未完了（uploadedAt なし）は、アップロード：アップロード中、PCLOD：待機中として表示する", () => {
-    const labels = deriveFileStatusLabels({ id: 10, name: "registering.las" }, false);
+  // 【正常系】pendingUploads 非該当時は deriveFileStatusLabels に委譲した結果を返す
+  it("pendingUploads に無いファイルは deriveFileStatusLabels(file, false) と一致する", () => {
+    setupMocks({ containers: [makeContainer(completedFile, true)] });
 
-    expect(labels).toEqual({ upload: "アップロード中", pclod: "待機中" });
-    expect(isFileStatusActive(labels)).toBe(true);
-  });
+    const { getFileStatus } = captureHook(() => useContractFileActions());
 
-  // 【正常系】
-  it("アップロード完了後・PCLOD 未着手は、アップロード：完了、PCLOD：待機中として表示する", () => {
-    const labels = deriveFileStatusLabels(uploadedFile, false);
-
-    expect(labels).toEqual({ upload: "完了", pclod: "待機中" });
-    expect(isFileStatusActive(labels)).toBe(true);
-  });
-
-  // 【正常系】
-  it("PCLOD バッチ実行中は、アップロード：完了、PCLOD：処理中として表示する", () => {
-    const labels = deriveFileStatusLabels(pclodProcessingFile, false);
-
-    expect(labels).toEqual({ upload: "完了", pclod: "処理中" });
-    expect(isFileStatusActive(labels)).toBe(true);
-  });
-
-  // 【正常系】
-  it("PCLOD 処理完了後は、アップロード：完了、PCLOD：完了として表示する", () => {
-    const labels = deriveFileStatusLabels(pclodCompletedFile, false);
-
-    expect(labels).toEqual({ upload: "完了", pclod: "完了" });
-    expect(isFileStatusActive(labels)).toBe(false);
-  });
-
-  // 【正常系】
-  it("batchProcessingResult.status が既知値以外のときは、アップロード：完了、PCLOD：不明として表示する", () => {
-    const labels = deriveFileStatusLabels(unknownBatchStatusFile, false);
-
-    expect(labels).toEqual({ upload: "完了", pclod: "不明" });
-    expect(isFileStatusActive(labels)).toBe(false);
+    expect(getFileStatus(completedFile)).toEqual(deriveFileStatusLabels(completedFile, false));
   });
 });
 
@@ -262,20 +202,22 @@ describe("3 表示/非表示トグル（toggleVisibility）", () => {
 // ---------------------------------------------------------------------------
 describe("4 フォーカス（focusFile）", () => {
   // 【正常系】
-  it("file.id を指定して focusFileById を呼び出す", async () => {
+  it("file.id を指定して focusFileById を呼び出し、その結果を返す", async () => {
     const { focusFile } = captureHook(() => useContractFileActions());
-    await focusFile(completedFile);
+    const result = await focusFile(completedFile);
 
     expect(focusFileByIdMock).toHaveBeenCalledTimes(1);
     expect(focusFileByIdMock).toHaveBeenCalledWith(1);
+    expect(result).toBe(true);
   });
 
   // 【異常系】
-  it("file.id が undefined のときは focusFileById を呼ばない", async () => {
+  it("file.id が undefined のときは focusFileById を呼ばず false を返す", async () => {
     const { focusFile } = captureHook(() => useContractFileActions());
-    await focusFile({ name: "no-id.las" } as ContractFile);
+    const result = await focusFile({ name: "no-id.las" } as ContractFile);
 
     expect(focusFileByIdMock).not.toHaveBeenCalled();
+    expect(result).toBe(false);
   });
 });
 
@@ -295,9 +237,9 @@ describe("4 フォーカス（focusFile）", () => {
 // ---------------------------------------------------------------------------
 describe("5 ダウンロード（downloadFile）", () => {
   // 【正常系】
-  it("署名付き URL を取得して別タブで開く", async () => {
+  it("署名付き URL を取得して別タブで開き true を返す", async () => {
     const { downloadFile } = captureHook(() => useContractFileActions());
-    await downloadFile(completedFile);
+    const result = await downloadFile(completedFile);
 
     expect(getContractFileDownloadUrlMock).toHaveBeenCalledWith(5, 1);
     expect(windowOpenMock).toHaveBeenCalledWith(
@@ -305,12 +247,13 @@ describe("5 ダウンロード（downloadFile）", () => {
       "_blank",
       "noopener,noreferrer"
     );
+    expect(result).toBe(true);
   });
 
   // 【正常系/境界値】contractFileId=0 は undefined ではないため通常どおり処理する
   it("contractFileId が 0 でも URL 取得を行う", async () => {
     const { downloadFile } = captureHook(() => useContractFileActions());
-    await downloadFile({ id: 0, name: "zero.las" } as ContractFile);
+    const result = await downloadFile({ id: 0, name: "zero.las" } as ContractFile);
 
     expect(getContractFileDownloadUrlMock).toHaveBeenCalledWith(5, 0);
     expect(windowOpenMock).toHaveBeenCalledWith(
@@ -318,48 +261,51 @@ describe("5 ダウンロード（downloadFile）", () => {
       "_blank",
       "noopener,noreferrer"
     );
+    expect(result).toBe(true);
   });
 
   // 【異常系】
-  it("presignedURL が undefined のときは開かない", async () => {
+  it("presignedURL が undefined のときは開かず false を返す", async () => {
     getContractFileDownloadUrlMock.mockResolvedValue({});
 
     const { downloadFile } = captureHook(() => useContractFileActions());
-    await downloadFile(completedFile);
+    const result = await downloadFile(completedFile);
 
     expect(getContractFileDownloadUrlMock).toHaveBeenCalledWith(5, 1);
     expect(windowOpenMock).not.toHaveBeenCalled();
+    expect(result).toBe(false);
   });
 
   // 【異常系】空文字は無効な URL として扱い開かない
-  it("presignedURL が空文字のときは開かない", async () => {
+  it("presignedURL が空文字のときは開かず false を返す", async () => {
     getContractFileDownloadUrlMock.mockResolvedValue({ presignedURL: "" });
 
     const { downloadFile } = captureHook(() => useContractFileActions());
-    await downloadFile(completedFile);
+    const result = await downloadFile(completedFile);
 
     expect(getContractFileDownloadUrlMock).toHaveBeenCalledWith(5, 1);
     expect(windowOpenMock).not.toHaveBeenCalled();
+    expect(result).toBe(false);
   });
 
   // 【異常系】レスポンス本体が undefined でも分割代入で落ちない
-  it("レスポンスが undefined のときは例外を投げず開かない", async () => {
+  it("レスポンスが undefined のときは例外を投げず false を返す", async () => {
     getContractFileDownloadUrlMock.mockResolvedValue(undefined as never);
 
     const { downloadFile } = captureHook(() => useContractFileActions());
 
-    await expect(downloadFile(completedFile)).resolves.toBeUndefined();
+    await expect(downloadFile(completedFile)).resolves.toBe(false);
     expect(windowOpenMock).not.toHaveBeenCalled();
   });
 
-  // 【異常系】API 呼び出しが reject しても呼び出し側へ例外を伝播させない
-  it("getContractFileDownloadUrl が reject しても例外を投げず握りつぶす", async () => {
+  // 【異常系】API 呼び出しが reject しても呼び出し側へ例外を伝播させず false を返す
+  it("getContractFileDownloadUrl が reject しても例外を投げず false を返す", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     getContractFileDownloadUrlMock.mockRejectedValue(new Error("network error"));
 
     const { downloadFile } = captureHook(() => useContractFileActions());
 
-    await expect(downloadFile(completedFile)).resolves.toBeUndefined();
+    await expect(downloadFile(completedFile)).resolves.toBe(false);
     expect(windowOpenMock).not.toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalled();
 
@@ -367,41 +313,44 @@ describe("5 ダウンロード（downloadFile）", () => {
   });
 
   // 【異常系】
-  it("project が未設定のときは URL 取得も行わない", async () => {
+  it("project が未設定のときは URL 取得も行わず false を返す", async () => {
     setupMocks({ project: undefined });
 
     const { downloadFile } = captureHook(() => useContractFileActions());
-    await downloadFile(completedFile);
+    const result = await downloadFile(completedFile);
 
     expect(getContractFileDownloadUrlMock).not.toHaveBeenCalled();
     expect(windowOpenMock).not.toHaveBeenCalled();
+    expect(result).toBe(false);
   });
 
   // 【異常系】
-  it("client が未初期化のときは URL 取得も行わない", async () => {
+  it("client が未初期化のときは URL 取得も行わず false を返す", async () => {
     setupMocks({ client: undefined });
 
     const { downloadFile } = captureHook(() => useContractFileActions());
-    await downloadFile(completedFile);
+    const result = await downloadFile(completedFile);
 
     expect(getContractFileDownloadUrlMock).not.toHaveBeenCalled();
     expect(windowOpenMock).not.toHaveBeenCalled();
+    expect(result).toBe(false);
   });
 
   // 【異常系】
-  it("file.id が undefined のときは URL 取得も行わない", async () => {
+  it("file.id が undefined のときは URL 取得も行わず false を返す", async () => {
     const { downloadFile } = captureHook(() => useContractFileActions());
-    await downloadFile({ name: "no-id.las" } as ContractFile);
+    const result = await downloadFile({ name: "no-id.las" } as ContractFile);
 
     expect(getContractFileDownloadUrlMock).not.toHaveBeenCalled();
     expect(windowOpenMock).not.toHaveBeenCalled();
+    expect(result).toBe(false);
   });
 
   // 【異常系】呼び出し側の誤用（file 未指定）でも落ちない
-  it("file 自体が undefined でも例外を投げず URL 取得も行わない", async () => {
+  it("file 自体が undefined でも例外を投げず false を返す", async () => {
     const { downloadFile } = captureHook(() => useContractFileActions());
 
-    await expect(downloadFile(undefined as unknown as ContractFile)).resolves.toBeUndefined();
+    await expect(downloadFile(undefined as unknown as ContractFile)).resolves.toBe(false);
     expect(getContractFileDownloadUrlMock).not.toHaveBeenCalled();
     expect(windowOpenMock).not.toHaveBeenCalled();
   });
