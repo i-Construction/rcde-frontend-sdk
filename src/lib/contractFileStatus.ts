@@ -1,7 +1,12 @@
 import type { ContractFile } from "./rcde-client";
 
-export type UploadStatusLabel = "アップロード中" | "完了";
-export type PclodStatusLabel = "待機中" | "処理中" | "完了" | "不明" | "-";
+export type UploadStatus = "uploading" | "uploaded";
+export type PclodStatus = "none" | "waiting" | "processing" | "completed" | "failed";
+
+export type FileStatus = {
+  upload: UploadStatus;
+  pclod: PclodStatus;
+};
 
 export type PendingUpload = {
   name: string;
@@ -9,93 +14,81 @@ export type PendingUpload = {
 
 export type PendingUploads = Record<number, PendingUpload>;
 
-export type FileStatusLabels = {
-  upload: UploadStatusLabel;
-  pclod: PclodStatusLabel;
-};
-
 const BATCH_STATUS_COMPLETED = 3;
+const BATCH_STATUS_FAILED = 4;
 
 function isUploaded(file: ContractFile): boolean {
   return file.uploadedAt !== undefined && file.uploadedAt.length > 0;
 }
 
-function hasUnknownBatchStatus(file: ContractFile): boolean {
-  return file.hasUnknownBatchStatus === true;
-}
-
 function isPclodCompleted(file: ContractFile): boolean {
-  if (hasUnknownBatchStatus(file)) {
-    return false;
-  }
   const batchStatus = file.batchProcessingResult?.status;
   return batchStatus === BATCH_STATUS_COMPLETED;
 }
 
 export { isPclodCompleted };
 
+function isPclodFailed(file: ContractFile): boolean {
+  const batchStatus = file.batchProcessingResult?.status;
+  return batchStatus === BATCH_STATUS_FAILED;
+}
+
 function isPclodProcessing(file: ContractFile): boolean {
-  if (hasUnknownBatchStatus(file)) {
-    return false;
-  }
   const batchStatus = file.batchProcessingResult?.status;
   if (batchStatus === undefined) {
     return false;
   }
-  if (batchStatus === BATCH_STATUS_COMPLETED) {
+  if (batchStatus === BATCH_STATUS_COMPLETED || batchStatus === BATCH_STATUS_FAILED) {
     return false;
   }
   return true;
 }
 
-export function deriveFileStatusLabels(
-  file: ContractFile,
-  isPendingUpload: boolean
-): FileStatusLabels {
+export function deriveFileStatus(file: ContractFile, isPendingUpload: boolean): FileStatus {
   if (isPendingUpload) {
     return {
-      upload: "アップロード中",
-      pclod: "-",
+      upload: "uploading",
+      pclod: "none",
     };
   }
 
   const uploaded = isUploaded(file);
   if (!uploaded) {
     return {
-      upload: "アップロード中",
-      pclod: "待機中",
+      upload: "uploading",
+      pclod: "waiting",
     };
   }
 
-  if (hasUnknownBatchStatus(file)) {
+  if (isPclodFailed(file)) {
     return {
-      upload: "完了",
-      pclod: "不明",
+      upload: "uploaded",
+      pclod: "failed",
     };
   }
 
   if (isPclodCompleted(file)) {
     return {
-      upload: "完了",
-      pclod: "完了",
+      upload: "uploaded",
+      pclod: "completed",
     };
   }
 
   if (isPclodProcessing(file)) {
     return {
-      upload: "完了",
-      pclod: "処理中",
+      upload: "uploaded",
+      pclod: "processing",
     };
   }
 
   return {
-    upload: "完了",
-    pclod: "待機中",
+    upload: "uploaded",
+    pclod: "waiting",
   };
 }
 
-export function isFileStatusActive(labels: FileStatusLabels): boolean {
-  const isUploadActive = labels.upload === "アップロード中";
-  const isPclodActive = labels.pclod === "待機中" || labels.pclod === "処理中";
+export function isFileStatusActive(status: FileStatus): boolean {
+  const isUploadActive = status.upload === "uploading";
+  const isPclodActive = status.pclod === "waiting" || status.pclod === "processing";
   return isUploadActive || isPclodActive;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveFileStatusLabels, isFileStatusActive } from "./contractFileStatus";
+import { deriveFileStatus, isFileStatusActive } from "./contractFileStatus";
 import type { ContractFile } from "./rcde-client";
 
 const uploadedAt = "2024-11-19T06:56:31Z";
@@ -23,57 +23,78 @@ const pclodCompletedFile: ContractFile = {
   batchProcessingResult: { id: 100, status: 3 },
 };
 
-/** batchProcessingResult.status が RCDE 既知値以外のファイル */
-const unknownBatchStatusFile: ContractFile = {
+/** API から取得した、PCLOD 処理が失敗したファイル */
+const pclodFailedFile: ContractFile = {
   ...uploadedFile,
-  hasUnknownBatchStatus: true,
+  batchProcessingResult: { id: 100, status: 4 },
 };
 
-// ---------------------------------------------------------------------------
-// ステータスラベル導出（deriveFileStatusLabels / isFileStatusActive）
-// 元は useContractFileActions.test.ts の「2 ステータス判定」にあったが、
-// フックを経由しない純関数テストのためこちらへ戻した。
-// ---------------------------------------------------------------------------
-describe("ステータスラベル導出（deriveFileStatusLabels / isFileStatusActive）", () => {
-  it("クライアント側でアップロード追跡中は、アップロード：アップロード中、PCLOD：-として表示する", () => {
-    const labels = deriveFileStatusLabels({ id: 10, name: "uploading.las" }, true);
+describe("契約ファイルの状態導出（deriveFileStatus / isFileStatusActive）", () => {
+  describe("正常系", () => {
+    it("クライアント側でアップロード追跡中は、アップロード：uploading、PCLOD：none とする", () => {
+      const status = deriveFileStatus({ id: 10, name: "uploading.las" }, true);
 
-    expect(labels).toEqual({ upload: "アップロード中", pclod: "-" });
-    expect(isFileStatusActive(labels)).toBe(true);
+      expect(status).toEqual({ upload: "uploading", pclod: "none" });
+      expect(isFileStatusActive(status)).toBe(true);
+    });
+
+    it("サーバー側アップロード未完了（uploadedAt なし）は、アップロード：uploading、PCLOD：waiting とする", () => {
+      const status = deriveFileStatus({ id: 10, name: "registering.las" }, false);
+
+      expect(status).toEqual({ upload: "uploading", pclod: "waiting" });
+      expect(isFileStatusActive(status)).toBe(true);
+    });
+
+    it("アップロード完了後・PCLOD 未着手は、アップロード：uploaded、PCLOD：waiting とする", () => {
+      const status = deriveFileStatus(uploadedFile, false);
+
+      expect(status).toEqual({ upload: "uploaded", pclod: "waiting" });
+      expect(isFileStatusActive(status)).toBe(true);
+    });
+
+    it("PCLOD バッチ実行中は、アップロード：uploaded、PCLOD：processing とする", () => {
+      const status = deriveFileStatus(pclodProcessingFile, false);
+
+      expect(status).toEqual({ upload: "uploaded", pclod: "processing" });
+      expect(isFileStatusActive(status)).toBe(true);
+    });
+
+    it("PCLOD 処理完了後は、アップロード：uploaded、PCLOD：completed とする", () => {
+      const status = deriveFileStatus(pclodCompletedFile, false);
+
+      expect(status).toEqual({ upload: "uploaded", pclod: "completed" });
+      expect(isFileStatusActive(status)).toBe(false);
+    });
   });
 
-  it("サーバー側アップロード未完了（uploadedAt なし）は、アップロード：アップロード中、PCLOD：待機中として表示する", () => {
-    const labels = deriveFileStatusLabels({ id: 10, name: "registering.las" }, false);
+  describe("異常系", () => {
+    it("PCLOD 処理が失敗したときは、アップロード：uploaded、PCLOD：failed とする", () => {
+      const status = deriveFileStatus(pclodFailedFile, false);
 
-    expect(labels).toEqual({ upload: "アップロード中", pclod: "待機中" });
-    expect(isFileStatusActive(labels)).toBe(true);
+      expect(status).toEqual({ upload: "uploaded", pclod: "failed" });
+      expect(isFileStatusActive(status)).toBe(false);
+    });
+  });
+});
+
+describe("契約ファイルの状態がアクティブかどうかの判定（isFileStatusActive）", () => {
+  it("PCLOD が processing のときは true である", () => {
+    expect(isFileStatusActive({ upload: "uploaded", pclod: "processing" })).toBe(true);
   });
 
-  it("アップロード完了後・PCLOD 未着手は、アップロード：完了、PCLOD：待機中として表示する", () => {
-    const labels = deriveFileStatusLabels(uploadedFile, false);
-
-    expect(labels).toEqual({ upload: "完了", pclod: "待機中" });
-    expect(isFileStatusActive(labels)).toBe(true);
+  it("PCLOD が waiting のときは true である", () => {
+    expect(isFileStatusActive({ upload: "uploaded", pclod: "waiting" })).toBe(true);
   });
 
-  it("PCLOD バッチ実行中は、アップロード：完了、PCLOD：処理中として表示する", () => {
-    const labels = deriveFileStatusLabels(pclodProcessingFile, false);
-
-    expect(labels).toEqual({ upload: "完了", pclod: "処理中" });
-    expect(isFileStatusActive(labels)).toBe(true);
+  it("アップロードが uploading のときは true である", () => {
+    expect(isFileStatusActive({ upload: "uploading", pclod: "none" })).toBe(true);
   });
 
-  it("PCLOD 処理完了後は、アップロード：完了、PCLOD：完了として表示する", () => {
-    const labels = deriveFileStatusLabels(pclodCompletedFile, false);
-
-    expect(labels).toEqual({ upload: "完了", pclod: "完了" });
-    expect(isFileStatusActive(labels)).toBe(false);
+  it("PCLOD が completed のときは false である", () => {
+    expect(isFileStatusActive({ upload: "uploaded", pclod: "completed" })).toBe(false);
   });
 
-  it("batchProcessingResult.status が既知値以外のときは、アップロード：完了、PCLOD：不明として表示する", () => {
-    const labels = deriveFileStatusLabels(unknownBatchStatusFile, false);
-
-    expect(labels).toEqual({ upload: "完了", pclod: "不明" });
-    expect(isFileStatusActive(labels)).toBe(false);
+  it("PCLOD が failed のときは false である", () => {
+    expect(isFileStatusActive({ upload: "uploaded", pclod: "failed" })).toBe(false);
   });
 });
