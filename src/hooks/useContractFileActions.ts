@@ -116,8 +116,10 @@ export const useContractFileActions = (
 
   const getFileStatus = useCallback(
     (file: ContractFile): FileStatusLabels => {
+      // 呼び出し側の誤用（file 未指定）でも throw しないよう防御する。focusFile / downloadFile と姿勢を揃える
+      if (!file) return { upload: "アップロード中", pclod: "待機中" };
       // アップロード中判定はフックが保持する pendingUploads から行い、呼び出し側に委ねない
-      const isPendingUpload = file?.id !== undefined && pendingUploads[file.id] !== undefined;
+      const isPendingUpload = file.id !== undefined && pendingUploads[file.id] !== undefined;
       return deriveFileStatusLabels(file, isPendingUpload);
     },
     [pendingUploads]

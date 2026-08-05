@@ -301,6 +301,8 @@ const App = () => {
 
 `ClientProvider` / `ContractFilesProvider` / `ReferencePointProvider` の配下（`RCDE` の `children` / `auxiliaryContent`、または各 Provider を自前構成したツリー）でのみ利用できます。プロバイダ外で呼ぶと throw します。
 
+> **メモ化に関する注意**: `rows` / `getFileStatus` / 戻り値オブジェクトは `pendingUploads` を依存にメモ化されています。`useContractFileActions({ ... })` のように**レンダーごとに新しいリテラル**を渡すとメモ化が毎回無効になります。`pendingUploads` は `useState` の値など**参照が安定したもの**を渡してください（更新しない場合は引数を省略すると内部の空定数が使われます）。
+
 ```tsx
 "use client";
 import { useContractFileActions } from "@i-con/frontend-sdk";
@@ -313,7 +315,14 @@ function FileList({ pendingUploads }) {
     <ul>
       {rows.map((row) => {
         if (row.type === "pending") {
-          return <li key={`pending-${row.contractFileId}`}>{row.name}（アップロード中）</li>;
+          // pending 行も getFileStatus に通せば登録済み行と同じラベル体系で表示できる
+          // （pending 行の id は必ず pendingUploads に存在するため upload:"アップロード中" / pclod:"-"）
+          const pending = getFileStatus({ id: row.contractFileId, name: row.name });
+          return (
+            <li key={`pending-${row.contractFileId}`}>
+              {row.name}（{pending.upload} / {pending.pclod}）
+            </li>
+          );
         }
         const { file, visible } = row.container;
         const status = getFileStatus(file);
@@ -346,8 +355,6 @@ function FileList({ pendingUploads }) {
 | `downloadFile`     | 署名付き URL を取得し別タブで開く（`noopener,noreferrer` 付与、成功可否を `boolean` で返す）        |
 | `getFileStatus`    | アップロード/PCLOD のステータスラベルを導出（アップロード中判定は `pendingUploads` から内部で行う） |
 | `isPclodCompleted` | PCLOD 処理が完了しているか                                                                          |
-
-実装例は同梱の `example/src/components/ContractFileSidebar.tsx` を参照してください。
 
 ### 移行手順（サイドバー UI 廃止）
 

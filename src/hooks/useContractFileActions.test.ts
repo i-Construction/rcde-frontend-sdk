@@ -173,6 +173,17 @@ describe("2 ステータス表示（getFileStatus）", () => {
 
     expect(getFileStatus(completedFile)).toEqual(deriveFileStatusLabels(completedFile, false));
   });
+
+  // 【異常系】呼び出し側の誤用（file 未指定）でも throw せず既定ラベルを返す（download/focus と対称）
+  it("file 自体が undefined でも例外を投げず既定ラベルを返す", () => {
+    const { getFileStatus } = captureHook(() => useContractFileActions());
+
+    expect(() => getFileStatus(undefined as unknown as ContractFile)).not.toThrow();
+    expect(getFileStatus(undefined as unknown as ContractFile)).toEqual({
+      upload: "アップロード中",
+      pclod: "待機中",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
