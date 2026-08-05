@@ -86,7 +86,7 @@ yarn dev
 | PCLOD処理    | 待機中 / 処理中 / 完了 |
 | アップロード | アップロード中 / 完了  |
 
-点群をアップロードしたあと、DevTools の Network タブで `contractFile` が約 3 秒間隔でポーリングされ、PCLOD 完了後に停止することを確認できます。
+最新のステータスを確認したい場合は、アップロード完了時に `contractFilesRefetchKey` を更新して再取得してください（`handleUploaded` で実施済み）。
 
 ## 基準点ギズモ・基準点ツールバー（example のみ）
 

@@ -30,7 +30,7 @@ export function ViewerClient({
 }: ViewerClientProps) {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isReferencePointDialogOpen, setIsReferencePointDialogOpen] = useState(false);
-  const [pendingUploads, setPendingUploads] = useState<PendingUploads>({});
+  const [, setPendingUploads] = useState<PendingUploads>({});
   const [contractFilesRefetchKey, setContractFilesRefetchKey] = useState<number | undefined>(
     undefined
   );
@@ -112,7 +112,6 @@ export function ViewerClient({
           contractId={contractId}
           // デフォルトで全点群ファイルを非表示にする（空配列 = 表示対象なし）
           contractFileIds={[]}
-          pendingUploads={pendingUploads}
           contractFilesRefetchKey={contractFilesRefetchKey}
           leftSiderHeaderActions={
             <Button
