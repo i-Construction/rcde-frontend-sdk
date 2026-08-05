@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveFileStatusLabels, isFileStatusActive, needsPolling } from "./contractFileStatus";
+import { deriveFileStatusLabels, isFileStatusActive } from "./contractFileStatus";
 import type { ContractFile } from "./rcde-client";
 
 const uploadedAt = "2024-11-19T06:56:31Z";
@@ -75,32 +75,5 @@ describe("ステータスラベル導出（deriveFileStatusLabels / isFileStatus
 
     expect(labels).toEqual({ upload: "完了", pclod: "不明" });
     expect(isFileStatusActive(labels)).toBe(false);
-  });
-});
-
-describe("契約ファイル一覧の自動更新", () => {
-  it("表示対象がなく、進行中の処理もないときは更新を止める", () => {
-    expect(needsPolling([], {})).toBe(false);
-  });
-
-  it("クライアント側でアップロード追跡中のファイルがあるときは更新を続ける", () => {
-    expect(needsPolling([], { 42: { name: "uploading.las" } })).toBe(true);
-  });
-
-  it("uploadedAt がないファイル（サーバー側アップロード未完了）が残っているときは更新を続ける", () => {
-    expect(needsPolling([{ id: 1, name: "registering.las" }], {})).toBe(true);
-  });
-
-  it("PCLOD が未完了のファイルがあるときは更新を続ける", () => {
-    expect(needsPolling([uploadedFile], {})).toBe(true);
-    expect(needsPolling([pclodProcessingFile], {})).toBe(true);
-  });
-
-  it("全ファイルが PCLOD 完了のときは更新を止める", () => {
-    expect(needsPolling([pclodCompletedFile], {})).toBe(false);
-  });
-
-  it("batchProcessingResult.status が既知値以外のファイルのみのときは更新を止める", () => {
-    expect(needsPolling([unknownBatchStatusFile], {})).toBe(false);
   });
 });

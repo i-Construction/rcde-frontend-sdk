@@ -18,8 +18,7 @@ import {
 import { useClient } from "../contexts/client";
 import { ContractFile, useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
-import { useContractFilesPolling } from "../hooks/useContractFilesPolling";
-import { isPclodCompleted, type PendingUploads } from "../lib/contractFileStatus";
+import { isPclodCompleted } from "../lib/contractFileStatus";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { ReferencePointAxis } from "./ReferencePointAxis";
 import { ReferencePointView } from "./ReferencePointView";
@@ -76,7 +75,6 @@ export type ViewerProps = {
   children?: ReactNode;
   positionOffsetComponent?: ReactNode;
   auxiliaryContent?: ReactNode;
-  pendingUploads?: PendingUploads;
   contractFilesRefetchKey?: number;
   selectedFileId?: number;
   onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
@@ -169,7 +167,7 @@ const ClickHandler: FC<{
 };
 
 const Viewer: FC<ViewerProps> = (props) => {
-  const { load, updateFiles, containers } = useContractFiles();
+  const { load, containers } = useContractFiles();
   const {
     app,
     constructionId,
@@ -179,7 +177,6 @@ const Viewer: FC<ViewerProps> = (props) => {
     children,
     positionOffsetComponent,
     auxiliaryContent,
-    pendingUploads: pendingUploadsProp,
     contractFilesRefetchKey,
     selectedFileId,
     onContractFileClick,
@@ -187,7 +184,6 @@ const Viewer: FC<ViewerProps> = (props) => {
   const { initialize, client, project, setProject } = useClient();
   const { point } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
-  const pendingUploads = pendingUploadsProp ?? {};
 
   const transformRootRef = useRef<Group>(null);
   const cameraRef = useRef<PerspectiveCamera>(null);
@@ -248,24 +244,6 @@ const Viewer: FC<ViewerProps> = (props) => {
       load([], memoizedContractFileIds);
     }
   }, [client, contractId, memoizedContractFileIds, load]);
-
-  const contractFiles = useMemo(() => containers.map((container) => container.file), [containers]);
-
-  const handleFilesUpdated = useCallback(
-    (files: ContractFile[]) => {
-      updateFiles(files);
-    },
-    [updateFiles]
-  );
-
-  useContractFilesPolling({
-    client,
-    contractId,
-    contractFiles,
-    pendingUploads,
-    onFilesUpdated: handleFilesUpdated,
-    enabled: client !== undefined && contractId > 0,
-  });
 
   useEffect(() => {
     if (client && contractId) {
@@ -331,7 +309,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     Promise.all(promises).then((vs) => {
       setViews(vs.filter((v): v is ContractFileProps & { boundingBox: Box3 } => v !== undefined));
     });
-    // metadataFetchKey が同じなら poll による containers 参照更新では再取得しない
+    // metadataFetchKey が同じなら contractFilesRefetchKey 由来の containers 参照更新では再取得しない
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadataFetchKey, project, client]);
 
