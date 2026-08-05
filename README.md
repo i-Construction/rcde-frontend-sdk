@@ -295,6 +295,71 @@ const App = () => {
 
 ---
 
+## ファイル一覧の操作（useContractFileActions）
+
+契約ファイル一覧の表示・操作ロジックを UI から切り離したフックです。行データの生成、表示/非表示切替、フォーカス（基準点移動）、ダウンロード、ステータス判定を提供します。UI は利用側で自由に組み立てます。
+
+`ClientProvider` / `ContractFilesProvider` / `ReferencePointProvider` の配下（`RCDE` の `children` / `auxiliaryContent`、または各 Provider を自前構成したツリー）でのみ利用できます。プロバイダ外で呼ぶと throw します。
+
+```tsx
+"use client";
+import { useContractFileActions } from "@i-con/frontend-sdk";
+
+function FileList({ pendingUploads }) {
+  const { rows, toggleVisibility, focusFile, downloadFile, getFileStatus, isPclodCompleted } =
+    useContractFileActions(pendingUploads);
+
+  return (
+    <ul>
+      {rows.map((row) => {
+        if (row.type === "pending") {
+          return <li key={`pending-${row.contractFileId}`}>{row.name}（アップロード中）</li>;
+        }
+        const { file, visible } = row.container;
+        const status = getFileStatus(file, false);
+        const canView = isPclodCompleted(file);
+        return (
+          <li key={file.id}>
+            {file.name}（{status.upload} / {status.pclod}）
+            <button disabled={!canView} onClick={() => toggleVisibility(row.container)}>
+              {visible ? "非表示" : "表示"}
+            </button>
+            <button disabled={!canView || !visible} onClick={() => focusFile(file)}>
+              フォーカス
+            </button>
+            <button onClick={() => downloadFile(file)}>ダウンロード</button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+```
+
+戻り値の各メソッド:
+
+| 名前               | 概要                                                            |
+| ------------------ | --------------------------------------------------------------- |
+| `rows`             | 登録済みファイルとアップロード中ファイルをマージした一覧行      |
+| `toggleVisibility` | 表示/非表示の切り替え                                           |
+| `focusFile`        | 対象ファイルの Bounding Box 中心へ基準点を移動しフォーカス      |
+| `downloadFile`     | 署名付き URL を取得し別タブで開く（`noopener,noreferrer` 付与） |
+| `getFileStatus`    | アップロード/PCLOD のステータスラベルを導出                     |
+| `isPclodCompleted` | PCLOD 処理が完了しているか                                      |
+
+実装例は同梱の `example/src/components/ContractFileSidebar.tsx` を参照してください。
+
+### 移行手順（サイドバー UI 廃止）
+
+`Viewer` に組み込まれていた一覧サイドバー UI と関連 props を廃止しました。**破壊的変更**です。
+
+- 削除された props: `showLeftSider` / `showRightSider` / `leftSiderHeaderActions`
+- 削除された内蔵 UI: レフト/ライトサイドバーのファイル一覧・基準点編集パネル
+
+これまでサイドバーで得ていた機能は `useContractFileActions` と `useReferencePoint` を使って利用側で UI を組み立ててください。`RCDE` 利用時のマウント先は `auxiliaryContent` になるため一覧はキャンバスへの重ね描きになります。ビューアと横並びに配置したい場合は `Viewer` と各 Provider を自前で構成してください。
+
+---
+
 ## Three.js／R3F統合に関する注意
 
 - Three.js オブジェクトは React Reconciler 18.3.1 に依存します。

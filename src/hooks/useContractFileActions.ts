@@ -29,11 +29,21 @@ export type ContractFileActions = {
   isPclodCompleted: (file: ContractFile) => boolean;
 };
 
+// デフォルト引数で毎回新しい {} を生成すると rows のメモ化が無効になるため、共有の空定数を使う
+const EMPTY_PENDING_UPLOADS: PendingUploads = {};
+
 /**
  * レフト/ライトサイドバーのファイル一覧が持っていた機能を UI から切り離したフック。
  *
  * ファイル一覧行の生成、表示切替、フォーカス、ダウンロード、ステータス判定を提供する。
  * 呼び出し元が任意の UI を組んで利用する。
+ *
+ * @remarks
+ * `ClientProvider` / `ContractFilesProvider` / `ReferencePointProvider` の配下でのみ利用できる
+ * （例: `RCDE` コンポーネントの `children` / `auxiliaryContent`、または各 Provider を自前で構成した
+ * ツリー）。プロバイダ外で呼ぶと各コンテキストが throw する。RCDE 利用時のマウント先は
+ * `auxiliaryContent` になるためキャンバスへの重ね描きになる。ビューアと横並びにしたい場合は
+ * `Viewer` と各 Provider を自前で組む必要がある。
  *
  * @example
  * ```tsx
@@ -41,7 +51,9 @@ export type ContractFileActions = {
  *   useContractFileActions(pendingUploads);
  * ```
  */
-export const useContractFileActions = (pendingUploads: PendingUploads = {}): ContractFileActions => {
+export const useContractFileActions = (
+  pendingUploads: PendingUploads = EMPTY_PENDING_UPLOADS
+): ContractFileActions => {
   const { client, project } = useClient();
   const { containers, toggleVisibility } = useContractFiles();
   const { focusFileById } = useReferencePoint();
@@ -64,8 +76,10 @@ export const useContractFileActions = (pendingUploads: PendingUploads = {}): Con
 
   const focusFile = useCallback(
     async (file: ContractFile) => {
-      if (file.id === undefined) return;
-      await focusFileById(file.id);
+      // 呼び出し側の誤用（file / id 未指定）に備えた防御的ガード。downloadFile と同じ形に揃える
+      const id = file?.id;
+      if (id === undefined) return;
+      await focusFileById(id);
     },
     [focusFileById]
   );
@@ -80,7 +94,8 @@ export const useContractFileActions = (pendingUploads: PendingUploads = {}): Con
         const presignedURL = res?.presignedURL;
         // 空文字・undefined など無効な URL は開かない
         if (!presignedURL) return;
-        window.open(presignedURL, "_blank");
+        // window.open は <a target="_blank"> と違い暗黙の noopener が付かないため明示する（reverse tabnabbing 対策）
+        window.open(presignedURL, "_blank", "noopener,noreferrer");
       } catch (err) {
         console.error("[useContractFileActions] ダウンロードURLの取得に失敗しました:", err);
       }
@@ -93,12 +108,16 @@ export const useContractFileActions = (pendingUploads: PendingUploads = {}): Con
     []
   );
 
-  return {
-    rows,
-    toggleVisibility,
-    focusFile,
-    downloadFile,
-    getFileStatus,
-    isPclodCompleted,
-  };
+  // 戻り値も毎レンダーで新規参照にならないようメモ化する（利用側の memo / 依存配列を壊さない）
+  return useMemo(
+    () => ({
+      rows,
+      toggleVisibility,
+      focusFile,
+      downloadFile,
+      getFileStatus,
+      isPclodCompleted,
+    }),
+    [rows, toggleVisibility, focusFile, downloadFile, getFileStatus]
+  );
 };

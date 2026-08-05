@@ -102,7 +102,8 @@ function setupMocks(overrides?: {
       "client" in (overrides ?? {})
         ? (overrides?.client as never)
         : ({ getContractFileDownloadUrl: getContractFileDownloadUrlMock } as never),
-    project: "project" in (overrides ?? {}) ? overrides?.project : { constructionId: 1, contractId: 5 },
+    project:
+      "project" in (overrides ?? {}) ? overrides?.project : { constructionId: 1, contractId: 5 },
     initialize: vi.fn(),
     setProject: vi.fn(),
   } as never);
@@ -299,7 +300,11 @@ describe("5 ダウンロード（downloadFile）", () => {
     await downloadFile(completedFile);
 
     expect(getContractFileDownloadUrlMock).toHaveBeenCalledWith(5, 1);
-    expect(windowOpenMock).toHaveBeenCalledWith("https://dl.example.com/file", "_blank");
+    expect(windowOpenMock).toHaveBeenCalledWith(
+      "https://dl.example.com/file",
+      "_blank",
+      "noopener,noreferrer"
+    );
   });
 
   // 【正常系/境界値】contractFileId=0 は undefined ではないため通常どおり処理する
@@ -308,7 +313,11 @@ describe("5 ダウンロード（downloadFile）", () => {
     await downloadFile({ id: 0, name: "zero.las" } as ContractFile);
 
     expect(getContractFileDownloadUrlMock).toHaveBeenCalledWith(5, 0);
-    expect(windowOpenMock).toHaveBeenCalledWith("https://dl.example.com/file", "_blank");
+    expect(windowOpenMock).toHaveBeenCalledWith(
+      "https://dl.example.com/file",
+      "_blank",
+      "noopener,noreferrer"
+    );
   });
 
   // 【異常系】
@@ -392,9 +401,7 @@ describe("5 ダウンロード（downloadFile）", () => {
   it("file 自体が undefined でも例外を投げず URL 取得も行わない", async () => {
     const { downloadFile } = captureHook(() => useContractFileActions());
 
-    await expect(
-      downloadFile(undefined as unknown as ContractFile)
-    ).resolves.toBeUndefined();
+    await expect(downloadFile(undefined as unknown as ContractFile)).resolves.toBeUndefined();
     expect(getContractFileDownloadUrlMock).not.toHaveBeenCalled();
     expect(windowOpenMock).not.toHaveBeenCalled();
   });
