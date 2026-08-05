@@ -17,7 +17,7 @@ export type RCDEClientOptions = {
 
 export type BatchProcessingResult = {
   id: number;
-  status: 1 | 2 | 3;
+  status: 1 | 2 | 3 | 4;
 };
 
 export type ContractFile = {
@@ -26,8 +26,6 @@ export type ContractFile = {
   status?: string;
   uploadedAt?: string;
   batchProcessingResult?: BatchProcessingResult;
-  /** batchProcessingResult.status が RCDE 既知値 (1|2|3) 以外のとき true */
-  hasUnknownBatchStatus?: boolean;
 };
 
 type Json = Record<string, unknown>;
@@ -282,13 +280,6 @@ export type Contract = {
   status?: string;
 };
 
-function isKnownBatchStatus(status: number): status is BatchProcessingResult["status"] {
-  const isStart = status === 1;
-  const isInProgress = status === 2;
-  const isFinish = status === 3;
-  return isStart || isInProgress || isFinish;
-}
-
 function parseContractFile(raw: ContractFile): ContractFile {
   const batchProcessingResult = raw.batchProcessingResult;
   const hasBatchResult =
@@ -296,20 +287,12 @@ function parseContractFile(raw: ContractFile): ContractFile {
     typeof batchProcessingResult.id === "number" &&
     typeof batchProcessingResult.status === "number";
 
-  let normalizedBatchResult: BatchProcessingResult | undefined;
-  let hasUnknownBatchStatus = false;
-
-  if (hasBatchResult) {
-    const status = batchProcessingResult.status;
-    if (isKnownBatchStatus(status)) {
-      normalizedBatchResult = {
+  const normalizedBatchResult: BatchProcessingResult | undefined = hasBatchResult
+    ? {
         id: batchProcessingResult.id,
-        status,
-      };
-    } else {
-      hasUnknownBatchStatus = true;
-    }
-  }
+        status: batchProcessingResult.status,
+      }
+    : undefined;
 
   return {
     id: raw.id,
@@ -317,7 +300,6 @@ function parseContractFile(raw: ContractFile): ContractFile {
     status: raw.status,
     uploadedAt: raw.uploadedAt,
     batchProcessingResult: normalizedBatchResult,
-    hasUnknownBatchStatus: hasUnknownBatchStatus ? true : undefined,
   };
 }
 
