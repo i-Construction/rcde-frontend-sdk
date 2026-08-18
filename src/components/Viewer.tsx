@@ -470,7 +470,8 @@ const Viewer: FC<ViewerProps> = (props) => {
   );
 
   const visibleFileIds = useMemo(
-    () => views.map((view) => view.file.id).filter((fileId): fileId is number => fileId !== undefined),
+    () =>
+      views.map((view) => view.file.id).filter((fileId): fileId is number => fileId !== undefined),
     [views]
   );
 
