@@ -14,12 +14,21 @@ import {
   PerspectiveCamera,
   Object3D,
   Raycaster,
+  WebGLRenderer,
 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile, useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
 import { useContractFilesPolling } from "../hooks/useContractFilesPolling";
 import { isPclodCompleted, type PendingUploads } from "../lib/contractFileStatus";
+import {
+  evaluateViewerMemoryAlert,
+  type ViewerFileMemoryEstimate,
+  type ViewerMemoryAlertLevel,
+  type ViewerMemoryMonitoringOptions,
+  type ViewerMemorySample,
+  type ViewerMemorySource,
+} from "../lib/viewerMemory";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { LeftSider } from "./LeftSider";
 import { ReferencePointAxis } from "./ReferencePointAxis";
@@ -63,6 +72,13 @@ type R3FProps = {
   referencePointAxis?: boolean;
 };
 
+type BrowserPerformance = Performance & {
+  memory?: {
+    usedJSHeapSize?: number;
+  };
+  measureUserAgentSpecificMemory?: () => Promise<{ bytes: number }>;
+};
+
 export type RCDEAppConfig = {
   token: string;
   baseUrl?: string;
@@ -85,6 +101,7 @@ export type ViewerProps = {
   contractFilesRefetchKey?: number;
   selectedFileId?: number;
   onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
+  memoryMonitoring?: ViewerMemoryMonitoringOptions;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -173,6 +190,18 @@ const ClickHandler: FC<{
   return null;
 };
 
+const RendererMemoryBridge: FC<{ onRendererReady: (renderer: WebGLRenderer) => void }> = ({
+  onRendererReady,
+}) => {
+  const { gl } = useThree();
+
+  useEffect(() => {
+    onRendererReady(gl);
+  }, [gl, onRendererReady]);
+
+  return null;
+};
+
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, updateFiles, containers } = useContractFiles();
   const {
@@ -191,14 +220,21 @@ const Viewer: FC<ViewerProps> = (props) => {
     contractFilesRefetchKey,
     selectedFileId,
     onContractFileClick,
+    memoryMonitoring,
   } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point, change: changeReferencePoint } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
+  const [fileMemoryEstimates, setFileMemoryEstimates] = useState<
+    Record<number, ViewerFileMemoryEstimate>
+  >({});
   const pendingUploads = pendingUploadsProp ?? {};
 
   const transformRootRef = useRef<Group>(null);
   const cameraRef = useRef<PerspectiveCamera>(null);
+  const rendererRef = useRef<WebGLRenderer | null>(null);
+  const memorySampleInFlightRef = useRef(false);
+  const memoryAlertLevelRef = useRef<ViewerMemoryAlertLevel | undefined>(undefined);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
@@ -357,6 +393,44 @@ const Viewer: FC<ViewerProps> = (props) => {
     console.log(file);
   }, []);
 
+  const handleFileMemoryEstimateChange = useCallback((estimate: ViewerFileMemoryEstimate) => {
+    setFileMemoryEstimates((prev) => {
+      const current = prev[estimate.fileId];
+      const isZeroEstimate =
+        estimate.loadedTileCount === 0 &&
+        estimate.compressedBytes === 0 &&
+        estimate.decodedBytes === 0 &&
+        estimate.totalBytes === 0;
+
+      if (isZeroEstimate) {
+        if (current === undefined) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[estimate.fileId];
+        return next;
+      }
+
+      if (
+        current?.loadedTileCount === estimate.loadedTileCount &&
+        current.compressedBytes === estimate.compressedBytes &&
+        current.decodedBytes === estimate.decodedBytes &&
+        current.totalBytes === estimate.totalBytes
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [estimate.fileId]: estimate,
+      };
+    });
+  }, []);
+
+  const handleRendererReady = useCallback((renderer: WebGLRenderer) => {
+    rendererRef.current = renderer;
+  }, []);
+
   const applyAppearanceToScene = useCallback(
     (root: Group | null, ps: number, opPercent: number) => {
       if (!root) return;
@@ -395,9 +469,119 @@ const Viewer: FC<ViewerProps> = (props) => {
     []
   );
 
+  const visibleFileIds = useMemo(
+    () => views.map((view) => view.file.id).filter((fileId): fileId is number => fileId !== undefined),
+    [views]
+  );
+
+  const memoryEstimateSummary = useMemo(() => {
+    let loadedTileCount = 0;
+    let compressedBytes = 0;
+    let decodedBytes = 0;
+
+    for (const estimate of Object.values(fileMemoryEstimates)) {
+      loadedTileCount += estimate.loadedTileCount;
+      compressedBytes += estimate.compressedBytes;
+      decodedBytes += estimate.decodedBytes;
+    }
+
+    return {
+      loadedFileCount: Object.keys(fileMemoryEstimates).length,
+      loadedTileCount,
+      compressedBytes,
+      decodedBytes,
+      estimatedViewerBytes: compressedBytes + decodedBytes,
+    };
+  }, [fileMemoryEstimates]);
+
+  const isMemoryMonitoringEnabled = memoryMonitoring?.enabled === true;
+  const memorySampleIntervalMs = memoryMonitoring?.sampleIntervalMs ?? 15000;
+
+  const sampleViewerMemory = useCallback(async () => {
+    if (!isMemoryMonitoringEnabled || memorySampleInFlightRef.current) {
+      return;
+    }
+
+    memorySampleInFlightRef.current = true;
+    try {
+      const perf = performance as BrowserPerformance;
+      const jsHeapBytes =
+        typeof perf.memory?.usedJSHeapSize === "number" ? perf.memory.usedJSHeapSize : undefined;
+
+      let source: ViewerMemorySource = jsHeapBytes !== undefined ? "js-heap" : "estimate";
+      let pageBytes: number | undefined;
+
+      if (typeof perf.measureUserAgentSpecificMemory === "function") {
+        try {
+          const result = await perf.measureUserAgentSpecificMemory();
+          if (typeof result.bytes === "number") {
+            pageBytes = result.bytes;
+            source = "browser-precise";
+          }
+        } catch {
+          // Cross-origin isolation or browser support may be missing; keep fallback metrics only.
+        }
+      }
+
+      const rendererMemory = rendererRef.current?.info.memory;
+      const sample: ViewerMemorySample = {
+        timestamp: Date.now(),
+        source,
+        estimatedViewerBytes: memoryEstimateSummary.estimatedViewerBytes,
+        pageBytes,
+        jsHeapBytes,
+        loadedFileCount: memoryEstimateSummary.loadedFileCount,
+        loadedTileCount: memoryEstimateSummary.loadedTileCount,
+        compressedBytes: memoryEstimateSummary.compressedBytes,
+        decodedBytes: memoryEstimateSummary.decodedBytes,
+        geometryCount: rendererMemory?.geometries,
+        textureCount: rendererMemory?.textures,
+        visibleFileIds,
+      };
+
+      memoryMonitoring?.onSample?.(sample);
+
+      const { nextLevel, alert } = evaluateViewerMemoryAlert({
+        sample,
+        thresholds: memoryMonitoring?.thresholds,
+        previousLevel: memoryAlertLevelRef.current,
+      });
+      memoryAlertLevelRef.current = nextLevel;
+
+      if (alert !== undefined) {
+        memoryMonitoring?.onAlert?.(alert);
+      }
+    } finally {
+      memorySampleInFlightRef.current = false;
+    }
+  }, [isMemoryMonitoringEnabled, memoryEstimateSummary, memoryMonitoring, visibleFileIds]);
+
   useEffect(() => {
     applyAppearanceToScene(transformRootRef.current, appearance.pointSize, appearance.opacity);
   }, [appearance, applyAppearanceToScene]);
+
+  useEffect(() => {
+    if (!isMemoryMonitoringEnabled) {
+      memoryAlertLevelRef.current = undefined;
+      return;
+    }
+
+    void sampleViewerMemory();
+  }, [isMemoryMonitoringEnabled, sampleViewerMemory]);
+
+  useEffect(() => {
+    if (!isMemoryMonitoringEnabled) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      void sampleViewerMemory();
+    }, memorySampleIntervalMs);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [isMemoryMonitoringEnabled, memorySampleIntervalMs, sampleViewerMemory]);
 
   useEffect(() => {
     const listener = (e: MessageEvent) => {
@@ -480,6 +664,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       )}
       <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
         <Canvas camera={camera} {...r3f?.canvas}>
+          <RendererMemoryBridge onRendererReady={handleRendererReady} />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <perspectiveCamera ref={cameraRef as any} />
           {r3f?.map !== false && <MapControls ref={controlsRef} makeDefault screenSpacePanning />}
@@ -520,6 +705,7 @@ const Viewer: FC<ViewerProps> = (props) => {
                   inspectorPointSize={fileAppearance?.pointSize}
                   inspectorOpacity={fileAppearance?.opacity}
                   inspectorCoordinateSystem={fileAppearance?.coordinateSystem}
+                  onMemoryEstimateChange={handleFileMemoryEstimateChange}
                 />
               );
             })}

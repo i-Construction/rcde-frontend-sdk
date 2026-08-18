@@ -118,6 +118,86 @@ const App = () => {
 };
 ```
 
+### `memoryMonitoring` の使い方
+
+`RCDE` / `Viewer` には、3D 表示まわりのメモリ使用量を監視するための `memoryMonitoring` オプションを渡せます。
+点群タイルの読み込み量から算出した推定メモリ量を定期サンプリングし、閾値を超えた場合にアラートを発火できます。
+
+```tsx
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  RCDE,
+  type ViewerMemoryAlert,
+  type ViewerMemoryMonitoringOptions,
+  type ViewerMemorySample,
+} from "@i-con/frontend-sdk";
+
+const MEBIBYTE = 1024 * 1024;
+
+const App = () => {
+  const [lastSample, setLastSample] = useState<ViewerMemorySample | undefined>(undefined);
+  const [lastAlert, setLastAlert] = useState<ViewerMemoryAlert | undefined>(undefined);
+
+  const memoryMonitoring = useMemo<ViewerMemoryMonitoringOptions>(
+    () => ({
+      enabled: true,
+      sampleIntervalMs: 15000,
+      thresholds: {
+        warningBytes: 256 * MEBIBYTE,
+        criticalBytes: 384 * MEBIBYTE,
+        source: "max-available",
+        hysteresisBytes: 32 * MEBIBYTE,
+      },
+      onSample: (sample) => {
+        setLastSample(sample);
+      },
+      onAlert: (alert) => {
+        setLastAlert(alert);
+      },
+    }),
+    []
+  );
+
+  return (
+    <RCDE
+      constructionId={constructionId}
+      contractId={contractId}
+      app={app}
+      memoryMonitoring={memoryMonitoring}
+    />
+  );
+};
+```
+
+主な設定項目は以下の通りです。
+
+- `enabled`: 監視を有効化します。
+- `sampleIntervalMs`: サンプリング間隔です。短くしすぎるとブラウザ負荷が上がるため、`10000` から `30000` ミリ秒程度を推奨します。
+- `thresholds.warningBytes`: 警告レベルの閾値です。
+- `thresholds.criticalBytes`: 危険レベルの閾値です。
+- `thresholds.source`: 閾値判定に使う値です。`"estimate"`、`"js-heap"`、`"page"`、`"max-available"` を選べます。
+- `thresholds.hysteresisBytes`: 閾値付近で警告が連続発火しないようにする戻り幅です。
+- `onSample`: サンプル取得時のコールバックです。
+- `onAlert`: 閾値超過時のコールバックです。
+
+`onSample` で受け取れる `ViewerMemorySample` には、主に以下の値が含まれます。
+
+- `estimatedViewerBytes`: SDK が推定した Viewer 単位のメモリ量です。
+- `pageBytes`: `performance.measureUserAgentSpecificMemory()` が利用できる場合のページ全体メモリ量です。
+- `jsHeapBytes`: `performance.memory.usedJSHeapSize` が利用できる場合の JS ヒープ量です。
+- `loadedFileCount`: メモリ推定対象として読み込み済みのファイル数です。
+- `loadedTileCount`: 読み込み済み点群タイル数です。
+- `geometryCount`, `textureCount`: Three.js / WebGL の統計情報です。
+- `source`: 実際に取得できたメモリ値の種別です。
+
+> 注意:
+>
+> - `pageBytes` を返す `performance.measureUserAgentSpecificMemory()` はブラウザ依存で、利用できない環境があります。
+> - ブラウザから GPU / WebGL メモリを厳密に取得することは難しいため、SDK では Viewer 推定値をベースに監視します。
+> - アラート表示 UI は SDK ではなく、`onAlert` を使ってアプリケーション側で `Snackbar` や `Alert` を出す構成を推奨します。
+
 ---
 
 ## ViewerBridgeの使い方

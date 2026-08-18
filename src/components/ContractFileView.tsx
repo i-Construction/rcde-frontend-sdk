@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Euler, Group, Object3D, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile } from "../contexts/contractFiles";
+import type { ViewerFileMemoryEstimate } from "../lib/viewerMemory";
 
 // 座標系の型定義
 type CoordinateSystemType =
@@ -55,6 +56,7 @@ export type ContractFileProps = {
   inspectorPointSize?: number;
   inspectorOpacity?: number;
   inspectorCoordinateSystem?: CoordinateSystemType;
+  onMemoryEstimateChange?: (estimate: ViewerFileMemoryEstimate) => void;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -69,23 +71,63 @@ const ContractFileView = ({
   inspectorPointSize,
   inspectorOpacity,
   inspectorCoordinateSystem,
+  onMemoryEstimateChange,
 }: ContractFileProps) => {
   const { client, project } = useClient();
   const [init, setInit] = useState(false);
   const [hasIntensity, setHasIntensity] = useState(false);
   const groupRef = useRef<Group>(null);
+  const pngBufferCacheRef = useRef<Map<string, Promise<PngBuffer>>>(new Map());
+  const loadedTileMemoryRef = useRef<
+    Map<string, { compressedBytes: number; decodedBytes: number }>
+  >(new Map());
 
   // 基準点変更時に parser の参照が変わり PointCloudGrid 側の読み込み処理が
   // 再実行されても、同一ファイル・同一LODタイルであれば取得済みのPNGバッファを
   // 再利用してネットワーク再取得を避けるためのキャッシュ。
   // file / meta が変わった場合のみキャッシュを作り直す。
-  const pngBufferCache = useMemo(
-    () => new Map<string, Promise<PngBuffer>>(),
-    [file.id, meta?.version]
+  const emitMemoryEstimate = useCallback(() => {
+    if (file.id === undefined || onMemoryEstimateChange === undefined) {
+      return;
+    }
+
+    let loadedTileCount = 0;
+    let compressedBytes = 0;
+    let decodedBytes = 0;
+    for (const tile of loadedTileMemoryRef.current.values()) {
+      loadedTileCount += 1;
+      compressedBytes += tile.compressedBytes;
+      decodedBytes += tile.decodedBytes;
+    }
+
+    onMemoryEstimateChange({
+      fileId: file.id,
+      loadedTileCount,
+      compressedBytes,
+      decodedBytes,
+      totalBytes: compressedBytes + decodedBytes,
+    });
+  }, [file.id, onMemoryEstimateChange]);
+
+  const registerTileMemory = useCallback(
+    (cacheKey: string, metrics: { compressedBytes: number; decodedBytes: number }) => {
+      const previous = loadedTileMemoryRef.current.get(cacheKey);
+      if (
+        previous?.compressedBytes === metrics.compressedBytes &&
+        previous?.decodedBytes === metrics.decodedBytes
+      ) {
+        return;
+      }
+
+      loadedTileMemoryRef.current.set(cacheKey, metrics);
+      emitMemoryEstimate();
+    },
+    [emitMemoryEstimate]
   );
 
   const loader: PointCloudLODLoader<PngBuffer> = useCallback(
     (props) => {
+      const pngBufferCache = pngBufferCacheRef.current;
       const { address, color } = props;
       const { lod, coordinate } = address;
       const addr = `${coordinate.x}-${coordinate.y}-${coordinate.z}`;
@@ -112,6 +154,7 @@ const ContractFileView = ({
           reject(new Error("Failed to load PNG buffer"));
           return;
         }
+        const positionCompressedBytes = pBuffer.byteLength;
         const pParsed = png.parse(pBuffer);
         pParsed.on("parsed", async () => {
           if (color) {
@@ -121,15 +164,24 @@ const ContractFileView = ({
               reject(new Error("Failed to load PNG buffer"));
               return;
             }
+            const colorCompressedBytes = cBuffer.byteLength;
             const png2 = new PNG();
             const cParsed = png2.parse(cBuffer);
             cParsed.on("parsed", () => {
+              registerTileMemory(cacheKey, {
+                compressedBytes: positionCompressedBytes + colorCompressedBytes,
+                decodedBytes: pParsed.data.byteLength + cParsed.data.byteLength,
+              });
               resolve({
                 position: pParsed,
                 color: cParsed,
               });
             });
           } else {
+            registerTileMemory(cacheKey, {
+              compressedBytes: positionCompressedBytes,
+              decodedBytes: pParsed.data.byteLength,
+            });
             resolve({
               position: pParsed,
             });
@@ -143,8 +195,14 @@ const ContractFileView = ({
       });
       return promise;
     },
-    [client, project, file, pngBufferCache]
+    [client, project, file, registerTileMemory]
   );
+
+  useEffect(() => {
+    pngBufferCacheRef.current = new Map();
+    loadedTileMemoryRef.current.clear();
+    emitMemoryEstimate();
+  }, [file.id, meta?.version, emitMemoryEstimate]);
 
   useEffect(() => {
     (async () => {
@@ -176,6 +234,24 @@ const ContractFileView = ({
       setInit(true);
     })();
   }, [meta, loader]);
+
+  useEffect(() => {
+    const loadedTileMemory = loadedTileMemoryRef.current;
+
+    emitMemoryEstimate();
+    return () => {
+      loadedTileMemory.clear();
+      if (file.id !== undefined && onMemoryEstimateChange !== undefined) {
+        onMemoryEstimateChange({
+          fileId: file.id,
+          loadedTileCount: 0,
+          compressedBytes: 0,
+          decodedBytes: 0,
+          totalBytes: 0,
+        });
+      }
+    };
+  }, [emitMemoryEstimate, file.id, onMemoryEstimateChange]);
 
   // Shift metadata considering the reference point
   const shiftedMeta = useMemo(() => {

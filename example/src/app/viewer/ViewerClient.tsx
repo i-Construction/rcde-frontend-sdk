@@ -1,8 +1,14 @@
 "use client";
 
-import { RCDE, type PendingUploads, type RCDEAppConfig } from "@i-con/frontend-sdk";
+import {
+  RCDE,
+  type PendingUploads,
+  type RCDEAppConfig,
+  type ViewerMemoryAlert,
+  type ViewerMemorySample,
+} from "@i-con/frontend-sdk";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
-import { Box, Button } from "@mui/material";
+import { Alert, Box, Button, Typography } from "@mui/material";
 import { useCallback, useMemo, useState } from "react";
 
 import { FileUploadModal } from "@/components/FileUploadModal";
@@ -12,6 +18,15 @@ import { ViewerHeader } from "@/components/ViewerHeader";
 
 /** SDK の ReferencePointView より上にツールバーを置くオフセット（px） */
 const VIEWER_TOOLBAR_BOTTOM_OFFSET = 48;
+const MEBIBYTE = 1024 * 1024;
+
+function formatMiB(bytes?: number): string {
+  if (bytes === undefined) {
+    return "-";
+  }
+
+  return `${(bytes / MEBIBYTE).toFixed(1)} MiB`;
+}
 
 type ViewerClientProps = {
   token: string;
@@ -34,6 +49,8 @@ export function ViewerClient({
   const [contractFilesRefetchKey, setContractFilesRefetchKey] = useState<number | undefined>(
     undefined
   );
+  const [memorySample, setMemorySample] = useState<ViewerMemorySample | undefined>(undefined);
+  const [memoryAlert, setMemoryAlert] = useState<ViewerMemoryAlert | undefined>(undefined);
 
   // 基準点ダイアログの開閉などで ViewerClient が再レンダーされても、
   // token が変わらない限り app オブジェクトの参照を保つ。
@@ -88,6 +105,30 @@ export function ViewerClient({
     setIsReferencePointDialogOpen(false);
   }, []);
 
+  const handleMemorySample = useCallback((sample: ViewerMemorySample) => {
+    setMemorySample(sample);
+  }, []);
+
+  const handleMemoryAlert = useCallback((alert: ViewerMemoryAlert) => {
+    setMemoryAlert(alert);
+  }, []);
+
+  const memoryMonitoring = useMemo(
+    () => ({
+      enabled: true,
+      sampleIntervalMs: 15000,
+      thresholds: {
+        warningBytes: 256 * MEBIBYTE,
+        criticalBytes: 384 * MEBIBYTE,
+        source: "max-available" as const,
+        hysteresisBytes: 32 * MEBIBYTE,
+      },
+      onSample: handleMemorySample,
+      onAlert: handleMemoryAlert,
+    }),
+    [handleMemoryAlert, handleMemorySample]
+  );
+
   return (
     <Box
       sx={{
@@ -114,6 +155,7 @@ export function ViewerClient({
           contractFileIds={[]}
           pendingUploads={pendingUploads}
           contractFilesRefetchKey={contractFilesRefetchKey}
+          memoryMonitoring={memoryMonitoring}
           leftSiderHeaderActions={
             <Button
               size="small"
@@ -141,6 +183,48 @@ export function ViewerClient({
             </>
           }
         />
+        <Box
+          sx={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            zIndex: 10,
+            width: 320,
+            px: 1.5,
+            py: 1,
+            borderRadius: 1,
+            bgcolor: "rgba(0, 0, 0, 0.65)",
+            color: "common.white",
+            backdropFilter: "blur(6px)",
+            pointerEvents: "none",
+          }}
+        >
+          <Typography variant="caption" component="div">
+            Viewer 推定メモリ: {formatMiB(memorySample?.estimatedViewerBytes)}
+          </Typography>
+          <Typography variant="caption" component="div">
+            ページメモリ: {formatMiB(memorySample?.pageBytes ?? memorySample?.jsHeapBytes)}
+          </Typography>
+          <Typography variant="caption" component="div">
+            タイル数: {memorySample?.loadedTileCount ?? 0} / ソース: {memorySample?.source ?? "-"}
+          </Typography>
+        </Box>
+        {memoryAlert && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 96,
+              left: 12,
+              zIndex: 11,
+              width: 360,
+            }}
+          >
+            <Alert severity={memoryAlert.level === "critical" ? "error" : "warning"}>
+              3D 表示のメモリ使用量が閾値を超えました。現在値:{" "}
+              {formatMiB(memoryAlert.observedBytes)} / 閾値: {formatMiB(memoryAlert.thresholdBytes)}
+            </Alert>
+          </Box>
+        )}
         <Box
           sx={{
             position: "absolute",
