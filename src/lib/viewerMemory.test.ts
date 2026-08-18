@@ -28,6 +28,15 @@ describe("resolveViewerMemoryObservedBytes", () => {
     expect(resolveViewerMemoryObservedBytes(baseSample, "js-heap")).toBe(250);
     expect(resolveViewerMemoryObservedBytes(baseSample, "page")).toBe(300);
   });
+
+  it("pageBytes と jsHeapBytes が未取得でも max-available は estimate を使う", () => {
+    expect(
+      resolveViewerMemoryObservedBytes(
+        { ...baseSample, pageBytes: undefined, jsHeapBytes: undefined },
+        "max-available"
+      )
+    ).toBe(200);
+  });
 });
 
 describe("evaluateViewerMemoryAlert", () => {
@@ -99,6 +108,35 @@ describe("evaluateViewerMemoryAlert", () => {
         hysteresisBytes: 20,
       },
       previousLevel: "warning",
+    });
+
+    expect(result.nextLevel).toBeUndefined();
+    expect(result.alert).toBeUndefined();
+  });
+
+  it("critical 付近で揺れてもヒステリシス幅の間は critical を維持する", () => {
+    const result = evaluateViewerMemoryAlert({
+      sample: { ...baseSample, pageBytes: 470 },
+      thresholds: {
+        warningBytes: 280,
+        criticalBytes: 480,
+        source: "page",
+        hysteresisBytes: 20,
+      },
+      previousLevel: "critical",
+    });
+
+    expect(result.nextLevel).toBe("critical");
+    expect(result.alert).toBeUndefined();
+  });
+
+  it("監視対象ソースが未取得なら alert を出さない", () => {
+    const result = evaluateViewerMemoryAlert({
+      sample: { ...baseSample, pageBytes: undefined },
+      thresholds: {
+        warningBytes: 280,
+        source: "page",
+      },
     });
 
     expect(result.nextLevel).toBeUndefined();

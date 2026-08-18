@@ -98,16 +98,22 @@ export function evaluateViewerMemoryAlert({
 
   let nextLevel: ViewerMemoryAlertLevel | undefined;
 
-  if (criticalBytes !== undefined && observedBytes >= criticalBytes) {
+  if (previousLevel === "critical" && criticalBytes !== undefined) {
+    if (observedBytes >= Math.max(0, criticalBytes - hysteresisBytes)) {
+      nextLevel = "critical";
+    } else if (warningBytes !== undefined && observedBytes >= warningBytes) {
+      nextLevel = "warning";
+    }
+  } else if (previousLevel === "warning" && warningBytes !== undefined) {
+    if (criticalBytes !== undefined && observedBytes >= criticalBytes) {
+      nextLevel = "critical";
+    } else if (observedBytes >= Math.max(0, warningBytes - hysteresisBytes)) {
+      nextLevel = "warning";
+    }
+  } else if (criticalBytes !== undefined && observedBytes >= criticalBytes) {
     nextLevel = "critical";
   } else if (warningBytes !== undefined && observedBytes >= warningBytes) {
     nextLevel = "warning";
-  } else if (previousLevel === "critical" && criticalBytes !== undefined) {
-    nextLevel =
-      observedBytes >= Math.max(0, criticalBytes - hysteresisBytes) ? "critical" : undefined;
-  } else if (previousLevel === "warning" && warningBytes !== undefined) {
-    nextLevel =
-      observedBytes >= Math.max(0, warningBytes - hysteresisBytes) ? "warning" : undefined;
   }
 
   if (nextLevel === undefined || nextLevel === previousLevel) {

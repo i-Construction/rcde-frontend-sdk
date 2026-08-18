@@ -77,10 +77,27 @@ const ContractFileView = ({
   const [init, setInit] = useState(false);
   const [hasIntensity, setHasIntensity] = useState(false);
   const groupRef = useRef<Group>(null);
-  const pngBufferCacheRef = useRef<Map<string, Promise<PngBuffer>>>(new Map());
-  const loadedTileMemoryRef = useRef<
-    Map<string, { compressedBytes: number; decodedBytes: number }>
-  >(new Map());
+  const memoryEstimateFrameRef = useRef<number | null>(null);
+  const cacheStateKey = `${file.id ?? "unknown"}-${meta?.version ?? "unknown"}`;
+  const cacheStateRef = useRef<{
+    key: string;
+    pngBufferCache: Map<string, Promise<PngBuffer>>;
+    loadedTileMemory: Map<string, { compressedBytes: number; decodedBytes: number }>;
+  }>({
+    key: cacheStateKey,
+    pngBufferCache: new Map(),
+    loadedTileMemory: new Map(),
+  });
+  const fileIdRef = useRef(file.id);
+  const onMemoryEstimateChangeRef = useRef(onMemoryEstimateChange);
+
+  if (cacheStateRef.current.key !== cacheStateKey) {
+    cacheStateRef.current = {
+      key: cacheStateKey,
+      pngBufferCache: new Map(),
+      loadedTileMemory: new Map(),
+    };
+  }
 
   // 基準点変更時に parser の参照が変わり PointCloudGrid 側の読み込み処理が
   // 再実行されても、同一ファイル・同一LODタイルであれば取得済みのPNGバッファを
@@ -94,7 +111,7 @@ const ContractFileView = ({
     let loadedTileCount = 0;
     let compressedBytes = 0;
     let decodedBytes = 0;
-    for (const tile of loadedTileMemoryRef.current.values()) {
+    for (const tile of cacheStateRef.current.loadedTileMemory.values()) {
       loadedTileCount += 1;
       compressedBytes += tile.compressedBytes;
       decodedBytes += tile.decodedBytes;
@@ -105,13 +122,24 @@ const ContractFileView = ({
       loadedTileCount,
       compressedBytes,
       decodedBytes,
-      totalBytes: compressedBytes + decodedBytes,
+      totalBytes: decodedBytes,
     });
   }, [file.id, onMemoryEstimateChange]);
 
+  const scheduleMemoryEstimateFlush = useCallback(() => {
+    if (memoryEstimateFrameRef.current !== null) {
+      return;
+    }
+
+    memoryEstimateFrameRef.current = window.requestAnimationFrame(() => {
+      memoryEstimateFrameRef.current = null;
+      emitMemoryEstimate();
+    });
+  }, [emitMemoryEstimate]);
+
   const registerTileMemory = useCallback(
     (cacheKey: string, metrics: { compressedBytes: number; decodedBytes: number }) => {
-      const previous = loadedTileMemoryRef.current.get(cacheKey);
+      const previous = cacheStateRef.current.loadedTileMemory.get(cacheKey);
       if (
         previous?.compressedBytes === metrics.compressedBytes &&
         previous?.decodedBytes === metrics.decodedBytes
@@ -119,15 +147,15 @@ const ContractFileView = ({
         return;
       }
 
-      loadedTileMemoryRef.current.set(cacheKey, metrics);
-      emitMemoryEstimate();
+      cacheStateRef.current.loadedTileMemory.set(cacheKey, metrics);
+      scheduleMemoryEstimateFlush();
     },
-    [emitMemoryEstimate]
+    [scheduleMemoryEstimateFlush]
   );
 
   const loader: PointCloudLODLoader<PngBuffer> = useCallback(
     (props) => {
-      const pngBufferCache = pngBufferCacheRef.current;
+      const pngBufferCache = cacheStateRef.current.pngBufferCache;
       const { address, color } = props;
       const { lod, coordinate } = address;
       const addr = `${coordinate.x}-${coordinate.y}-${coordinate.z}`;
@@ -199,10 +227,13 @@ const ContractFileView = ({
   );
 
   useEffect(() => {
-    pngBufferCacheRef.current = new Map();
-    loadedTileMemoryRef.current.clear();
+    fileIdRef.current = file.id;
+    onMemoryEstimateChangeRef.current = onMemoryEstimateChange;
+  }, [file.id, onMemoryEstimateChange]);
+
+  useEffect(() => {
     emitMemoryEstimate();
-  }, [file.id, meta?.version, emitMemoryEstimate]);
+  }, [cacheStateKey, emitMemoryEstimate]);
 
   useEffect(() => {
     (async () => {
@@ -236,14 +267,16 @@ const ContractFileView = ({
   }, [meta, loader]);
 
   useEffect(() => {
-    const loadedTileMemory = loadedTileMemoryRef.current;
-
     emitMemoryEstimate();
     return () => {
-      loadedTileMemory.clear();
-      if (file.id !== undefined && onMemoryEstimateChange !== undefined) {
-        onMemoryEstimateChange({
-          fileId: file.id,
+      if (memoryEstimateFrameRef.current !== null) {
+        window.cancelAnimationFrame(memoryEstimateFrameRef.current);
+      }
+      cacheStateRef.current.pngBufferCache.clear();
+      cacheStateRef.current.loadedTileMemory.clear();
+      if (fileIdRef.current !== undefined && onMemoryEstimateChangeRef.current !== undefined) {
+        onMemoryEstimateChangeRef.current({
+          fileId: fileIdRef.current,
           loadedTileCount: 0,
           compressedBytes: 0,
           decodedBytes: 0,
@@ -251,7 +284,7 @@ const ContractFileView = ({
         });
       }
     };
-  }, [emitMemoryEstimate, file.id, onMemoryEstimateChange]);
+  }, [emitMemoryEstimate]);
 
   // Shift metadata considering the reference point
   const shiftedMeta = useMemo(() => {
