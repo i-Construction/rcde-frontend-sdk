@@ -5,6 +5,7 @@ import {
   type PendingUploads,
   type RCDEAppConfig,
   type ViewerMemoryAlert,
+  type ViewerMemoryAlertLevel,
   type ViewerMemorySample,
 } from "@i-con/frontend-sdk";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
@@ -113,6 +114,12 @@ export function ViewerClient({
     setMemoryAlert(alert);
   }, []);
 
+  const handleMemoryAlertLevelChange = useCallback((level: ViewerMemoryAlertLevel | undefined) => {
+    if (level === undefined) {
+      setMemoryAlert(undefined);
+    }
+  }, []);
+
   const memoryMonitoring = useMemo(
     () => ({
       enabled: true,
@@ -125,8 +132,9 @@ export function ViewerClient({
       },
       onSample: handleMemorySample,
       onAlert: handleMemoryAlert,
+      onAlertLevelChange: handleMemoryAlertLevelChange,
     }),
-    [handleMemoryAlert, handleMemorySample]
+    [handleMemoryAlert, handleMemoryAlertLevelChange, handleMemorySample]
   );
 
   return (

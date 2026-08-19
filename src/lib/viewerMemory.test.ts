@@ -130,6 +130,22 @@ describe("evaluateViewerMemoryAlert", () => {
     expect(result.alert).toBeUndefined();
   });
 
+  it("critical から warning へダウングレードしたときは warning アラートを返す", () => {
+    const result = evaluateViewerMemoryAlert({
+      sample: { ...baseSample, pageBytes: 430 },
+      thresholds: {
+        warningBytes: 280,
+        criticalBytes: 480,
+        source: "page",
+        hysteresisBytes: 20,
+      },
+      previousLevel: "critical",
+    });
+
+    expect(result.nextLevel).toBe("warning");
+    expect(result.alert?.level).toBe("warning");
+  });
+
   it("監視対象ソースが未取得なら alert を出さない", () => {
     const result = evaluateViewerMemoryAlert({
       sample: { ...baseSample, pageBytes: undefined },
@@ -137,6 +153,42 @@ describe("evaluateViewerMemoryAlert", () => {
         warningBytes: 280,
         source: "page",
       },
+    });
+
+    expect(result.nextLevel).toBeUndefined();
+    expect(result.alert).toBeUndefined();
+  });
+
+  it("warningBytes のみ指定した場合でも warning 判定できる", () => {
+    const result = evaluateViewerMemoryAlert({
+      sample: baseSample,
+      thresholds: {
+        warningBytes: 280,
+        source: "max-available",
+      },
+    });
+
+    expect(result.nextLevel).toBe("warning");
+    expect(result.alert?.level).toBe("warning");
+  });
+
+  it("criticalBytes のみ指定した場合でも critical 判定できる", () => {
+    const result = evaluateViewerMemoryAlert({
+      sample: { ...baseSample, pageBytes: 500 },
+      thresholds: {
+        criticalBytes: 480,
+        source: "page",
+      },
+    });
+
+    expect(result.nextLevel).toBe("critical");
+    expect(result.alert?.level).toBe("critical");
+  });
+
+  it("thresholds が空なら alert level を持たない", () => {
+    const result = evaluateViewerMemoryAlert({
+      sample: baseSample,
+      thresholds: {},
     });
 
     expect(result.nextLevel).toBeUndefined();

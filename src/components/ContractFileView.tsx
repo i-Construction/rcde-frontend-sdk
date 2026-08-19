@@ -91,6 +91,9 @@ const ContractFileView = ({
   const fileIdRef = useRef(file.id);
   const onMemoryEstimateChangeRef = useRef(onMemoryEstimateChange);
 
+  // file / meta.version の切り替わりと同じ commit で読み込み側も新しいキャッシュを参照できるよう、
+  // 描画中の ref として世代を持つ。破棄される render でも更新され得る pragmatic pattern なので、
+  // effect タイミングに戻す際は loader との race に注意すること。
   if (cacheStateRef.current.key !== cacheStateKey) {
     cacheStateRef.current = {
       key: cacheStateKey,
@@ -267,7 +270,6 @@ const ContractFileView = ({
   }, [meta, loader]);
 
   useEffect(() => {
-    emitMemoryEstimate();
     return () => {
       if (memoryEstimateFrameRef.current !== null) {
         window.cancelAnimationFrame(memoryEstimateFrameRef.current);
@@ -284,7 +286,9 @@ const ContractFileView = ({
         });
       }
     };
-  }, [emitMemoryEstimate]);
+    // cleanup はアンマウント時だけに限定する。依存変更時にキャッシュを破棄しない。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Shift metadata considering the reference point
   const shiftedMeta = useMemo(() => {

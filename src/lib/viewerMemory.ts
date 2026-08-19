@@ -17,6 +17,7 @@ export type ViewerMemorySample = {
   source: ViewerMemorySource;
   estimatedViewerBytes: number;
   pageBytes?: number;
+  pageBytesMeasuredAt?: number;
   jsHeapBytes?: number;
   loadedFileCount: number;
   loadedTileCount: number;
@@ -47,6 +48,10 @@ export type ViewerMemoryMonitoringOptions = {
   thresholds?: ViewerMemoryThresholds;
   onSample?: (sample: ViewerMemorySample) => void;
   onAlert?: (alert: ViewerMemoryAlert) => void;
+  onAlertLevelChange?: (
+    level: ViewerMemoryAlertLevel | undefined,
+    sample: ViewerMemorySample
+  ) => void;
 };
 
 type EvaluateViewerMemoryAlertArgs = {

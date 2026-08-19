@@ -237,6 +237,9 @@ const Viewer: FC<ViewerProps> = (props) => {
   const cameraRef = useRef<PerspectiveCamera>(null);
   const rendererRef = useRef<WebGLRenderer | null>(null);
   const memoryMonitoringRef = useRef<ViewerMemoryMonitoringOptions | undefined>(memoryMonitoring);
+  const lastSampleAtRef = useRef(0);
+  const precisePageBytesMeasuredAtRef = useRef<number | undefined>(undefined);
+  const precisePageMeasurementGenerationRef = useRef(0);
   const memoryEstimateSummaryRef = useRef({
     loadedFileCount: 0,
     loadedTileCount: 0,
@@ -505,7 +508,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       loadedTileCount,
       compressedBytes,
       decodedBytes,
-      estimatedViewerBytes: compressedBytes + decodedBytes,
+      estimatedViewerBytes: decodedBytes,
     };
   }, [fileMemoryEstimates]);
 
@@ -533,83 +536,104 @@ const Viewer: FC<ViewerProps> = (props) => {
     };
   }, []);
 
-  const emitMemorySample = useCallback(() => {
-    if (!isMemoryMonitoringEnabled) {
-      return;
-    }
+  const emitMemorySample = useCallback(
+    ({ force = false }: { force?: boolean } = {}) => {
+      if (!isMemoryMonitoringEnabled) {
+        return;
+      }
 
-    const perf = performance as BrowserPerformance;
-    const jsHeapBytes =
-      typeof perf.memory?.usedJSHeapSize === "number" ? perf.memory.usedJSHeapSize : undefined;
-    const pageBytes = precisePageBytesRef.current;
+      const now = Date.now();
+      if (!force && now - lastSampleAtRef.current < memorySampleIntervalMs) {
+        return;
+      }
+      lastSampleAtRef.current = now;
 
-    let source: ViewerMemorySource = "estimate";
-    if (pageBytes !== undefined) {
-      source = "browser-precise";
-    } else if (jsHeapBytes !== undefined) {
-      source = "js-heap";
-    }
+      const perf = performance as BrowserPerformance;
+      const jsHeapBytes =
+        typeof perf.memory?.usedJSHeapSize === "number" ? perf.memory.usedJSHeapSize : undefined;
+      const pageBytes = precisePageBytesRef.current;
+      const pageBytesMeasuredAt = precisePageBytesMeasuredAtRef.current;
 
-    const rendererMemory = rendererRef.current?.info.memory;
-    const estimateSummary = memoryEstimateSummaryRef.current;
-    const sample: ViewerMemorySample = {
-      timestamp: Date.now(),
-      source,
-      estimatedViewerBytes: estimateSummary.estimatedViewerBytes,
-      pageBytes,
-      jsHeapBytes,
-      loadedFileCount: estimateSummary.loadedFileCount,
-      loadedTileCount: estimateSummary.loadedTileCount,
-      compressedBytes: estimateSummary.compressedBytes,
-      decodedBytes: estimateSummary.decodedBytes,
-      geometryCount: rendererMemory?.geometries,
-      textureCount: rendererMemory?.textures,
-      visibleFileIds: visibleFileIdsRef.current,
-    };
+      let source: ViewerMemorySource = "estimate";
+      if (pageBytes !== undefined) {
+        source = "browser-precise";
+      } else if (jsHeapBytes !== undefined) {
+        source = "js-heap";
+      }
 
-    const options = memoryMonitoringRef.current;
-    options?.onSample?.(sample);
+      const rendererMemory = rendererRef.current?.info.memory;
+      const estimateSummary = memoryEstimateSummaryRef.current;
+      const sample: ViewerMemorySample = {
+        timestamp: now,
+        source,
+        estimatedViewerBytes: estimateSummary.estimatedViewerBytes,
+        pageBytes,
+        pageBytesMeasuredAt,
+        jsHeapBytes,
+        loadedFileCount: estimateSummary.loadedFileCount,
+        loadedTileCount: estimateSummary.loadedTileCount,
+        compressedBytes: estimateSummary.compressedBytes,
+        decodedBytes: estimateSummary.decodedBytes,
+        geometryCount: rendererMemory?.geometries,
+        textureCount: rendererMemory?.textures,
+        visibleFileIds: visibleFileIdsRef.current,
+      };
 
-    const { nextLevel, alert } = evaluateViewerMemoryAlert({
-      sample,
-      thresholds: options?.thresholds,
-      previousLevel: memoryAlertLevelRef.current,
-    });
-    memoryAlertLevelRef.current = nextLevel;
+      const options = memoryMonitoringRef.current;
+      options?.onSample?.(sample);
 
-    if (alert !== undefined) {
-      options?.onAlert?.(alert);
-    }
-  }, [isMemoryMonitoringEnabled]);
+      const previousLevel = memoryAlertLevelRef.current;
+      const { nextLevel, alert } = evaluateViewerMemoryAlert({
+        sample,
+        thresholds: options?.thresholds,
+        previousLevel,
+      });
+      memoryAlertLevelRef.current = nextLevel;
+
+      if (nextLevel !== previousLevel) {
+        options?.onAlertLevelChange?.(nextLevel, sample);
+      }
+
+      if (alert !== undefined) {
+        options?.onAlert?.(alert);
+      }
+    },
+    [isMemoryMonitoringEnabled, memorySampleIntervalMs]
+  );
 
   const refreshPrecisePageMemory = useCallback(async () => {
     if (!isMemoryMonitoringEnabled || precisePageMeasurementInFlightRef.current) {
       return;
     }
 
+    const generation = precisePageMeasurementGenerationRef.current;
     const perf = performance as BrowserPerformance;
     if (typeof perf.measureUserAgentSpecificMemory !== "function") {
       precisePageBytesRef.current = undefined;
+      precisePageBytesMeasuredAtRef.current = undefined;
       return;
     }
 
     precisePageMeasurementInFlightRef.current = true;
     try {
       const result = await perf.measureUserAgentSpecificMemory();
-      if (!isMountedRef.current) {
+      if (!isMountedRef.current || generation !== precisePageMeasurementGenerationRef.current) {
         return;
       }
       precisePageBytesRef.current = typeof result.bytes === "number" ? result.bytes : undefined;
+      precisePageBytesMeasuredAtRef.current =
+        typeof result.bytes === "number" ? Date.now() : undefined;
       emitMemorySample();
     } catch {
-      if (!isMountedRef.current) {
+      if (!isMountedRef.current || generation !== precisePageMeasurementGenerationRef.current) {
         return;
       }
       precisePageBytesRef.current = undefined;
+      precisePageBytesMeasuredAtRef.current = undefined;
     } finally {
       precisePageMeasurementInFlightRef.current = false;
     }
-  }, [isMemoryMonitoringEnabled]);
+  }, [isMemoryMonitoringEnabled, emitMemorySample]);
 
   useEffect(() => {
     applyAppearanceToScene(transformRootRef.current, appearance.pointSize, appearance.opacity);
@@ -617,12 +641,16 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   useEffect(() => {
     if (!isMemoryMonitoringEnabled) {
+      precisePageMeasurementGenerationRef.current += 1;
+      precisePageMeasurementInFlightRef.current = false;
       precisePageBytesRef.current = undefined;
+      precisePageBytesMeasuredAtRef.current = undefined;
       memoryAlertLevelRef.current = undefined;
+      lastSampleAtRef.current = 0;
       return;
     }
 
-    emitMemorySample();
+    emitMemorySample({ force: true });
     void refreshPrecisePageMemory();
   }, [isMemoryMonitoringEnabled, emitMemorySample, refreshPrecisePageMemory]);
 
