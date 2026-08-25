@@ -4,11 +4,13 @@ import {
   RCDE,
   type PendingUploads,
   type RCDEAppConfig,
+  type ViewerClickEvent,
+  type ViewerHoverEvent,
   type ViewerMemoryAlert,
   type ViewerMemoryAlertLevel,
   type ViewerMemorySample,
 } from "@i-con/frontend-sdk";
-import { Alert, Box, Typography } from "@mui/material";
+import { Alert, Box, Divider, Typography } from "@mui/material";
 import { useCallback, useMemo, useState } from "react";
 
 import { ContractFileSidebar, SidebarUploadButton } from "@/components/ContractFileSidebar";
@@ -52,6 +54,8 @@ export function ViewerClient({
   );
   const [memorySample, setMemorySample] = useState<ViewerMemorySample | undefined>(undefined);
   const [memoryAlert, setMemoryAlert] = useState<ViewerMemoryAlert | undefined>(undefined);
+  const [lastClickEvent, setLastClickEvent] = useState<ViewerClickEvent | undefined>(undefined);
+  const [hoverEvent, setHoverEvent] = useState<ViewerHoverEvent | undefined>(undefined);
 
   // 基準点ダイアログの開閉などで ViewerClient が再レンダーされても、
   // token が変わらない限り app オブジェクトの参照を保つ。
@@ -120,6 +124,14 @@ export function ViewerClient({
     }
   }, []);
 
+  const handleObjectClick = useCallback((event: ViewerClickEvent) => {
+    setLastClickEvent(event);
+  }, []);
+
+  const handleObjectHover = useCallback((event: ViewerHoverEvent) => {
+    setHoverEvent(event);
+  }, []);
+
   const memoryMonitoring = useMemo(
     () => ({
       enabled: true,
@@ -162,6 +174,8 @@ export function ViewerClient({
           // デフォルトで全点群ファイルを非表示にする（空配列 = 表示対象なし）
           contractFileIds={[]}
           contractFilesRefetchKey={contractFilesRefetchKey}
+          onObjectClick={handleObjectClick}
+          onObjectHover={handleObjectHover}
           memoryMonitoring={memoryMonitoring}
           auxiliaryContent={
             <>
@@ -209,6 +223,64 @@ export function ViewerClient({
           <Typography variant="caption" component="div">
             タイル数: {memorySample?.loadedTileCount ?? 0} / ソース: {memorySample?.source ?? "-"}
           </Typography>
+        </Box>
+        <Box
+          sx={{
+            position: "absolute",
+            bottom: 12,
+            right: 12,
+            zIndex: 10,
+            width: 320,
+            px: 1.5,
+            py: 1,
+            borderRadius: 1,
+            bgcolor: "rgba(0, 0, 0, 0.65)",
+            color: "common.white",
+            backdropFilter: "blur(6px)",
+            pointerEvents: "none",
+          }}
+        >
+          <Typography variant="caption" component="div" sx={{ fontWeight: "bold", mb: 0.5 }}>
+            クリック
+          </Typography>
+          {lastClickEvent ? (
+            lastClickEvent.file ? (
+              <>
+                <Typography variant="caption" component="div">
+                  ファイル: {lastClickEvent.file.fileName ?? `ID: ${lastClickEvent.file.id}`}
+                </Typography>
+                <Typography variant="caption" component="div">
+                  交差点: ({lastClickEvent.intersectionPoint?.x.toFixed(2)},{" "}
+                  {lastClickEvent.intersectionPoint?.y.toFixed(2)},{" "}
+                  {lastClickEvent.intersectionPoint?.z.toFixed(2)})
+                </Typography>
+                <Typography variant="caption" component="div">
+                  画面座標: ({lastClickEvent.screenPosition.x}, {lastClickEvent.screenPosition.y})
+                </Typography>
+              </>
+            ) : (
+              <Typography variant="caption" component="div" sx={{ color: "grey.400" }}>
+                空白クリック ({lastClickEvent.screenPosition.x}, {lastClickEvent.screenPosition.y})
+              </Typography>
+            )
+          ) : (
+            <Typography variant="caption" component="div" sx={{ color: "grey.500" }}>
+              未クリック
+            </Typography>
+          )}
+          <Divider sx={{ my: 0.5, borderColor: "rgba(255,255,255,0.2)" }} />
+          <Typography variant="caption" component="div" sx={{ fontWeight: "bold", mb: 0.5 }}>
+            ホバー
+          </Typography>
+          {hoverEvent?.file ? (
+            <Typography variant="caption" component="div">
+              ファイル: {hoverEvent.file.fileName ?? `ID: ${hoverEvent.file.id}`}
+            </Typography>
+          ) : (
+            <Typography variant="caption" component="div" sx={{ color: "grey.500" }}>
+              {hoverEvent ? "対象なし" : "未ホバー"}
+            </Typography>
+          )}
         </Box>
         {memoryAlert && (
           <Box
