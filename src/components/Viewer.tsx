@@ -248,6 +248,18 @@ const Viewer: FC<ViewerProps> = (props) => {
     pointSize: 2,
     opacity: 100,
   });
+  const isMemoryMonitoringEnabled = memoryMonitoring?.enabled === true;
+  const memorySampleIntervalMs = Math.max(memoryMonitoring?.sampleIntervalMs ?? 15000, 1000);
+
+  const clearMemoryAlertLevel = useCallback(() => {
+    const previousLevel = memoryAlertLevelRef.current;
+    const lastSample = lastEmittedMemorySampleRef.current;
+    if (previousLevel !== undefined && lastSample !== undefined) {
+      memoryMonitoringRef.current?.onAlertLevelChange?.(undefined, lastSample);
+    }
+    memoryAlertLevelRef.current = undefined;
+    lastEmittedMemorySampleRef.current = undefined;
+  }, []);
 
   // File-specific transforms (fileId -> translation + rotation)
   const [fileTransforms, setFileTransforms] = useState<
@@ -469,8 +481,6 @@ const Viewer: FC<ViewerProps> = (props) => {
   }, [fileMemoryEstimates]);
 
   const visibleFileIdsKey = useMemo(() => visibleFileIds.join(","), [visibleFileIds]);
-  const isMemoryMonitoringEnabled = memoryMonitoring?.enabled === true;
-  const memorySampleIntervalMs = Math.max(memoryMonitoring?.sampleIntervalMs ?? 15000, 1000);
 
   useEffect(() => {
     memoryMonitoringRef.current = memoryMonitoring;
@@ -487,10 +497,11 @@ const Viewer: FC<ViewerProps> = (props) => {
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
+      clearMemoryAlertLevel();
       isMountedRef.current = false;
       rendererRef.current = null;
     };
-  }, []);
+  }, [clearMemoryAlertLevel]);
 
   const emitMemorySample = useCallback(
     ({ force = false }: { force?: boolean } = {}) => {
@@ -499,10 +510,12 @@ const Viewer: FC<ViewerProps> = (props) => {
       }
 
       const now = Date.now();
-      if (!force && now - lastSampleAtRef.current < memorySampleIntervalMs) {
-        return;
+      if (!force) {
+        if (now - lastSampleAtRef.current < memorySampleIntervalMs) {
+          return;
+        }
+        lastSampleAtRef.current = now;
       }
-      lastSampleAtRef.current = now;
 
       const perf = performance as BrowserPerformance;
       const jsHeapBytes =
@@ -566,12 +579,8 @@ const Viewer: FC<ViewerProps> = (props) => {
     const generation = precisePageMeasurementGenerationRef.current;
     const perf = performance as BrowserPerformance;
     if (typeof perf.measureUserAgentSpecificMemory !== "function") {
-      const hadPrecisePageBytes = precisePageBytesRef.current !== undefined;
       precisePageBytesRef.current = undefined;
       precisePageBytesMeasuredAtRef.current = undefined;
-      if (hadPrecisePageBytes) {
-        emitMemorySample({ force: true });
-      }
       return;
     }
 
@@ -606,24 +615,18 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   useEffect(() => {
     if (!isMemoryMonitoringEnabled) {
-      const previousLevel = memoryAlertLevelRef.current;
-      const lastSample = lastEmittedMemorySampleRef.current;
-      if (previousLevel !== undefined && lastSample !== undefined) {
-        memoryMonitoringRef.current?.onAlertLevelChange?.(undefined, lastSample);
-      }
+      clearMemoryAlertLevel();
       precisePageMeasurementGenerationRef.current += 1;
       precisePageMeasurementInFlightRef.current = false;
       precisePageBytesRef.current = undefined;
       precisePageBytesMeasuredAtRef.current = undefined;
-      memoryAlertLevelRef.current = undefined;
-      lastEmittedMemorySampleRef.current = undefined;
       lastSampleAtRef.current = 0;
       return;
     }
 
     emitMemorySample({ force: true });
     void refreshPrecisePageMemory();
-  }, [isMemoryMonitoringEnabled, emitMemorySample, refreshPrecisePageMemory]);
+  }, [isMemoryMonitoringEnabled, clearMemoryAlertLevel, emitMemorySample, refreshPrecisePageMemory]);
 
   useEffect(() => {
     if (!isMemoryMonitoringEnabled) {
@@ -776,7 +779,9 @@ const Viewer: FC<ViewerProps> = (props) => {
                   inspectorPointSize={fileAppearance?.pointSize}
                   inspectorOpacity={fileAppearance?.opacity}
                   inspectorCoordinateSystem={fileAppearance?.coordinateSystem}
-                  onMemoryEstimateChange={handleFileMemoryEstimateChange}
+                  onMemoryEstimateChange={
+                    isMemoryMonitoringEnabled ? handleFileMemoryEstimateChange : undefined
+                  }
                 />
               );
             })}
