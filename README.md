@@ -186,7 +186,7 @@ const App = () => {
 - `thresholds.hysteresisBytes`: 閾値付近で警告が連続発火しないようにする戻り幅です。
 - `onSample`: サンプル取得時のコールバックです。
 - `onAlert`: 閾値超過時のコールバックです。
-- `onAlertLevelChange`: アラートレベルが変化したときのコールバックです。`undefined` を受け取ったときは警告解除に利用できます。解除時に渡される `sample` は直前に発火した値のため、`sample.timestamp` が現在時刻より古い場合があります。
+- `onAlertLevelChange`: アラートレベルが変化したときのコールバックです。`undefined` を受け取ったときは警告解除に利用できます。解除時に渡される `sample` は直前に発火した値のため、`sample.timestamp` が現在時刻より古い場合があります。`memoryMonitoring` プロップを外して無効化した場合、解除通知は最後に有効だった時点のコールバックが呼ばれます。
 
 `onSample` で受け取れる `ViewerMemorySample` には、主に以下の値が含まれます。
 

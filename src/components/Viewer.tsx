@@ -291,13 +291,14 @@ const Viewer: FC<ViewerProps> = (props) => {
     const previousLevel = memoryAlertLevelRef.current;
     const lastSample = lastEmittedMemorySampleRef.current;
     if (previousLevel !== undefined && lastSample !== undefined) {
-      (memoryMonitoringRef.current ?? activeMonitoringRef.current)?.onAlertLevelChange?.(
-        undefined,
-        lastSample
-      );
+      const handler =
+        memoryMonitoringRef.current?.onAlertLevelChange ??
+        activeMonitoringRef.current?.onAlertLevelChange;
+      handler?.(undefined, lastSample);
     }
     memoryAlertLevelRef.current = undefined;
     lastEmittedMemorySampleRef.current = undefined;
+    activeMonitoringRef.current = undefined;
   }, []);
 
   // File-specific transforms (fileId -> translation + rotation)
