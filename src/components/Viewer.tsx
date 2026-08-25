@@ -198,6 +198,36 @@ const RendererMemoryBridge: FC<{ onRendererReady: (renderer: WebGLRenderer | nul
   return null;
 };
 
+type MemoryEstimateSummary = {
+  loadedFileCount: number;
+  loadedTileCount: number;
+  compressedBytes: number;
+  decodedBytes: number;
+  estimatedViewerBytes: number;
+};
+
+function summarizeMemoryEstimates(
+  estimates: Record<number, ViewerFileMemoryEstimate>
+): MemoryEstimateSummary {
+  let loadedTileCount = 0;
+  let compressedBytes = 0;
+  let decodedBytes = 0;
+
+  for (const estimate of Object.values(estimates)) {
+    loadedTileCount += estimate.loadedTileCount;
+    compressedBytes += estimate.compressedBytes;
+    decodedBytes += estimate.decodedBytes;
+  }
+
+  return {
+    loadedFileCount: Object.keys(estimates).length,
+    loadedTileCount,
+    compressedBytes,
+    decodedBytes,
+    estimatedViewerBytes: decodedBytes,
+  };
+}
+
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
   const {
@@ -228,6 +258,7 @@ const Viewer: FC<ViewerProps> = (props) => {
   const lastSampleAtRef = useRef(0);
   const precisePageBytesMeasuredAtRef = useRef<number | undefined>(undefined);
   const precisePageMeasurementGenerationRef = useRef(0);
+  const fileMemoryEstimatesRef = useRef<Record<number, ViewerFileMemoryEstimate>>({});
   const memoryEstimateSummaryRef = useRef({
     loadedFileCount: 0,
     loadedTileCount: 0,
@@ -394,6 +425,7 @@ const Viewer: FC<ViewerProps> = (props) => {
         }
         const next = { ...prev };
         delete next[estimate.fileId];
+        fileMemoryEstimatesRef.current = next;
         return next;
       }
 
@@ -406,10 +438,12 @@ const Viewer: FC<ViewerProps> = (props) => {
         return prev;
       }
 
-      return {
+      const next = {
         ...prev,
         [estimate.fileId]: estimate,
       };
+      fileMemoryEstimatesRef.current = next;
+      return next;
     });
   }, []);
 
@@ -460,25 +494,10 @@ const Viewer: FC<ViewerProps> = (props) => {
     [views]
   );
 
-  const memoryEstimateSummary = useMemo(() => {
-    let loadedTileCount = 0;
-    let compressedBytes = 0;
-    let decodedBytes = 0;
-
-    for (const estimate of Object.values(fileMemoryEstimates)) {
-      loadedTileCount += estimate.loadedTileCount;
-      compressedBytes += estimate.compressedBytes;
-      decodedBytes += estimate.decodedBytes;
-    }
-
-    return {
-      loadedFileCount: Object.keys(fileMemoryEstimates).length,
-      loadedTileCount,
-      compressedBytes,
-      decodedBytes,
-      estimatedViewerBytes: decodedBytes,
-    };
-  }, [fileMemoryEstimates]);
+  const memoryEstimateSummary = useMemo(
+    () => summarizeMemoryEstimates(fileMemoryEstimates),
+    [fileMemoryEstimates]
+  );
 
   const visibleFileIdsKey = useMemo(() => visibleFileIds.join(","), [visibleFileIds]);
 
@@ -626,38 +645,29 @@ const Viewer: FC<ViewerProps> = (props) => {
 
     // 無効化中にアンマウントされたファイルのゴースト推定値を刈り取る。
     // まだ表示中のファイルの推定値は保持し、再有効化直後のサンプルが 0 値にならないようにする。
-    // setFileMemoryEstimates は次のコミットまで反映されないため、刈り取り後の集計値を
-    // memoryEstimateSummaryRef に同期的に書き込んでから emitMemorySample を呼ぶ。
+    // fileMemoryEstimatesRef から読むことで、同一バッチで子が通知した最新値を失わない。
     const activeFileIds = new Set(visibleFileIdsRef.current);
+    const current = fileMemoryEstimatesRef.current;
+    const currentKeys = Object.keys(current);
+    let changed = false;
     const pruned: Record<number, ViewerFileMemoryEstimate> = {};
-    for (const [key, value] of Object.entries(fileMemoryEstimates)) {
+    for (const key of currentKeys) {
       if (activeFileIds.has(Number(key))) {
-        pruned[Number(key)] = value;
+        pruned[Number(key)] = current[Number(key)];
+      } else {
+        changed = true;
       }
     }
-    setFileMemoryEstimates(pruned);
 
-    let prunedTileCount = 0;
-    let prunedCompressedBytes = 0;
-    let prunedDecodedBytes = 0;
-    for (const estimate of Object.values(pruned)) {
-      prunedTileCount += estimate.loadedTileCount;
-      prunedCompressedBytes += estimate.compressedBytes;
-      prunedDecodedBytes += estimate.decodedBytes;
+    if (changed) {
+      fileMemoryEstimatesRef.current = pruned;
+      setFileMemoryEstimates(pruned);
     }
-    memoryEstimateSummaryRef.current = {
-      loadedFileCount: Object.keys(pruned).length,
-      loadedTileCount: prunedTileCount,
-      compressedBytes: prunedCompressedBytes,
-      decodedBytes: prunedDecodedBytes,
-      estimatedViewerBytes: prunedDecodedBytes,
-    };
+
+    memoryEstimateSummaryRef.current = summarizeMemoryEstimates(pruned);
 
     emitMemorySample();
     void refreshPrecisePageMemory();
-    // fileMemoryEstimates を closure で参照するが、estimates 変化で再実行すると
-    // 無限ループになるため依存配列には含めない（トグル時のみ実行する意図）。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMemoryMonitoringEnabled, clearMemoryAlertLevel, emitMemorySample, refreshPrecisePageMemory]);
 
   useEffect(() => {
