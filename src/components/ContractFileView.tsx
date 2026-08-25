@@ -8,11 +8,12 @@ import {
   PointCloudLODParser,
   PointCloudMeta,
 } from "@i-con/pcd-viewer";
-import { PNG } from "pngjs/browser";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Euler, Group, Object3D, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile } from "../contexts/contractFiles";
+import { parsePngBuffer } from "../lib/pngParse";
+import { loadTile } from "../lib/tileLoader";
 import type { ViewerFileMemoryEstimate } from "../lib/viewerMemory";
 
 // 座標系の型定義
@@ -175,55 +176,25 @@ const ContractFileView = ({
         return cached;
       }
 
-      // Construct the URL of the PNG file from the address
-      // eslint-disable-next-line no-async-promise-executor
-      const promise = new Promise<PngBuffer>(async (resolve, reject) => {
-        const png = new PNG();
-        const props = {
-          contractId: project!.contractId!,
-          contractFileId: file.id!,
-          level: lod,
-          addr,
-        };
-        // Fetch position data
-        const pBuffer = await client?.getContractFileImagePosition(props);
-        if (pBuffer === undefined) {
-          reject(new Error("Failed to load PNG buffer"));
-          return;
-        }
-        const positionCompressedBytes = pBuffer.byteLength;
-        const pParsed = png.parse(pBuffer);
-        pParsed.on("parsed", async () => {
-          if (color) {
-            // Fetch color data
-            const cBuffer = await client?.getContractFileImageColor(props);
-            if (cBuffer === undefined) {
-              reject(new Error("Failed to load PNG buffer"));
-              return;
-            }
-            const colorCompressedBytes = cBuffer.byteLength;
-            const png2 = new PNG();
-            const cParsed = png2.parse(cBuffer);
-            cParsed.on("parsed", () => {
-              registerTileMemory(cacheKey, {
-                compressedBytes: positionCompressedBytes + colorCompressedBytes,
-                decodedBytes: pParsed.data.byteLength + cParsed.data.byteLength,
-              });
-              resolve({
-                position: pParsed,
-                color: cParsed,
-              });
-            });
-          } else {
-            registerTileMemory(cacheKey, {
-              compressedBytes: positionCompressedBytes,
-              decodedBytes: pParsed.data.byteLength,
-            });
-            resolve({
-              position: pParsed,
-            });
-          }
+      const requestProps = {
+        contractId: project!.contractId!,
+        contractFileId: file.id!,
+        level: lod,
+        addr,
+      };
+
+      const promise = loadTile(
+        () => client!.getContractFileImagePosition(requestProps),
+        color ? () => client!.getContractFileImageColor(requestProps) : undefined,
+        parsePngBuffer
+      ).then((result) => {
+        registerTileMemory(cacheKey, {
+          compressedBytes: result.compressedBytes,
+          decodedBytes: result.decodedBytes,
         });
+        const buf: PngBuffer = { position: result.position };
+        if (result.color) buf.color = result.color;
+        return buf;
       });
 
       pngBufferCache.set(cacheKey, promise);

@@ -26,9 +26,11 @@ import {
   WebGLRenderer,
 } from "three";
 import { useClient } from "../contexts/client";
+import type { RCDEClient } from "../lib/rcde-client";
 import { ContractFile, useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
 import { isPclodCompleted } from "../lib/contractFileStatus";
+import { computeMetadataFetchPlan } from "../lib/metadataFetchPlan";
 import {
   evaluateViewerMemoryAlert,
   type ViewerFileMemoryEstimate,
@@ -445,6 +447,12 @@ const Viewer: FC<ViewerProps> = (props) => {
     Record<number, ViewerFileMemoryEstimate>
   >({});
 
+  const metaCacheRef = useRef<
+    Map<number, { meta: PointCloudMeta; boundingBox: Box3; batchId?: number }>
+  >(new Map());
+  const metaCacheProjectKeyRef = useRef<string>("");
+  const metaCacheClientRef = useRef<RCDEClient | undefined>(undefined);
+
   const transformRootRef = useRef<Group>(null);
   const cameraRef = useRef<PerspectiveCamera>(null);
   const rendererRef = useRef<WebGLRenderer | null>(null);
@@ -572,8 +580,8 @@ const Viewer: FC<ViewerProps> = (props) => {
   const metadataFetchKey = useMemo(() => {
     return containers
       .filter((container) => container.visible && isPclodCompleted(container.file))
-      .map((container) => container.file.id)
-      .sort((left, right) => left - right)
+      .map((container) => `${container.file.id}:${container.file.batchProcessingResult?.id ?? ""}`)
+      .sort()
       .join(",");
   }, [containers]);
 
@@ -586,29 +594,89 @@ const Viewer: FC<ViewerProps> = (props) => {
     );
 
     if (targets.length === 0) {
+      metaCacheRef.current.clear();
+      metaCacheProjectKeyRef.current = "";
+      metaCacheClientRef.current = undefined;
       setViews([]);
       return;
     }
 
-    const promises = targets.map((container) => {
-      const id = container.file.id;
+    // project / client が切り替わったらキャッシュを破棄して全件再取得する
+    const projectKey = `${project.constructionId}:${project.contractId}`;
+    if (metaCacheProjectKeyRef.current !== projectKey || metaCacheClientRef.current !== client) {
+      metaCacheRef.current.clear();
+      metaCacheProjectKeyRef.current = projectKey;
+      metaCacheClientRef.current = client;
+    }
+
+    // pclod 再生成でバッチ ID が変わったエントリを破棄する
+    for (const target of targets) {
+      const id = target.file.id;
+      if (id === undefined) continue;
+      const cached = metaCacheRef.current.get(id);
+      if (cached && cached.batchId !== target.file.batchProcessingResult?.id) {
+        metaCacheRef.current.delete(id);
+      }
+    }
+
+    const targetIds = targets.map((c) => c.file.id).filter((id): id is number => id !== undefined);
+    const { toFetch: toFetchIds, toRemove } = computeMetadataFetchPlan(
+      targetIds,
+      new Set(metaCacheRef.current.keys())
+    );
+
+    for (const id of toRemove) {
+      metaCacheRef.current.delete(id);
+    }
+
+    const toFetchIdSet = new Set(toFetchIds);
+    const toFetch = targets.filter((c) => c.file.id !== undefined && toFetchIdSet.has(c.file.id));
+
+    const buildViews = () => {
+      const nextViews = targets
+        .map((container) => {
+          const id = container.file.id;
+          if (id === undefined) return undefined;
+          const cached = metaCacheRef.current.get(id);
+          if (!cached) return undefined;
+          return { file: container.file, meta: cached.meta, boundingBox: cached.boundingBox };
+        })
+        .filter((v): v is ContractFileProps & { boundingBox: Box3 } => v !== undefined);
+      setViews(nextViews);
+    };
+
+    if (toFetch.length === 0) {
+      buildViews();
+      return;
+    }
+
+    let cancelled = false;
+
+    const promises = toFetch.map((container) => {
+      const id = container.file.id!;
+      const batchId = container.file.batchProcessingResult?.id;
       return client
         .getContractFileMetadata({ ...project, contractFileId: id })
         .then((d) => {
+          if (cancelled) return;
           const meta = d as unknown as PointCloudMeta;
           const { min, max } = meta.bounds;
           const boundingBox = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
-          return { file: container.file, meta, boundingBox };
+          metaCacheRef.current.set(id, { meta, boundingBox, batchId });
         })
         .catch((e) => {
           console.error(e);
-          return undefined;
         });
     });
 
-    Promise.all(promises).then((vs) => {
-      setViews(vs.filter((v): v is ContractFileProps & { boundingBox: Box3 } => v !== undefined));
+    Promise.all(promises).then(() => {
+      if (cancelled) return;
+      buildViews();
     });
+
+    return () => {
+      cancelled = true;
+    };
     // metadataFetchKey が同じなら contractFilesRefetchKey 由来の containers 参照更新では再取得しない
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadataFetchKey, project, client]);
