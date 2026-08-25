@@ -275,6 +275,8 @@ const Viewer: FC<ViewerProps> = (props) => {
   const precisePageMeasurementInFlightRef = useRef(false);
   const isMountedRef = useRef(true);
   const memoryAlertLevelRef = useRef<ViewerMemoryAlertLevel | undefined>(undefined);
+  const emitMemorySampleRef = useRef<(opts?: { force?: boolean }) => void>(() => {});
+  const refreshPrecisePageMemoryRef = useRef<() => void>(() => {});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
@@ -416,6 +418,15 @@ const Viewer: FC<ViewerProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadataFetchKey, project, client]);
 
+  const commitFileMemoryEstimates = useCallback(
+    (next: Record<number, ViewerFileMemoryEstimate>) => {
+      fileMemoryEstimatesRef.current = next;
+      memoryEstimateSummaryRef.current = summarizeMemoryEstimates(next);
+      setFileMemoryEstimates(next);
+    },
+    []
+  );
+
   const handleFileMemoryEstimateChange = useCallback((estimate: ViewerFileMemoryEstimate) => {
     const prev = fileMemoryEstimatesRef.current;
     const current = prev[estimate.fileId];
@@ -431,9 +442,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       }
       const next = { ...prev };
       delete next[estimate.fileId];
-      fileMemoryEstimatesRef.current = next;
-      memoryEstimateSummaryRef.current = summarizeMemoryEstimates(next);
-      setFileMemoryEstimates(next);
+      commitFileMemoryEstimates(next);
       return;
     }
 
@@ -450,10 +459,8 @@ const Viewer: FC<ViewerProps> = (props) => {
       ...prev,
       [estimate.fileId]: estimate,
     };
-    fileMemoryEstimatesRef.current = next;
-    memoryEstimateSummaryRef.current = summarizeMemoryEstimates(next);
-    setFileMemoryEstimates(next);
-  }, []);
+    commitFileMemoryEstimates(next);
+  }, [commitFileMemoryEstimates]);
 
   const handleRendererReady = useCallback((renderer: WebGLRenderer | null) => {
     rendererRef.current = renderer;
@@ -500,11 +507,6 @@ const Viewer: FC<ViewerProps> = (props) => {
     () =>
       views.map((view) => view.file.id).filter((fileId): fileId is number => fileId !== undefined),
     [views]
-  );
-
-  const memoryEstimateSummary = useMemo(
-    () => summarizeMemoryEstimates(fileMemoryEstimates),
-    [fileMemoryEstimates]
   );
 
   const visibleFileIdsKey = useMemo(() => visibleFileIds.join(","), [visibleFileIds]);
@@ -635,6 +637,8 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
   }, [emitMemorySample]);
 
+  emitMemorySampleRef.current = emitMemorySample;
+  refreshPrecisePageMemoryRef.current = refreshPrecisePageMemory;
   useEffect(() => {
     applyAppearanceToScene(transformRootRef.current, appearance.pointSize, appearance.opacity);
   }, [appearance, applyAppearanceToScene]);
@@ -667,14 +671,12 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
 
     if (changed) {
-      fileMemoryEstimatesRef.current = pruned;
-      memoryEstimateSummaryRef.current = summarizeMemoryEstimates(pruned);
-      setFileMemoryEstimates(pruned);
+      commitFileMemoryEstimates(pruned);
     }
 
-    emitMemorySample();
-    void refreshPrecisePageMemory();
-  }, [isMemoryMonitoringEnabled, clearMemoryAlertLevel, emitMemorySample, refreshPrecisePageMemory]);
+    emitMemorySampleRef.current();
+    void refreshPrecisePageMemoryRef.current();
+  }, [isMemoryMonitoringEnabled, clearMemoryAlertLevel, commitFileMemoryEstimates]);
 
   useEffect(() => {
     if (!isMemoryMonitoringEnabled) {
@@ -682,8 +684,8 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
 
     const timerId = window.setInterval(() => {
-      emitMemorySample();
-      void refreshPrecisePageMemory();
+      emitMemorySampleRef.current();
+      void refreshPrecisePageMemoryRef.current();
     }, memorySampleIntervalMs);
 
     return () => {
@@ -692,8 +694,6 @@ const Viewer: FC<ViewerProps> = (props) => {
   }, [
     isMemoryMonitoringEnabled,
     memorySampleIntervalMs,
-    emitMemorySample,
-    refreshPrecisePageMemory,
   ]);
 
   useEffect(() => {
@@ -701,15 +701,10 @@ const Viewer: FC<ViewerProps> = (props) => {
       return;
     }
 
-    emitMemorySample();
+    emitMemorySampleRef.current();
   }, [
     isMemoryMonitoringEnabled,
-    emitMemorySample,
-    memoryEstimateSummary.loadedFileCount,
-    memoryEstimateSummary.loadedTileCount,
-    memoryEstimateSummary.compressedBytes,
-    memoryEstimateSummary.decodedBytes,
-    memoryEstimateSummary.estimatedViewerBytes,
+    fileMemoryEstimates,
     visibleFileIdsKey,
   ]);
 
