@@ -293,7 +293,6 @@ const ContractFileView = ({
       }
     };
     // cleanup はアンマウント時だけに限定する。依存変更時にキャッシュを破棄しない。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Shift metadata considering the reference point

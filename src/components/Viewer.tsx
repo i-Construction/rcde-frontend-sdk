@@ -419,6 +419,8 @@ const Viewer: FC<ViewerProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadataFetchKey, project, client]);
 
+  // deps を空に保つこと。identity が変わると handleFileMemoryEstimateChange → loader まで
+  // 伝播し、点群ロード経路が再走する。
   const commitFileMemoryEstimates = useCallback(
     (next: Record<number, ViewerFileMemoryEstimate>) => {
       fileMemoryEstimatesRef.current = next;
@@ -428,40 +430,43 @@ const Viewer: FC<ViewerProps> = (props) => {
     []
   );
 
-  const handleFileMemoryEstimateChange = useCallback((estimate: ViewerFileMemoryEstimate) => {
-    const prev = fileMemoryEstimatesRef.current;
-    const current = prev[estimate.fileId];
-    const isZeroEstimate =
-      estimate.loadedTileCount === 0 &&
-      estimate.compressedBytes === 0 &&
-      estimate.decodedBytes === 0 &&
-      estimate.totalBytes === 0;
+  const handleFileMemoryEstimateChange = useCallback(
+    (estimate: ViewerFileMemoryEstimate) => {
+      const prev = fileMemoryEstimatesRef.current;
+      const current = prev[estimate.fileId];
+      const isZeroEstimate =
+        estimate.loadedTileCount === 0 &&
+        estimate.compressedBytes === 0 &&
+        estimate.decodedBytes === 0 &&
+        estimate.totalBytes === 0;
 
-    if (isZeroEstimate) {
-      if (current === undefined) {
+      if (isZeroEstimate) {
+        if (current === undefined) {
+          return;
+        }
+        const next = { ...prev };
+        delete next[estimate.fileId];
+        commitFileMemoryEstimates(next);
         return;
       }
-      const next = { ...prev };
-      delete next[estimate.fileId];
+
+      if (
+        current?.loadedTileCount === estimate.loadedTileCount &&
+        current.compressedBytes === estimate.compressedBytes &&
+        current.decodedBytes === estimate.decodedBytes &&
+        current.totalBytes === estimate.totalBytes
+      ) {
+        return;
+      }
+
+      const next = {
+        ...prev,
+        [estimate.fileId]: estimate,
+      };
       commitFileMemoryEstimates(next);
-      return;
-    }
-
-    if (
-      current?.loadedTileCount === estimate.loadedTileCount &&
-      current.compressedBytes === estimate.compressedBytes &&
-      current.decodedBytes === estimate.decodedBytes &&
-      current.totalBytes === estimate.totalBytes
-    ) {
-      return;
-    }
-
-    const next = {
-      ...prev,
-      [estimate.fileId]: estimate,
-    };
-    commitFileMemoryEstimates(next);
-  }, [commitFileMemoryEstimates]);
+    },
+    [commitFileMemoryEstimates]
+  );
 
   const handleRendererReady = useCallback((renderer: WebGLRenderer | null) => {
     rendererRef.current = renderer;
@@ -512,6 +517,9 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   const visibleFileIdsKey = useMemo(() => visibleFileIds.join(","), [visibleFileIds]);
 
+  // この effect は有効化 effect（下方）より宣言順が前でなければならない。
+  // clearMemoryAlertLevel は activeMonitoringRef を読むため、有効化 effect の cleanup で
+  // clearMemoryAlertLevel が呼ばれる時点では最新の activeMonitoringRef が必要。
   useEffect(() => {
     memoryMonitoringRef.current = memoryMonitoring;
     if (memoryMonitoring?.enabled === true) {
@@ -601,7 +609,10 @@ const Viewer: FC<ViewerProps> = (props) => {
   );
 
   const refreshPrecisePageMemory = useCallback(async () => {
-    if (memoryMonitoringRef.current?.enabled !== true || precisePageMeasurementInFlightRef.current) {
+    if (
+      memoryMonitoringRef.current?.enabled !== true ||
+      precisePageMeasurementInFlightRef.current
+    ) {
       return;
     }
 
@@ -638,8 +649,13 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
   }, [emitMemorySample]);
 
-  emitMemorySampleRef.current = emitMemorySample;
-  refreshPrecisePageMemoryRef.current = refreshPrecisePageMemory;
+  // 毎コミットで最新の関数参照を ref に同期。宣言順が後続の有効化 effect / interval effect
+  // よりも前であるため、初回コミットでも noop を掴まない。
+  useEffect(() => {
+    emitMemorySampleRef.current = emitMemorySample;
+    refreshPrecisePageMemoryRef.current = refreshPrecisePageMemory;
+  });
+
   useEffect(() => {
     applyAppearanceToScene(transformRootRef.current, appearance.pointSize, appearance.opacity);
   }, [appearance, applyAppearanceToScene]);
@@ -692,10 +708,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     return () => {
       window.clearInterval(timerId);
     };
-  }, [
-    isMemoryMonitoringEnabled,
-    memorySampleIntervalMs,
-  ]);
+  }, [isMemoryMonitoringEnabled, memorySampleIntervalMs]);
 
   useEffect(() => {
     if (!isMemoryMonitoringEnabled) {
@@ -703,11 +716,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
 
     emitMemorySampleRef.current();
-  }, [
-    isMemoryMonitoringEnabled,
-    fileMemoryEstimates,
-    visibleFileIdsKey,
-  ]);
+  }, [isMemoryMonitoringEnabled, fileMemoryEstimates, visibleFileIdsKey]);
 
   useEffect(() => {
     const listener = (e: MessageEvent) => {
