@@ -5,7 +5,6 @@ import { PointCloudMeta } from "@i-con/pcd-viewer";
 import { FC, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Box3,
-  Camera,
   Color,
   DoubleSide,
   Quaternion,
@@ -29,6 +28,7 @@ import {
   type ViewerMemorySample,
   type ViewerMemorySource,
 } from "../lib/viewerMemory";
+import { raycastViews } from "../lib/viewerRaycast";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { ReferencePointAxis } from "./ReferencePointAxis";
 import { ReferencePointView } from "./ReferencePointView";
@@ -158,64 +158,6 @@ export type ViewerProps = {
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-
-// Helper function to check if a ray intersects with a Box3
-const rayIntersectBox = (
-  ray: { origin: Vector3; direction: Vector3 },
-  box: Box3
-): Vector3 | null => {
-  const invDir = new Vector3(1 / ray.direction.x, 1 / ray.direction.y, 1 / ray.direction.z);
-  const t1 = (box.min.x - ray.origin.x) * invDir.x;
-  const t2 = (box.max.x - ray.origin.x) * invDir.x;
-  const t3 = (box.min.y - ray.origin.y) * invDir.y;
-  const t4 = (box.max.y - ray.origin.y) * invDir.y;
-  const t5 = (box.min.z - ray.origin.z) * invDir.z;
-  const t6 = (box.max.z - ray.origin.z) * invDir.z;
-
-  const tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
-  const tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
-
-  if (tmax < 0 || tmin > tmax) {
-    return null;
-  }
-
-  const t = tmin > 0 ? tmin : tmax;
-  return ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
-};
-
-type RaycastResult = {
-  view: ContractFileProps & { boundingBox: Box3 };
-  distance: number;
-  intersectionPoint: Vector3;
-};
-
-const raycastViews = (
-  ndc: Vector2,
-  camera: Camera,
-  raycaster: Raycaster,
-  views: (ContractFileProps & { boundingBox: Box3 })[],
-  referencePoint: Vector3
-): RaycastResult | null => {
-  raycaster.setFromCamera(ndc, camera);
-  const ray = raycaster.ray;
-
-  let closest: RaycastResult | null = null;
-
-  for (const view of views) {
-    const offsetBoundingBox = view.boundingBox.clone();
-    offsetBoundingBox.translate(referencePoint);
-
-    const intersection = rayIntersectBox(ray, offsetBoundingBox);
-    if (intersection) {
-      const distance = ray.origin.distanceTo(intersection);
-      if (!closest || distance < closest.distance) {
-        closest = { view, distance, intersectionPoint: intersection };
-      }
-    }
-  }
-
-  return closest;
-};
 
 const ClickHandler: FC<{
   views: (ContractFileProps & { boundingBox: Box3 })[];
