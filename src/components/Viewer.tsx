@@ -2,7 +2,16 @@ import { Box } from "@mui/material";
 import { GizmoHelper, GizmoViewport, Grid, MapControls } from "@react-three/drei";
 import { Canvas, CanvasProps, useThree } from "@react-three/fiber";
 import { PointCloudMeta } from "@i-con/pcd-viewer";
-import { FC, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  FC,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Box3,
   Color,
@@ -28,6 +37,7 @@ import {
   type ViewerMemorySample,
   type ViewerMemorySource,
 } from "../lib/viewerMemory";
+import { raycastViews } from "../lib/viewerRaycast";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { ReferencePointAxis } from "./ReferencePointAxis";
 import { ReferencePointView } from "./ReferencePointView";
@@ -59,6 +69,72 @@ type Command =
   | { type: "SET_APPEARANCE"; payload: ViewerAppearance }
   | { type: "RESET" };
 const CHANNEL = "RCDE_VIEWER_CMD";
+
+/**
+ * 3D ビューア上のクリックイベント。
+ *
+ * - `hit: true` — オブジェクト（ContractFile のバウンディングボックス）がクリックされた。
+ * - `hit: false` — 空白がクリックされた（選択解除に利用可能）。
+ *
+ * ### 座標系
+ * - `boundingBox` はメタデータの生座標（基準点オフセット未適用）。`onContractFileClick` と同一。
+ * - `intersectionPoint` は基準点オフセット適用済みのワールド座標。
+ * - `localIntersectionPoint` は基準点オフセット未適用の座標。`boundingBox` と同じ座標系。
+ * - `screenPosition` はビューポート座標（`MouseEvent.clientX/clientY`）。
+ *   キャンバス相対座標が必要な場合は `canvas.getBoundingClientRect()` で変換してください。
+ *
+ * ### 制限事項
+ * `RCDE_VIEWER_CMD` (`SET_TRANSFORM`) によるファイル個別の translation / rotation は
+ * 当たり判定に反映されません。移動・回転されたファイルの判定は元の位置の boundingBox に
+ * 基づきます。この制限は `onContractFileClick` と同一です。
+ */
+export type ViewerClickEvent =
+  | {
+      hit: true;
+      file: ContractFile;
+      boundingBox: Box3;
+      /** 基準点オフセット適用済みのワールド座標 */
+      intersectionPoint: Vector3;
+      /** 基準点オフセット未適用の座標（boundingBox と同じ座標系） */
+      localIntersectionPoint: Vector3;
+      /** ビューポート座標（clientX/clientY） */
+      screenPosition: { x: number; y: number };
+    }
+  | {
+      hit: false;
+      /** ビューポート座標（clientX/clientY） */
+      screenPosition: { x: number; y: number };
+    };
+
+/**
+ * 3D ビューア上のホバーイベント（enter/leave セマンティクス）。
+ *
+ * ホバー対象のオブジェクトが**変わったとき**のみ発火します。
+ * 同一オブジェクト上でカーソルが移動しても `screenPosition` は更新されません。
+ * カーソル追従が必要な場合は、利用側で別途 `mousemove` をリスンしてください。
+ *
+ * - `hit: true` — オブジェクトにカーソルが入った。
+ * - `hit: false` — カーソルがオブジェクトから外れた、またはキャンバス外に出た。
+ *
+ * ### 座標系
+ * - `boundingBox` はメタデータの生座標（基準点オフセット未適用）。
+ * - `screenPosition` はビューポート座標（`MouseEvent.clientX/clientY`）。
+ *
+ * ### 制限事項
+ * `RCDE_VIEWER_CMD` (`SET_TRANSFORM`) によるファイル個別の translation / rotation は
+ * 当たり判定に反映されません。この制限は `onContractFileClick` と同一です。
+ */
+export type ViewerHoverEvent =
+  | {
+      hit: true;
+      file: ContractFile;
+      boundingBox: Box3;
+      /** ビューポート座標（clientX/clientY） */
+      screenPosition: { x: number; y: number };
+    }
+  | {
+      hit: false;
+    };
 
 type R3FProps = {
   canvas?: CanvasProps;
@@ -94,82 +170,71 @@ export type ViewerProps = {
   contractFilesRefetchKey?: number;
   selectedFileId?: number;
   onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
+  onObjectClick?: (event: ViewerClickEvent) => void;
+  onObjectHover?: (event: ViewerHoverEvent) => void;
   memoryMonitoring?: ViewerMemoryMonitoringOptions;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
-// Helper function to check if a ray intersects with a Box3
-const rayIntersectBox = (
-  ray: { origin: Vector3; direction: Vector3 },
-  box: Box3
-): Vector3 | null => {
-  const invDir = new Vector3(1 / ray.direction.x, 1 / ray.direction.y, 1 / ray.direction.z);
-  const t1 = (box.min.x - ray.origin.x) * invDir.x;
-  const t2 = (box.max.x - ray.origin.x) * invDir.x;
-  const t3 = (box.min.y - ray.origin.y) * invDir.y;
-  const t4 = (box.max.y - ray.origin.y) * invDir.y;
-  const t5 = (box.min.z - ray.origin.z) * invDir.z;
-  const t6 = (box.max.z - ray.origin.z) * invDir.z;
-
-  const tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
-  const tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
-
-  if (tmax < 0 || tmin > tmax) {
-    return null;
-  }
-
-  const t = tmin > 0 ? tmin : tmax;
-  return ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
-};
-
-// Component to handle click events inside Canvas
 const ClickHandler: FC<{
   views: (ContractFileProps & { boundingBox: Box3 })[];
   referencePoint: Vector3;
   onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
-}> = ({ views, referencePoint, onContractFileClick }) => {
+  onObjectClick?: (event: ViewerClickEvent) => void;
+}> = ({ views, referencePoint, onContractFileClick, onObjectClick }) => {
   const { camera, gl } = useThree();
   const raycaster = useMemo(() => new Raycaster(), []);
 
+  const viewsRef = useRef(views);
+  const referencePointRef = useRef(referencePoint);
+  const cameraRef = useRef(camera);
+  const onContractFileClickRef = useRef(onContractFileClick);
+  const onObjectClickRef = useRef(onObjectClick);
+
+  useLayoutEffect(() => {
+    viewsRef.current = views;
+    referencePointRef.current = referencePoint;
+    cameraRef.current = camera;
+    onContractFileClickRef.current = onContractFileClick;
+    onObjectClickRef.current = onObjectClick;
+  });
+
   const handleClick = useCallback(
     (event: MouseEvent) => {
-      if (!onContractFileClick) return;
+      if (!onContractFileClickRef.current && !onObjectClickRef.current) return;
 
       const rect = gl.domElement.getBoundingClientRect();
       const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-      raycaster.setFromCamera(new Vector2(x, y), camera);
-      const ray = raycaster.ray;
+      const hit = raycastViews(
+        new Vector2(x, y),
+        cameraRef.current,
+        raycaster,
+        viewsRef.current,
+        referencePointRef.current
+      );
 
-      // Find the closest bounding box that intersects with the ray
-      let closestIntersection: {
-        view: ContractFileProps & { boundingBox: Box3 };
-        distance: number;
-      } | null = null;
-
-      for (const view of views) {
-        // Apply reference point offset to bounding box
-        const offsetBoundingBox = view.boundingBox.clone();
-        offsetBoundingBox.translate(referencePoint);
-
-        const intersection = rayIntersectBox(ray, offsetBoundingBox);
-        if (intersection) {
-          const distance = ray.origin.distanceTo(intersection);
-          if (!closestIntersection || distance < closestIntersection.distance) {
-            closestIntersection = { view, distance };
-          }
-        }
-      }
-
-      if (closestIntersection) {
-        onContractFileClick(closestIntersection.view.file, closestIntersection.view.boundingBox);
+      if (hit) {
+        onContractFileClickRef.current?.(hit.view.file, hit.view.boundingBox);
+        onObjectClickRef.current?.({
+          hit: true,
+          file: hit.view.file,
+          boundingBox: hit.view.boundingBox,
+          intersectionPoint: hit.intersectionPoint,
+          localIntersectionPoint: hit.intersectionPoint.clone().sub(referencePointRef.current),
+          screenPosition: { x: event.clientX, y: event.clientY },
+        });
       } else {
-        onContractFileClick(undefined, undefined);
+        onContractFileClickRef.current?.(undefined, undefined);
+        onObjectClickRef.current?.({
+          hit: false,
+          screenPosition: { x: event.clientX, y: event.clientY },
+        });
       }
     },
-    [views, referencePoint, onContractFileClick, camera, gl, raycaster]
+    [gl, raycaster]
   );
 
   useEffect(() => {
@@ -179,6 +244,133 @@ const ClickHandler: FC<{
       canvas.removeEventListener("click", handleClick);
     };
   }, [gl, handleClick]);
+
+  return null;
+};
+
+const HOVER_THROTTLE_MS = 50;
+
+const HoverHandler: FC<{
+  views: (ContractFileProps & { boundingBox: Box3 })[];
+  referencePoint: Vector3;
+  onObjectHover: (event: ViewerHoverEvent) => void;
+}> = ({ views, referencePoint, onObjectHover }) => {
+  const { camera, gl } = useThree();
+  const raycaster = useMemo(() => new Raycaster(), []);
+  const lastHoveredFileIdRef = useRef<number | undefined>(undefined);
+  const throttleTimerRef = useRef<number | null>(null);
+  const pendingEventRef = useRef<MouseEvent | null>(null);
+  const onObjectHoverRef = useRef(onObjectHover);
+  const viewsRef = useRef(views);
+  const referencePointRef = useRef(referencePoint);
+  const cameraRef = useRef(camera);
+
+  useLayoutEffect(() => {
+    onObjectHoverRef.current = onObjectHover;
+    viewsRef.current = views;
+    referencePointRef.current = referencePoint;
+    cameraRef.current = camera;
+  });
+
+  const processEvent = useCallback(
+    (event: MouseEvent) => {
+      const rect = gl.domElement.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      const hit = raycastViews(
+        new Vector2(x, y),
+        cameraRef.current,
+        raycaster,
+        viewsRef.current,
+        referencePointRef.current
+      );
+      const fileId = hit?.view.file.id;
+
+      if (fileId === lastHoveredFileIdRef.current) return;
+      lastHoveredFileIdRef.current = fileId;
+
+      if (hit) {
+        onObjectHoverRef.current({
+          hit: true,
+          file: hit.view.file,
+          boundingBox: hit.view.boundingBox,
+          screenPosition: { x: event.clientX, y: event.clientY },
+        });
+      } else {
+        onObjectHoverRef.current({ hit: false });
+      }
+    },
+    [gl, raycaster]
+  );
+
+  const handleMouseMove = useCallback(
+    (event: MouseEvent) => {
+      pendingEventRef.current = event;
+
+      if (throttleTimerRef.current !== null) return;
+
+      processEvent(event);
+      pendingEventRef.current = null;
+
+      throttleTimerRef.current = window.setTimeout(() => {
+        throttleTimerRef.current = null;
+        const pending = pendingEventRef.current;
+        if (pending) {
+          pendingEventRef.current = null;
+          processEvent(pending);
+        }
+      }, HOVER_THROTTLE_MS);
+    },
+    [processEvent]
+  );
+
+  const emitLeave = useCallback(() => {
+    if (lastHoveredFileIdRef.current !== undefined) {
+      lastHoveredFileIdRef.current = undefined;
+      onObjectHoverRef.current({ hit: false });
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = lastHoveredFileIdRef.current;
+    if (id !== undefined && !views.some((v) => v.file.id === id)) {
+      emitLeave();
+    }
+  }, [views, emitLeave]);
+
+  // リスナー登録: gl のみに依存し、views / referencePoint の変化で再登録しない
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const onMove = (e: MouseEvent) => handleMouseMove(e);
+    const onLeave = () => {
+      if (throttleTimerRef.current !== null) {
+        window.clearTimeout(throttleTimerRef.current);
+        throttleTimerRef.current = null;
+      }
+      pendingEventRef.current = null;
+      emitLeave();
+    };
+    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mouseleave", onLeave);
+    return () => {
+      canvas.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mouseleave", onLeave);
+    };
+  }, [gl, handleMouseMove, emitLeave]);
+
+  // アンマウント時のみ: タイマ解除 + leave 通知
+  useEffect(
+    () => () => {
+      if (throttleTimerRef.current !== null) {
+        window.clearTimeout(throttleTimerRef.current);
+        throttleTimerRef.current = null;
+      }
+      pendingEventRef.current = null;
+      emitLeave();
+    },
+    [emitLeave]
+  );
 
   return null;
 };
@@ -242,6 +434,8 @@ const Viewer: FC<ViewerProps> = (props) => {
     contractFilesRefetchKey,
     selectedFileId,
     onContractFileClick,
+    onObjectClick,
+    onObjectHover,
     memoryMonitoring,
   } = props;
   const { initialize, client, project, setProject } = useClient();
@@ -860,12 +1054,16 @@ const Viewer: FC<ViewerProps> = (props) => {
             )}
             <group position={point}>{positionOffsetComponent}</group>
             <group>{children}</group>
-            {onContractFileClick && (
+            {(onContractFileClick || onObjectClick) && (
               <ClickHandler
                 views={views}
                 referencePoint={point}
                 onContractFileClick={onContractFileClick}
+                onObjectClick={onObjectClick}
               />
+            )}
+            {onObjectHover && (
+              <HoverHandler views={views} referencePoint={point} onObjectHover={onObjectHover} />
             )}
           </group>
         </Canvas>

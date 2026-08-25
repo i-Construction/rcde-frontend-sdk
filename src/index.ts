@@ -26,7 +26,13 @@ export type {
   ViewerMemoryThresholdSource,
   ViewerMemoryThresholds,
 } from "./lib/viewerMemory";
-export { Viewer, type RCDEAppConfig, type ViewerProps } from "./components/Viewer";
+export {
+  Viewer,
+  type RCDEAppConfig,
+  type ViewerProps,
+  type ViewerClickEvent,
+  type ViewerHoverEvent,
+} from "./components/Viewer";
 export { ReferencePointProvider, useReferencePoint } from "./contexts/referencePoint";
 export { ClientProvider, useClient, type ClientContextType } from "./contexts/client";
 export {
