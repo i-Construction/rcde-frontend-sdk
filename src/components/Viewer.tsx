@@ -996,11 +996,7 @@ const Viewer: FC<ViewerProps> = (props) => {
               />
             )}
             {onObjectHover && (
-              <HoverHandler
-                views={views}
-                referencePoint={point}
-                onObjectHover={onObjectHover}
-              />
+              <HoverHandler views={views} referencePoint={point} onObjectHover={onObjectHover} />
             )}
           </group>
         </Canvas>
