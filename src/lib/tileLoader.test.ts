@@ -101,9 +101,7 @@ describe("loadTile（Position + Color 並列）", () => {
     );
 
     expect(callOrder.indexOf("parse-pos-start")).toBeLessThan(callOrder.indexOf("parse-color-end"));
-    expect(callOrder.indexOf("parse-color-start")).toBeLessThan(
-      callOrder.indexOf("parse-pos-end")
-    );
+    expect(callOrder.indexOf("parse-color-start")).toBeLessThan(callOrder.indexOf("parse-pos-end"));
   });
 
   it("Position が undefined のとき例外を投げる", async () => {

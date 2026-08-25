@@ -602,9 +602,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       metaCacheProjectKeyRef.current = projectKey;
     }
 
-    const targetIds = targets
-      .map((c) => c.file.id)
-      .filter((id): id is number => id !== undefined);
+    const targetIds = targets.map((c) => c.file.id).filter((id): id is number => id !== undefined);
     const { toFetch: toFetchIds, toRemove } = computeMetadataFetchPlan(
       targetIds,
       new Set(metaCacheRef.current.keys())
@@ -615,9 +613,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
 
     const toFetchIdSet = new Set(toFetchIds);
-    const toFetch = targets.filter(
-      (c) => c.file.id !== undefined && toFetchIdSet.has(c.file.id)
-    );
+    const toFetch = targets.filter((c) => c.file.id !== undefined && toFetchIdSet.has(c.file.id));
 
     const buildViews = () => {
       const nextViews = targets
