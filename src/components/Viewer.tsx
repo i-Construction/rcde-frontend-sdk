@@ -255,6 +255,9 @@ const Viewer: FC<ViewerProps> = (props) => {
   const cameraRef = useRef<PerspectiveCamera>(null);
   const rendererRef = useRef<WebGLRenderer | null>(null);
   const memoryMonitoringRef = useRef<ViewerMemoryMonitoringOptions | undefined>(memoryMonitoring);
+  const activeMonitoringRef = useRef<ViewerMemoryMonitoringOptions | undefined>(
+    memoryMonitoring?.enabled === true ? memoryMonitoring : undefined
+  );
   const lastSampleAtRef = useRef(0);
   const precisePageBytesMeasuredAtRef = useRef<number | undefined>(undefined);
   const precisePageMeasurementGenerationRef = useRef(0);
@@ -286,7 +289,10 @@ const Viewer: FC<ViewerProps> = (props) => {
     const previousLevel = memoryAlertLevelRef.current;
     const lastSample = lastEmittedMemorySampleRef.current;
     if (previousLevel !== undefined && lastSample !== undefined) {
-      memoryMonitoringRef.current?.onAlertLevelChange?.(undefined, lastSample);
+      (memoryMonitoringRef.current ?? activeMonitoringRef.current)?.onAlertLevelChange?.(
+        undefined,
+        lastSample
+      );
     }
     memoryAlertLevelRef.current = undefined;
     lastEmittedMemorySampleRef.current = undefined;
@@ -505,6 +511,9 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   useEffect(() => {
     memoryMonitoringRef.current = memoryMonitoring;
+    if (memoryMonitoring?.enabled === true) {
+      activeMonitoringRef.current = memoryMonitoring;
+    }
   }, [memoryMonitoring]);
 
   useEffect(() => {
