@@ -596,7 +596,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
 
     // project / client が切り替わったらキャッシュを破棄して全件再取得する
-    const projectKey = `${project.contractId}`;
+    const projectKey = `${project.constructionId}:${project.contractId}`;
     if (metaCacheProjectKeyRef.current !== projectKey) {
       metaCacheRef.current.clear();
       metaCacheProjectKeyRef.current = projectKey;

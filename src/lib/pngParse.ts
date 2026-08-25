@@ -1,7 +1,12 @@
 import { PNG } from "pngjs/browser";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function parsePngBuffer(buffer: ArrayBuffer): Promise<any> {
+export type ParsedPng = {
+  data: Uint8Array;
+  width: number;
+  height: number;
+};
+
+export function parsePngBuffer(buffer: ArrayBuffer): Promise<ParsedPng> {
   return new Promise((resolve, reject) => {
     const png = new PNG();
     png

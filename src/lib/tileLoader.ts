@@ -6,8 +6,8 @@
  * ContractFileView の loader コールバックから呼ばれる。
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ParsedPng = any;
+import type { ParsedPng } from "./pngParse";
+
 type FetchBuffer = () => Promise<ArrayBuffer | undefined>;
 type PngParser = (buffer: ArrayBuffer) => Promise<ParsedPng>;
 
