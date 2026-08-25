@@ -295,10 +295,10 @@ const Viewer: FC<ViewerProps> = (props) => {
         memoryMonitoringRef.current?.onAlertLevelChange ??
         activeMonitoringRef.current?.onAlertLevelChange;
       handler?.(undefined, lastSample);
+      activeMonitoringRef.current = undefined;
     }
     memoryAlertLevelRef.current = undefined;
     lastEmittedMemorySampleRef.current = undefined;
-    activeMonitoringRef.current = undefined;
   }, []);
 
   // File-specific transforms (fileId -> translation + rotation)
@@ -527,6 +527,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
   }, [memoryMonitoring]);
 
+  // emitMemorySample（:585）とゴースト刈り取り（:678）が読むため、有効化 effect より前に同期する。
   useEffect(() => {
     visibleFileIdsRef.current = visibleFileIds;
   }, [visibleFileIds]);
@@ -693,7 +694,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
 
     emitMemorySampleRef.current();
-    void refreshPrecisePageMemoryRef.current();
+    refreshPrecisePageMemoryRef.current().catch(() => {});
   }, [isMemoryMonitoringEnabled, clearMemoryAlertLevel, commitFileMemoryEstimates]);
 
   useEffect(() => {
@@ -703,7 +704,7 @@ const Viewer: FC<ViewerProps> = (props) => {
 
     const timerId = window.setInterval(() => {
       emitMemorySampleRef.current();
-      void refreshPrecisePageMemoryRef.current();
+      refreshPrecisePageMemoryRef.current().catch(() => {});
     }, memorySampleIntervalMs);
 
     return () => {
