@@ -61,18 +61,62 @@ type Command =
   | { type: "RESET" };
 const CHANNEL = "RCDE_VIEWER_CMD";
 
-export type ViewerClickEvent = {
-  file: ContractFile | undefined;
-  boundingBox: Box3 | undefined;
-  intersectionPoint: Vector3 | undefined;
-  screenPosition: { x: number; y: number };
-};
+/**
+ * 3D ビューア上のクリックイベント。
+ *
+ * - `hit: true` — オブジェクト（ContractFile のバウンディングボックス）がクリックされた。
+ * - `hit: false` — 空白がクリックされた（選択解除に利用可能）。
+ *
+ * ### 座標系
+ * - `boundingBox` はメタデータの生座標（基準点オフセット未適用）。`onContractFileClick` と同一。
+ * - `intersectionPoint` は基準点オフセット適用済みのワールド座標。
+ * - `localIntersectionPoint` は基準点オフセット未適用の座標。`boundingBox` と同じ座標系。
+ * - `screenPosition` はビューポート座標（`MouseEvent.clientX/clientY`）。
+ *   キャンバス相対座標が必要な場合は `canvas.getBoundingClientRect()` で変換してください。
+ */
+export type ViewerClickEvent =
+  | {
+      hit: true;
+      file: ContractFile;
+      boundingBox: Box3;
+      /** 基準点オフセット適用済みのワールド座標 */
+      intersectionPoint: Vector3;
+      /** 基準点オフセット未適用の座標（boundingBox と同じ座標系） */
+      localIntersectionPoint: Vector3;
+      /** ビューポート座標（clientX/clientY） */
+      screenPosition: { x: number; y: number };
+    }
+  | {
+      hit: false;
+      /** ビューポート座標（clientX/clientY） */
+      screenPosition: { x: number; y: number };
+    };
 
-export type ViewerHoverEvent = {
-  file: ContractFile | undefined;
-  boundingBox: Box3 | undefined;
-  screenPosition: { x: number; y: number };
-};
+/**
+ * 3D ビューア上のホバーイベント（enter/leave セマンティクス）。
+ *
+ * ホバー対象のオブジェクトが**変わったとき**のみ発火します。
+ * 同一オブジェクト上でカーソルが移動しても `screenPosition` は更新されません。
+ * カーソル追従が必要な場合は、利用側で別途 `mousemove` をリスンしてください。
+ *
+ * - `hit: true` — オブジェクトにカーソルが入った。
+ * - `hit: false` — カーソルがオブジェクトから外れた、またはキャンバス外に出た。
+ *
+ * ### 座標系
+ * - `boundingBox` はメタデータの生座標（基準点オフセット未適用）。
+ * - `screenPosition` はビューポート座標（`MouseEvent.clientX/clientY`）。
+ */
+export type ViewerHoverEvent =
+  | {
+      hit: true;
+      file: ContractFile;
+      boundingBox: Box3;
+      /** ビューポート座標（clientX/clientY） */
+      screenPosition: { x: number; y: number };
+    }
+  | {
+      hit: false;
+    };
 
 type R3FProps = {
   canvas?: CanvasProps;
@@ -195,17 +239,17 @@ const ClickHandler: FC<{
       if (hit) {
         onContractFileClick?.(hit.view.file, hit.view.boundingBox);
         onObjectClick?.({
+          hit: true,
           file: hit.view.file,
           boundingBox: hit.view.boundingBox,
           intersectionPoint: hit.intersectionPoint,
+          localIntersectionPoint: hit.intersectionPoint.clone().sub(referencePoint),
           screenPosition: { x: event.clientX, y: event.clientY },
         });
       } else {
         onContractFileClick?.(undefined, undefined);
         onObjectClick?.({
-          file: undefined,
-          boundingBox: undefined,
-          intersectionPoint: undefined,
+          hit: false,
           screenPosition: { x: event.clientX, y: event.clientY },
         });
       }
@@ -266,11 +310,16 @@ const HoverHandler: FC<{
       if (fileId === lastHoveredFileIdRef.current) return;
       lastHoveredFileIdRef.current = fileId;
 
-      onObjectHoverRef.current({
-        file: hit?.view.file,
-        boundingBox: hit?.view.boundingBox,
-        screenPosition: { x: event.clientX, y: event.clientY },
-      });
+      if (hit) {
+        onObjectHoverRef.current({
+          hit: true,
+          file: hit.view.file,
+          boundingBox: hit.view.boundingBox,
+          screenPosition: { x: event.clientX, y: event.clientY },
+        });
+      } else {
+        onObjectHoverRef.current({ hit: false });
+      }
     },
     [gl, raycaster]
   );
@@ -299,11 +348,7 @@ const HoverHandler: FC<{
   const emitLeave = useCallback(() => {
     if (lastHoveredFileIdRef.current !== undefined) {
       lastHoveredFileIdRef.current = undefined;
-      onObjectHoverRef.current({
-        file: undefined,
-        boundingBox: undefined,
-        screenPosition: { x: 0, y: 0 },
-      });
+      onObjectHoverRef.current({ hit: false });
     }
   }, []);
 
