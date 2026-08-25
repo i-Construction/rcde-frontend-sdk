@@ -244,15 +244,20 @@ export function ViewerClient({
             クリック
           </Typography>
           {lastClickEvent ? (
-            lastClickEvent.file ? (
+            lastClickEvent.hit ? (
               <>
                 <Typography variant="caption" component="div">
                   ファイル: {lastClickEvent.file.fileName ?? `ID: ${lastClickEvent.file.id}`}
                 </Typography>
                 <Typography variant="caption" component="div">
-                  交差点: ({lastClickEvent.intersectionPoint?.x.toFixed(2)},{" "}
-                  {lastClickEvent.intersectionPoint?.y.toFixed(2)},{" "}
-                  {lastClickEvent.intersectionPoint?.z.toFixed(2)})
+                  交差点: ({lastClickEvent.intersectionPoint.x.toFixed(2)},{" "}
+                  {lastClickEvent.intersectionPoint.y.toFixed(2)},{" "}
+                  {lastClickEvent.intersectionPoint.z.toFixed(2)})
+                </Typography>
+                <Typography variant="caption" component="div">
+                  ローカル: ({lastClickEvent.localIntersectionPoint.x.toFixed(2)},{" "}
+                  {lastClickEvent.localIntersectionPoint.y.toFixed(2)},{" "}
+                  {lastClickEvent.localIntersectionPoint.z.toFixed(2)})
                 </Typography>
                 <Typography variant="caption" component="div">
                   画面座標: ({lastClickEvent.screenPosition.x}, {lastClickEvent.screenPosition.y})
@@ -272,13 +277,19 @@ export function ViewerClient({
           <Typography variant="caption" component="div" sx={{ fontWeight: "bold", mb: 0.5 }}>
             ホバー
           </Typography>
-          {hoverEvent?.file ? (
-            <Typography variant="caption" component="div">
-              ファイル: {hoverEvent.file.fileName ?? `ID: ${hoverEvent.file.id}`}
-            </Typography>
+          {hoverEvent ? (
+            hoverEvent.hit ? (
+              <Typography variant="caption" component="div">
+                ファイル: {hoverEvent.file.fileName ?? `ID: ${hoverEvent.file.id}`}
+              </Typography>
+            ) : (
+              <Typography variant="caption" component="div" sx={{ color: "grey.500" }}>
+                対象なし
+              </Typography>
+            )
           ) : (
             <Typography variant="caption" component="div" sx={{ color: "grey.500" }}>
-              {hoverEvent ? "対象なし" : "未ホバー"}
+              未ホバー
             </Typography>
           )}
         </Box>
