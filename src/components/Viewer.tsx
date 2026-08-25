@@ -276,7 +276,7 @@ const Viewer: FC<ViewerProps> = (props) => {
   const isMountedRef = useRef(true);
   const memoryAlertLevelRef = useRef<ViewerMemoryAlertLevel | undefined>(undefined);
   const emitMemorySampleRef = useRef<(opts?: { force?: boolean }) => void>(() => {});
-  const refreshPrecisePageMemoryRef = useRef<() => void>(() => {});
+  const refreshPrecisePageMemoryRef = useRef<() => Promise<void>>(async () => {});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
@@ -582,7 +582,7 @@ const Viewer: FC<ViewerProps> = (props) => {
         decodedBytes: estimateSummary.decodedBytes,
         geometryCount: rendererMemory?.geometries,
         textureCount: rendererMemory?.textures,
-        visibleFileIds: visibleFileIdsRef.current,
+        visibleFileIds: [...visibleFileIdsRef.current],
       };
       lastEmittedMemorySampleRef.current = sample;
 
@@ -625,6 +625,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
 
     precisePageMeasurementInFlightRef.current = true;
+    let shouldEmit = false;
     try {
       const result = await perf.measureUserAgentSpecificMemory();
       if (!isMountedRef.current || generation !== precisePageMeasurementGenerationRef.current) {
@@ -633,19 +634,19 @@ const Viewer: FC<ViewerProps> = (props) => {
       precisePageBytesRef.current = typeof result.bytes === "number" ? result.bytes : undefined;
       precisePageBytesMeasuredAtRef.current =
         typeof result.bytes === "number" ? Date.now() : undefined;
-      emitMemorySample({ force: true });
+      shouldEmit = true;
     } catch {
       if (!isMountedRef.current || generation !== precisePageMeasurementGenerationRef.current) {
         return;
       }
-      const hadPrecisePageBytes = precisePageBytesRef.current !== undefined;
+      shouldEmit = precisePageBytesRef.current !== undefined;
       precisePageBytesRef.current = undefined;
       precisePageBytesMeasuredAtRef.current = undefined;
-      if (hadPrecisePageBytes) {
-        emitMemorySample({ force: true });
-      }
     } finally {
       precisePageMeasurementInFlightRef.current = false;
+    }
+    if (shouldEmit) {
+      emitMemorySample({ force: true });
     }
   }, [emitMemorySample]);
 
