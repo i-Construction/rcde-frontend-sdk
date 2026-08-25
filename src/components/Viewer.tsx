@@ -518,8 +518,8 @@ const Viewer: FC<ViewerProps> = (props) => {
   const visibleFileIdsKey = useMemo(() => visibleFileIds.join(","), [visibleFileIds]);
 
   // この effect は有効化 effect（下方）より宣言順が前でなければならない。
-  // clearMemoryAlertLevel は activeMonitoringRef を読むため、有効化 effect の cleanup で
-  // clearMemoryAlertLevel が呼ばれる時点では最新の activeMonitoringRef が必要。
+  // 無効化コミットでは有効化 effect 本体の clearMemoryAlertLevel が activeMonitoringRef を
+  // 読むため、その時点で最新化されている必要がある。
   useEffect(() => {
     memoryMonitoringRef.current = memoryMonitoring;
     if (memoryMonitoring?.enabled === true) {
@@ -527,7 +527,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
   }, [memoryMonitoring]);
 
-  // emitMemorySample（:585）とゴースト刈り取り（:678）が読むため、有効化 effect より前に同期する。
+  // emitMemorySample とゴースト刈り取り effect が読むため、有効化 effect より前に同期する。
   useEffect(() => {
     visibleFileIdsRef.current = visibleFileIds;
   }, [visibleFileIds]);
@@ -588,7 +588,11 @@ const Viewer: FC<ViewerProps> = (props) => {
       lastEmittedMemorySampleRef.current = sample;
 
       const options = memoryMonitoringRef.current;
-      options?.onSample?.(sample);
+      try {
+        options?.onSample?.(sample);
+      } catch {
+        // 利用側コールバックの例外は監視ラインに波及させない
+      }
 
       const previousLevel = memoryAlertLevelRef.current;
       const { nextLevel, alert } = evaluateViewerMemoryAlert({
@@ -599,11 +603,19 @@ const Viewer: FC<ViewerProps> = (props) => {
       memoryAlertLevelRef.current = nextLevel;
 
       if (nextLevel !== previousLevel) {
-        options?.onAlertLevelChange?.(nextLevel, sample);
+        try {
+          options?.onAlertLevelChange?.(nextLevel, sample);
+        } catch {
+          // 利用側コールバックの例外は監視ラインに波及させない
+        }
       }
 
       if (alert !== undefined) {
-        options?.onAlert?.(alert);
+        try {
+          options?.onAlert?.(alert);
+        } catch {
+          // 利用側コールバックの例外は監視ラインに波及させない
+        }
       }
     },
     [memorySampleIntervalMs]
@@ -665,6 +677,7 @@ const Viewer: FC<ViewerProps> = (props) => {
   useEffect(() => {
     if (!isMemoryMonitoringEnabled) {
       clearMemoryAlertLevel();
+      activeMonitoringRef.current = undefined;
       precisePageMeasurementGenerationRef.current += 1;
       precisePageMeasurementInFlightRef.current = false;
       precisePageBytesRef.current = undefined;
@@ -694,6 +707,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
 
     emitMemorySampleRef.current();
+    // 内部バグの保険。利用側コールバック例外は emitMemorySample 内で握る。
     refreshPrecisePageMemoryRef.current().catch(() => {});
   }, [isMemoryMonitoringEnabled, clearMemoryAlertLevel, commitFileMemoryEstimates]);
 
@@ -704,6 +718,7 @@ const Viewer: FC<ViewerProps> = (props) => {
 
     const timerId = window.setInterval(() => {
       emitMemorySampleRef.current();
+      // 内部バグの保険。利用側コールバック例外は emitMemorySample 内で握る。
       refreshPrecisePageMemoryRef.current().catch(() => {});
     }, memorySampleIntervalMs);
 
