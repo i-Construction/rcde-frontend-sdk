@@ -237,9 +237,15 @@ const HoverHandler: FC<{
   const throttleTimerRef = useRef<number | null>(null);
   const pendingEventRef = useRef<MouseEvent | null>(null);
   const onObjectHoverRef = useRef(onObjectHover);
+  const viewsRef = useRef(views);
+  const referencePointRef = useRef(referencePoint);
+  const cameraRef = useRef(camera);
 
   useEffect(() => {
     onObjectHoverRef.current = onObjectHover;
+    viewsRef.current = views;
+    referencePointRef.current = referencePoint;
+    cameraRef.current = camera;
   });
 
   const processEvent = useCallback(
@@ -248,7 +254,13 @@ const HoverHandler: FC<{
       const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-      const hit = raycastViews(new Vector2(x, y), camera, raycaster, views, referencePoint);
+      const hit = raycastViews(
+        new Vector2(x, y),
+        cameraRef.current,
+        raycaster,
+        viewsRef.current,
+        referencePointRef.current
+      );
       const fileId = hit?.view.file.id;
 
       if (fileId === lastHoveredFileIdRef.current) return;
@@ -260,7 +272,7 @@ const HoverHandler: FC<{
         screenPosition: { x: event.clientX, y: event.clientY },
       });
     },
-    [views, referencePoint, camera, gl, raycaster]
+    [gl, raycaster]
   );
 
   const handleMouseMove = useCallback(
@@ -284,26 +296,49 @@ const HoverHandler: FC<{
     [processEvent]
   );
 
+  const emitLeave = useCallback(() => {
+    if (lastHoveredFileIdRef.current !== undefined) {
+      lastHoveredFileIdRef.current = undefined;
+      onObjectHoverRef.current({
+        file: undefined,
+        boundingBox: undefined,
+        screenPosition: { x: 0, y: 0 },
+      });
+    }
+  }, []);
+
+  // リスナー登録: gl のみに依存し、views / referencePoint の変化で再登録しない
   useEffect(() => {
     const canvas = gl.domElement;
-    canvas.addEventListener("mousemove", handleMouseMove);
-    return () => {
-      canvas.removeEventListener("mousemove", handleMouseMove);
+    const onMove = (e: MouseEvent) => handleMouseMove(e);
+    const onLeave = () => {
       if (throttleTimerRef.current !== null) {
         window.clearTimeout(throttleTimerRef.current);
         throttleTimerRef.current = null;
       }
       pendingEventRef.current = null;
-      if (lastHoveredFileIdRef.current !== undefined) {
-        lastHoveredFileIdRef.current = undefined;
-        onObjectHoverRef.current({
-          file: undefined,
-          boundingBox: undefined,
-          screenPosition: { x: 0, y: 0 },
-        });
-      }
+      emitLeave();
     };
-  }, [gl, handleMouseMove]);
+    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mouseleave", onLeave);
+    return () => {
+      canvas.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mouseleave", onLeave);
+    };
+  }, [gl, handleMouseMove, emitLeave]);
+
+  // アンマウント時のみ: タイマ解除 + leave 通知
+  useEffect(
+    () => () => {
+      if (throttleTimerRef.current !== null) {
+        window.clearTimeout(throttleTimerRef.current);
+        throttleTimerRef.current = null;
+      }
+      pendingEventRef.current = null;
+      emitLeave();
+    },
+    [emitLeave]
+  );
 
   return null;
 };
