@@ -1,10 +1,10 @@
 "use client";
 
 import { RCDE, type PendingUploads, type RCDEAppConfig } from "@i-con/frontend-sdk";
-import UploadFileIcon from "@mui/icons-material/UploadFile";
-import { Box, Button } from "@mui/material";
+import { Box } from "@mui/material";
 import { useCallback, useMemo, useState } from "react";
 
+import { ContractFileSidebar, SidebarUploadButton } from "@/components/ContractFileSidebar";
 import { FileUploadModal } from "@/components/FileUploadModal";
 import { ReferencePointDialog } from "@/components/ReferencePointDialog";
 import { ViewerBottomToolbar } from "@/components/ViewerBottomToolbar";
@@ -30,7 +30,7 @@ export function ViewerClient({
 }: ViewerClientProps) {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isReferencePointDialogOpen, setIsReferencePointDialogOpen] = useState(false);
-  const [pendingUploads, setPendingUploads] = useState<PendingUploads>({});
+  const [, setPendingUploads] = useState<PendingUploads>({});
   const [contractFilesRefetchKey, setContractFilesRefetchKey] = useState<number | undefined>(
     undefined
   );
@@ -112,20 +112,13 @@ export function ViewerClient({
           contractId={contractId}
           // デフォルトで全点群ファイルを非表示にする（空配列 = 表示対象なし）
           contractFileIds={[]}
-          pendingUploads={pendingUploads}
           contractFilesRefetchKey={contractFilesRefetchKey}
-          leftSiderHeaderActions={
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<UploadFileIcon />}
-              onClick={handleUploadOpen}
-            >
-              アップロード
-            </Button>
-          }
           auxiliaryContent={
             <>
+              <ContractFileSidebar
+                pendingUploads={pendingUploads}
+                headerActions={<SidebarUploadButton onClick={handleUploadOpen} />}
+              />
               <FileUploadModal
                 contractId={contractId}
                 open={isUploadOpen}

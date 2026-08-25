@@ -99,26 +99,3 @@ export function isFileStatusActive(labels: FileStatusLabels): boolean {
   const isPclodActive = labels.pclod === "待機中" || labels.pclod === "処理中";
   return isUploadActive || isPclodActive;
 }
-
-export function needsPolling(files: ContractFile[], pendingUploads: PendingUploads): boolean {
-  const pendingUploadIds = Object.keys(pendingUploads);
-  const hasPendingUploads = pendingUploadIds.length > 0;
-  if (hasPendingUploads) {
-    return true;
-  }
-
-  for (const file of files) {
-    if (hasUnknownBatchStatus(file)) {
-      continue;
-    }
-    const uploaded = isUploaded(file);
-    if (!uploaded) {
-      return true;
-    }
-    if (!isPclodCompleted(file)) {
-      return true;
-    }
-  }
-
-  return false;
-}
