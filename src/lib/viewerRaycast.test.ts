@@ -56,6 +56,31 @@ describe("rayIntersectBox", () => {
     expect(original.min.y).toBe(2);
     expect(original.min.z).toBe(3);
   });
+
+  it("direction 成分が 0 かつ origin が slab 上にあるとき NaN にならず null を返す", () => {
+    const box = new Box3(new Vector3(0, 0, 0), new Vector3(2, 2, 2));
+    const ray = {
+      origin: new Vector3(0, 1, 1),
+      direction: new Vector3(0, 1, 0).normalize(),
+    };
+    // x=0 は box.min.x と一致し direction.x=0 → (0-0)*(1/0) = 0*Infinity = NaN
+    const result = rayIntersectBox(ray, box);
+    // NaN ガードにより null が返る（交差の有無は不定）
+    expect(result).toBeNull();
+  });
+
+  it("direction 成分が 0 でも origin がスラブ範囲内なら交差を検出する", () => {
+    const box = new Box3(new Vector3(0, 0, 0), new Vector3(2, 2, 2));
+    const ray = {
+      origin: new Vector3(1, 1, -5),
+      direction: new Vector3(0, 0, 1).normalize(),
+    };
+    // x=1, y=1 はスラブ内なので (1-0)*(1/0)=Infinity, (1-2)*(1/0)=-Infinity → min=-Inf, max=Inf
+    // z 方向のスラブが支配的: tmin=5, tmax=7 → 交差する
+    const result = rayIntersectBox(ray, box);
+    expect(result).not.toBeNull();
+    expect(result!.z).toBeCloseTo(0);
+  });
 });
 
 describe("raycastViews", () => {

@@ -15,6 +15,11 @@ export const rayIntersectBox = (
   const tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
   const tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
 
+  // direction 成分が 0 のとき NaN が生じうるためガード
+  if (Number.isNaN(tmin) || Number.isNaN(tmax)) {
+    return null;
+  }
+
   if (tmax < 0 || tmin > tmax) {
     return null;
   }

@@ -2,7 +2,16 @@ import { Box } from "@mui/material";
 import { GizmoHelper, GizmoViewport, Grid, MapControls } from "@react-three/drei";
 import { Canvas, CanvasProps, useThree } from "@react-three/fiber";
 import { PointCloudMeta } from "@i-con/pcd-viewer";
-import { FC, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  FC,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Box3,
   Color,
@@ -73,6 +82,11 @@ const CHANNEL = "RCDE_VIEWER_CMD";
  * - `localIntersectionPoint` は基準点オフセット未適用の座標。`boundingBox` と同じ座標系。
  * - `screenPosition` はビューポート座標（`MouseEvent.clientX/clientY`）。
  *   キャンバス相対座標が必要な場合は `canvas.getBoundingClientRect()` で変換してください。
+ *
+ * ### 制限事項
+ * `RCDE_VIEWER_CMD` (`SET_TRANSFORM`) によるファイル個別の translation / rotation は
+ * 当たり判定に反映されません。移動・回転されたファイルの判定は元の位置の boundingBox に
+ * 基づきます。この制限は `onContractFileClick` と同一です。
  */
 export type ViewerClickEvent =
   | {
@@ -105,6 +119,10 @@ export type ViewerClickEvent =
  * ### 座標系
  * - `boundingBox` はメタデータの生座標（基準点オフセット未適用）。
  * - `screenPosition` はビューポート座標（`MouseEvent.clientX/clientY`）。
+ *
+ * ### 制限事項
+ * `RCDE_VIEWER_CMD` (`SET_TRANSFORM`) によるファイル個別の translation / rotation は
+ * 当たり判定に反映されません。この制限は `onContractFileClick` と同一です。
  */
 export type ViewerHoverEvent =
   | {
@@ -168,35 +186,55 @@ const ClickHandler: FC<{
   const { camera, gl } = useThree();
   const raycaster = useMemo(() => new Raycaster(), []);
 
+  const viewsRef = useRef(views);
+  const referencePointRef = useRef(referencePoint);
+  const cameraRef = useRef(camera);
+  const onContractFileClickRef = useRef(onContractFileClick);
+  const onObjectClickRef = useRef(onObjectClick);
+
+  useLayoutEffect(() => {
+    viewsRef.current = views;
+    referencePointRef.current = referencePoint;
+    cameraRef.current = camera;
+    onContractFileClickRef.current = onContractFileClick;
+    onObjectClickRef.current = onObjectClick;
+  });
+
   const handleClick = useCallback(
     (event: MouseEvent) => {
-      if (!onContractFileClick && !onObjectClick) return;
+      if (!onContractFileClickRef.current && !onObjectClickRef.current) return;
 
       const rect = gl.domElement.getBoundingClientRect();
       const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-      const hit = raycastViews(new Vector2(x, y), camera, raycaster, views, referencePoint);
+      const hit = raycastViews(
+        new Vector2(x, y),
+        cameraRef.current,
+        raycaster,
+        viewsRef.current,
+        referencePointRef.current
+      );
 
       if (hit) {
-        onContractFileClick?.(hit.view.file, hit.view.boundingBox);
-        onObjectClick?.({
+        onContractFileClickRef.current?.(hit.view.file, hit.view.boundingBox);
+        onObjectClickRef.current?.({
           hit: true,
           file: hit.view.file,
           boundingBox: hit.view.boundingBox,
           intersectionPoint: hit.intersectionPoint,
-          localIntersectionPoint: hit.intersectionPoint.clone().sub(referencePoint),
+          localIntersectionPoint: hit.intersectionPoint.clone().sub(referencePointRef.current),
           screenPosition: { x: event.clientX, y: event.clientY },
         });
       } else {
-        onContractFileClick?.(undefined, undefined);
-        onObjectClick?.({
+        onContractFileClickRef.current?.(undefined, undefined);
+        onObjectClickRef.current?.({
           hit: false,
           screenPosition: { x: event.clientX, y: event.clientY },
         });
       }
     },
-    [views, referencePoint, onContractFileClick, onObjectClick, camera, gl, raycaster]
+    [gl, raycaster]
   );
 
   useEffect(() => {
@@ -227,7 +265,7 @@ const HoverHandler: FC<{
   const referencePointRef = useRef(referencePoint);
   const cameraRef = useRef(camera);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     onObjectHoverRef.current = onObjectHover;
     viewsRef.current = views;
     referencePointRef.current = referencePoint;
@@ -293,6 +331,13 @@ const HoverHandler: FC<{
       onObjectHoverRef.current({ hit: false });
     }
   }, []);
+
+  useEffect(() => {
+    const id = lastHoveredFileIdRef.current;
+    if (id !== undefined && !views.some((v) => v.file.id === id)) {
+      emitLeave();
+    }
+  }, [views, emitLeave]);
 
   // リスナー登録: gl のみに依存し、views / referencePoint の変化で再登録しない
   useEffect(() => {
