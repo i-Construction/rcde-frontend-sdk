@@ -13,7 +13,11 @@ export type ReferencePointContextType = {
   point: Vector3;
   change: (point: Vector3) => void;
   save: (point: Vector3) => void;
-  focusFileById: (fileId: number) => Promise<void>;
+  /**
+   * 指定ファイルの Bounding Box 中心へ基準点を移動する。
+   * 成功時は `true`、対象なし・PCLOD 未完了・メタデータ取得失敗時は `false` を返す。
+   */
+  focusFileById: (fileId: number) => Promise<boolean>;
 };
 
 const ReferencePointContext = createContext<ReferencePointContextType | undefined>(undefined);
@@ -38,13 +42,13 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
   );
 
   const focusFileById = useCallback(
-    async (fileId: number) => {
-      if (!client || !project) return;
+    async (fileId: number): Promise<boolean> => {
+      if (!client || !project) return false;
 
       // Find the container with the matching file ID
       const container = containers.find((c) => c.file.id === fileId);
-      if (!container) return;
-      if (!isPclodCompleted(container.file)) return;
+      if (!container) return false;
+      if (!isPclodCompleted(container.file)) return false;
 
       try {
         // Get file metadata to calculate bounding box
@@ -57,8 +61,10 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
         const boundingBox = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
         const center = boundingBox.getCenter(new Vector3());
         change(center.negate());
+        return true;
       } catch (err) {
         console.error("[useReferencePoint] Failed to focus file:", err);
+        return false;
       }
     },
     [client, project, containers, change]

@@ -1,7 +1,21 @@
 export * from "./components/RCDE";
 export * from "./bridge/viewerBridge";
 export { RCDEClient, type AuthType, type RCDEClientOptions } from "./lib/rcde-client";
-export type { PendingUploads } from "./lib/contractFileStatus";
+export {
+  deriveFileStatusLabels,
+  isPclodCompleted,
+  isFileStatusActive,
+  type PendingUploads,
+  type PendingUpload,
+  type FileStatusLabels,
+  type UploadStatusLabel,
+  type PclodStatusLabel,
+} from "./lib/contractFileStatus";
+export {
+  useContractFileActions,
+  type ContractFileActions,
+  type ContractFileRow,
+} from "./hooks/useContractFileActions";
 export type {
   ViewerFileMemoryEstimate,
   ViewerMemoryAlert,
