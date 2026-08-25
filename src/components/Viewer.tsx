@@ -26,6 +26,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { useClient } from "../contexts/client";
+import type { RCDEClient } from "../lib/rcde-client";
 import { ContractFile, useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
 import { isPclodCompleted } from "../lib/contractFileStatus";

@@ -12,6 +12,6 @@ export function parsePngBuffer(buffer: ArrayBuffer): Promise<ParsedPng> {
     png
       .parse(buffer)
       .on("error", reject)
-      .on("parsed", () => resolve(png));
+      .on("parsed", () => resolve({ data: png.data, width: png.width, height: png.height }));
   });
 }
