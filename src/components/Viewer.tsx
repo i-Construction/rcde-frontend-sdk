@@ -522,7 +522,7 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   const emitMemorySample = useCallback(
     ({ force = false }: { force?: boolean } = {}) => {
-      if (!isMemoryMonitoringEnabled) {
+      if (memoryMonitoringRef.current?.enabled !== true) {
         return;
       }
 
@@ -585,11 +585,11 @@ const Viewer: FC<ViewerProps> = (props) => {
         options?.onAlert?.(alert);
       }
     },
-    [isMemoryMonitoringEnabled, memorySampleIntervalMs]
+    [memorySampleIntervalMs]
   );
 
   const refreshPrecisePageMemory = useCallback(async () => {
-    if (!isMemoryMonitoringEnabled || precisePageMeasurementInFlightRef.current) {
+    if (memoryMonitoringRef.current?.enabled !== true || precisePageMeasurementInFlightRef.current) {
       return;
     }
 
@@ -624,7 +624,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     } finally {
       precisePageMeasurementInFlightRef.current = false;
     }
-  }, [isMemoryMonitoringEnabled, emitMemorySample]);
+  }, [emitMemorySample]);
 
   useEffect(() => {
     applyAppearanceToScene(transformRootRef.current, appearance.pointSize, appearance.opacity);
@@ -659,10 +659,9 @@ const Viewer: FC<ViewerProps> = (props) => {
 
     if (changed) {
       fileMemoryEstimatesRef.current = pruned;
+      memoryEstimateSummaryRef.current = summarizeMemoryEstimates(pruned);
       setFileMemoryEstimates(pruned);
     }
-
-    memoryEstimateSummaryRef.current = summarizeMemoryEstimates(pruned);
 
     emitMemorySample();
     void refreshPrecisePageMemory();
