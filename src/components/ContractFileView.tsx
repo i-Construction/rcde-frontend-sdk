@@ -130,6 +130,9 @@ const ContractFileView = ({
   }, [file.id, onMemoryEstimateChange]);
 
   const scheduleMemoryEstimateFlush = useCallback(() => {
+    if (onMemoryEstimateChange === undefined) {
+      return;
+    }
     if (memoryEstimateFrameRef.current !== null) {
       return;
     }
@@ -138,7 +141,7 @@ const ContractFileView = ({
       memoryEstimateFrameRef.current = null;
       emitMemoryEstimate();
     });
-  }, [emitMemoryEstimate]);
+  }, [emitMemoryEstimate, onMemoryEstimateChange]);
 
   const registerTileMemory = useCallback(
     (cacheKey: string, metrics: { compressedBytes: number; decodedBytes: number }) => {
@@ -156,6 +159,9 @@ const ContractFileView = ({
     [scheduleMemoryEstimateFlush]
   );
 
+  // memoryMonitoring の ON/OFF で onMemoryEstimateChange が切り替わると
+  // loader 参照も変わるが、PNG キャッシュは file/meta 単位で保持しているため
+  // 同一タイルのネットワーク再取得は避けられる。
   const loader: PointCloudLODLoader<PngBuffer> = useCallback(
     (props) => {
       const pngBufferCache = cacheStateRef.current.pngBufferCache;

@@ -624,7 +624,22 @@ const Viewer: FC<ViewerProps> = (props) => {
       return;
     }
 
-    emitMemorySample({ force: true });
+    // 無効化中にアンマウントされたファイルのゴースト推定値を刈り取る。
+    // まだ表示中のファイルの推定値は保持し、再有効化直後のサンプルが 0 値にならないようにする。
+    const activeFileIds = new Set(visibleFileIdsRef.current);
+    setFileMemoryEstimates((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        if (!activeFileIds.has(Number(key))) {
+          delete next[key];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+
+    emitMemorySample();
     void refreshPrecisePageMemory();
   }, [isMemoryMonitoringEnabled, clearMemoryAlertLevel, emitMemorySample, refreshPrecisePageMemory]);
 

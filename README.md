@@ -179,7 +179,7 @@ const App = () => {
 主な設定項目は以下の通りです。
 
 - `enabled`: `true` を明示した場合のみ監視を有効化します。省略時は無効です。
-- `sampleIntervalMs`: サンプリング間隔です。短くしすぎるとブラウザ負荷が上がるため、`10000` から `30000` ミリ秒程度を推奨します。
+- `sampleIntervalMs`: 定期サンプリングの基準間隔です。短くしすぎるとブラウザ負荷が上がるため、`10000` から `30000` ミリ秒程度を推奨します。精密メモリ計測が解決したタイミングでは、この間隔とは別に追加サンプルが発火することがあります。
 - `thresholds.warningBytes`: 警告レベルの閾値です。
 - `thresholds.criticalBytes`: 危険レベルの閾値です。
 - `thresholds.source`: 閾値判定に使う値です。`"estimate"`、`"js-heap"`、`"page"`、`"max-available"` を選べます。未指定時は `"max-available"` として扱います。
