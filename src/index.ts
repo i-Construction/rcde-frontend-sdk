@@ -16,6 +16,16 @@ export {
   type ContractFileActions,
   type ContractFileRow,
 } from "./hooks/useContractFileActions";
+export type {
+  ViewerFileMemoryEstimate,
+  ViewerMemoryAlert,
+  ViewerMemoryAlertLevel,
+  ViewerMemoryMonitoringOptions,
+  ViewerMemorySample,
+  ViewerMemorySource,
+  ViewerMemoryThresholdSource,
+  ViewerMemoryThresholds,
+} from "./lib/viewerMemory";
 export { Viewer, type RCDEAppConfig, type ViewerProps } from "./components/Viewer";
 export { ReferencePointProvider, useReferencePoint } from "./contexts/referencePoint";
 export { ClientProvider, useClient, type ClientContextType } from "./contexts/client";

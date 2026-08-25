@@ -14,11 +14,20 @@ import {
   PerspectiveCamera,
   Object3D,
   Raycaster,
+  WebGLRenderer,
 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile, useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
 import { isPclodCompleted } from "../lib/contractFileStatus";
+import {
+  evaluateViewerMemoryAlert,
+  type ViewerFileMemoryEstimate,
+  type ViewerMemoryAlertLevel,
+  type ViewerMemoryMonitoringOptions,
+  type ViewerMemorySample,
+  type ViewerMemorySource,
+} from "../lib/viewerMemory";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { ReferencePointAxis } from "./ReferencePointAxis";
 import { ReferencePointView } from "./ReferencePointView";
@@ -60,6 +69,13 @@ type R3FProps = {
   referencePointAxis?: boolean;
 };
 
+type BrowserPerformance = Performance & {
+  memory?: {
+    usedJSHeapSize?: number;
+  };
+  measureUserAgentSpecificMemory?: () => Promise<{ bytes: number }>;
+};
+
 export type RCDEAppConfig = {
   token: string;
   baseUrl?: string;
@@ -78,6 +94,7 @@ export type ViewerProps = {
   contractFilesRefetchKey?: number;
   selectedFileId?: number;
   onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
+  memoryMonitoring?: ViewerMemoryMonitoringOptions;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -166,6 +183,51 @@ const ClickHandler: FC<{
   return null;
 };
 
+const RendererMemoryBridge: FC<{ onRendererReady: (renderer: WebGLRenderer | null) => void }> = ({
+  onRendererReady,
+}) => {
+  const { gl } = useThree();
+
+  useEffect(() => {
+    onRendererReady(gl);
+    return () => {
+      onRendererReady(null);
+    };
+  }, [gl, onRendererReady]);
+
+  return null;
+};
+
+type MemoryEstimateSummary = {
+  loadedFileCount: number;
+  loadedTileCount: number;
+  compressedBytes: number;
+  decodedBytes: number;
+  estimatedViewerBytes: number;
+};
+
+function summarizeMemoryEstimates(
+  estimates: Record<number, ViewerFileMemoryEstimate>
+): MemoryEstimateSummary {
+  let loadedTileCount = 0;
+  let compressedBytes = 0;
+  let decodedBytes = 0;
+
+  for (const estimate of Object.values(estimates)) {
+    loadedTileCount += estimate.loadedTileCount;
+    compressedBytes += estimate.compressedBytes;
+    decodedBytes += estimate.decodedBytes;
+  }
+
+  return {
+    loadedFileCount: Object.keys(estimates).length,
+    loadedTileCount,
+    compressedBytes,
+    decodedBytes,
+    estimatedViewerBytes: decodedBytes,
+  };
+}
+
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
   const {
@@ -180,13 +242,41 @@ const Viewer: FC<ViewerProps> = (props) => {
     contractFilesRefetchKey,
     selectedFileId,
     onContractFileClick,
+    memoryMonitoring,
   } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
+  const [fileMemoryEstimates, setFileMemoryEstimates] = useState<
+    Record<number, ViewerFileMemoryEstimate>
+  >({});
 
   const transformRootRef = useRef<Group>(null);
   const cameraRef = useRef<PerspectiveCamera>(null);
+  const rendererRef = useRef<WebGLRenderer | null>(null);
+  const memoryMonitoringRef = useRef<ViewerMemoryMonitoringOptions | undefined>(memoryMonitoring);
+  const activeMonitoringRef = useRef<ViewerMemoryMonitoringOptions | undefined>(
+    memoryMonitoring?.enabled === true ? memoryMonitoring : undefined
+  );
+  const lastSampleAtRef = useRef(0);
+  const precisePageBytesMeasuredAtRef = useRef<number | undefined>(undefined);
+  const precisePageMeasurementGenerationRef = useRef(0);
+  const fileMemoryEstimatesRef = useRef<Record<number, ViewerFileMemoryEstimate>>({});
+  const memoryEstimateSummaryRef = useRef({
+    loadedFileCount: 0,
+    loadedTileCount: 0,
+    compressedBytes: 0,
+    decodedBytes: 0,
+    estimatedViewerBytes: 0,
+  });
+  const lastEmittedMemorySampleRef = useRef<ViewerMemorySample | undefined>(undefined);
+  const visibleFileIdsRef = useRef<number[]>([]);
+  const precisePageBytesRef = useRef<number | undefined>(undefined);
+  const precisePageMeasurementInFlightRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const memoryAlertLevelRef = useRef<ViewerMemoryAlertLevel | undefined>(undefined);
+  const emitMemorySampleRef = useRef<(opts?: { force?: boolean }) => void>(() => {});
+  const refreshPrecisePageMemoryRef = useRef<() => Promise<void>>(async () => {});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
@@ -194,6 +284,22 @@ const Viewer: FC<ViewerProps> = (props) => {
     pointSize: 2,
     opacity: 100,
   });
+  const isMemoryMonitoringEnabled = memoryMonitoring?.enabled === true;
+  const memorySampleIntervalMs = Math.max(memoryMonitoring?.sampleIntervalMs ?? 15000, 1000);
+
+  const clearMemoryAlertLevel = useCallback(() => {
+    const previousLevel = memoryAlertLevelRef.current;
+    const lastSample = lastEmittedMemorySampleRef.current;
+    if (previousLevel !== undefined && lastSample !== undefined) {
+      const handler =
+        memoryMonitoringRef.current?.onAlertLevelChange ??
+        activeMonitoringRef.current?.onAlertLevelChange;
+      handler?.(undefined, lastSample);
+      activeMonitoringRef.current = undefined;
+    }
+    memoryAlertLevelRef.current = undefined;
+    lastEmittedMemorySampleRef.current = undefined;
+  }, []);
 
   // File-specific transforms (fileId -> translation + rotation)
   const [fileTransforms, setFileTransforms] = useState<
@@ -313,6 +419,58 @@ const Viewer: FC<ViewerProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadataFetchKey, project, client]);
 
+  // deps を空に保つこと。identity が変わると handleFileMemoryEstimateChange → loader まで
+  // 伝播し、点群ロード経路が再走する。
+  const commitFileMemoryEstimates = useCallback(
+    (next: Record<number, ViewerFileMemoryEstimate>) => {
+      fileMemoryEstimatesRef.current = next;
+      memoryEstimateSummaryRef.current = summarizeMemoryEstimates(next);
+      setFileMemoryEstimates(next);
+    },
+    []
+  );
+
+  const handleFileMemoryEstimateChange = useCallback(
+    (estimate: ViewerFileMemoryEstimate) => {
+      const prev = fileMemoryEstimatesRef.current;
+      const current = prev[estimate.fileId];
+      const isZeroEstimate =
+        estimate.loadedTileCount === 0 &&
+        estimate.compressedBytes === 0 &&
+        estimate.decodedBytes === 0 &&
+        estimate.totalBytes === 0;
+
+      if (isZeroEstimate) {
+        if (current === undefined) {
+          return;
+        }
+        const next = { ...prev };
+        delete next[estimate.fileId];
+        commitFileMemoryEstimates(next);
+        return;
+      }
+
+      if (
+        current?.loadedTileCount === estimate.loadedTileCount &&
+        current.compressedBytes === estimate.compressedBytes &&
+        current.decodedBytes === estimate.decodedBytes &&
+        current.totalBytes === estimate.totalBytes
+      ) {
+        return;
+      }
+
+      const next = {
+        ...prev,
+        [estimate.fileId]: estimate,
+      };
+      commitFileMemoryEstimates(next);
+    },
+    [commitFileMemoryEstimates]
+  );
+
+  const handleRendererReady = useCallback((renderer: WebGLRenderer | null) => {
+    rendererRef.current = renderer;
+  }, []);
   const applyAppearanceToScene = useCallback(
     (root: Group | null, ps: number, opPercent: number) => {
       if (!root) return;
@@ -351,9 +509,231 @@ const Viewer: FC<ViewerProps> = (props) => {
     []
   );
 
+  const visibleFileIds = useMemo(
+    () =>
+      views.map((view) => view.file.id).filter((fileId): fileId is number => fileId !== undefined),
+    [views]
+  );
+
+  const visibleFileIdsKey = useMemo(() => visibleFileIds.join(","), [visibleFileIds]);
+
+  // この effect は有効化 effect（下方）より宣言順が前でなければならない。
+  // 無効化コミットでは有効化 effect 本体の clearMemoryAlertLevel が activeMonitoringRef を
+  // 読むため、その時点で最新化されている必要がある。
+  useEffect(() => {
+    memoryMonitoringRef.current = memoryMonitoring;
+    if (memoryMonitoring?.enabled === true) {
+      activeMonitoringRef.current = memoryMonitoring;
+    }
+  }, [memoryMonitoring]);
+
+  // emitMemorySample とゴースト刈り取り effect が読むため、有効化 effect より前に同期する。
+  useEffect(() => {
+    visibleFileIdsRef.current = visibleFileIds;
+  }, [visibleFileIds]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      clearMemoryAlertLevel();
+      isMountedRef.current = false;
+      rendererRef.current = null;
+    };
+  }, [clearMemoryAlertLevel]);
+
+  const emitMemorySample = useCallback(
+    ({ force = false }: { force?: boolean } = {}) => {
+      if (memoryMonitoringRef.current?.enabled !== true) {
+        return;
+      }
+
+      const now = Date.now();
+      if (!force) {
+        if (now - lastSampleAtRef.current < memorySampleIntervalMs) {
+          return;
+        }
+        lastSampleAtRef.current = now;
+      }
+
+      const perf = performance as BrowserPerformance;
+      const jsHeapBytes =
+        typeof perf.memory?.usedJSHeapSize === "number" ? perf.memory.usedJSHeapSize : undefined;
+      const pageBytes = precisePageBytesRef.current;
+      const pageBytesMeasuredAt = precisePageBytesMeasuredAtRef.current;
+
+      let source: ViewerMemorySource = "estimate";
+      if (pageBytes !== undefined) {
+        source = "browser-precise";
+      } else if (jsHeapBytes !== undefined) {
+        source = "js-heap";
+      }
+
+      const rendererMemory = rendererRef.current?.info.memory;
+      const estimateSummary = memoryEstimateSummaryRef.current;
+      const sample: ViewerMemorySample = {
+        timestamp: now,
+        source,
+        estimatedViewerBytes: estimateSummary.estimatedViewerBytes,
+        pageBytes,
+        pageBytesMeasuredAt,
+        jsHeapBytes,
+        loadedFileCount: estimateSummary.loadedFileCount,
+        loadedTileCount: estimateSummary.loadedTileCount,
+        compressedBytes: estimateSummary.compressedBytes,
+        decodedBytes: estimateSummary.decodedBytes,
+        geometryCount: rendererMemory?.geometries,
+        textureCount: rendererMemory?.textures,
+        visibleFileIds: [...visibleFileIdsRef.current],
+      };
+      lastEmittedMemorySampleRef.current = sample;
+
+      const options = memoryMonitoringRef.current;
+      try {
+        options?.onSample?.(sample);
+      } catch {
+        // 利用側コールバックの例外は監視ラインに波及させない
+      }
+
+      const previousLevel = memoryAlertLevelRef.current;
+      const { nextLevel, alert } = evaluateViewerMemoryAlert({
+        sample,
+        thresholds: options?.thresholds,
+        previousLevel,
+      });
+      memoryAlertLevelRef.current = nextLevel;
+
+      if (nextLevel !== previousLevel) {
+        try {
+          options?.onAlertLevelChange?.(nextLevel, sample);
+        } catch {
+          // 利用側コールバックの例外は監視ラインに波及させない
+        }
+      }
+
+      if (alert !== undefined) {
+        try {
+          options?.onAlert?.(alert);
+        } catch {
+          // 利用側コールバックの例外は監視ラインに波及させない
+        }
+      }
+    },
+    [memorySampleIntervalMs]
+  );
+
+  const refreshPrecisePageMemory = useCallback(async () => {
+    if (
+      memoryMonitoringRef.current?.enabled !== true ||
+      precisePageMeasurementInFlightRef.current
+    ) {
+      return;
+    }
+
+    const generation = precisePageMeasurementGenerationRef.current;
+    const perf = performance as BrowserPerformance;
+    if (typeof perf.measureUserAgentSpecificMemory !== "function") {
+      precisePageBytesRef.current = undefined;
+      precisePageBytesMeasuredAtRef.current = undefined;
+      return;
+    }
+
+    precisePageMeasurementInFlightRef.current = true;
+    let shouldEmit = false;
+    try {
+      const result = await perf.measureUserAgentSpecificMemory();
+      if (!isMountedRef.current || generation !== precisePageMeasurementGenerationRef.current) {
+        return;
+      }
+      precisePageBytesRef.current = typeof result.bytes === "number" ? result.bytes : undefined;
+      precisePageBytesMeasuredAtRef.current =
+        typeof result.bytes === "number" ? Date.now() : undefined;
+      shouldEmit = true;
+    } catch {
+      if (!isMountedRef.current || generation !== precisePageMeasurementGenerationRef.current) {
+        return;
+      }
+      shouldEmit = precisePageBytesRef.current !== undefined;
+      precisePageBytesRef.current = undefined;
+      precisePageBytesMeasuredAtRef.current = undefined;
+    } finally {
+      precisePageMeasurementInFlightRef.current = false;
+    }
+    if (shouldEmit) {
+      emitMemorySample({ force: true });
+    }
+  }, [emitMemorySample]);
+
+  // 毎コミットで最新の関数参照を ref に同期。宣言順が後続の有効化 effect / interval effect
+  // よりも前であるため、初回コミットでも noop を掴まない。
+  useEffect(() => {
+    emitMemorySampleRef.current = emitMemorySample;
+    refreshPrecisePageMemoryRef.current = refreshPrecisePageMemory;
+  });
+
   useEffect(() => {
     applyAppearanceToScene(transformRootRef.current, appearance.pointSize, appearance.opacity);
   }, [appearance, applyAppearanceToScene]);
+
+  useEffect(() => {
+    if (!isMemoryMonitoringEnabled) {
+      clearMemoryAlertLevel();
+      activeMonitoringRef.current = undefined;
+      precisePageMeasurementGenerationRef.current += 1;
+      precisePageMeasurementInFlightRef.current = false;
+      precisePageBytesRef.current = undefined;
+      precisePageBytesMeasuredAtRef.current = undefined;
+      lastSampleAtRef.current = 0;
+      return;
+    }
+
+    // 無効化中にアンマウントされたファイルのゴースト推定値を刈り取る。
+    // まだ表示中のファイルの推定値は保持し、再有効化直後のサンプルが 0 値にならないようにする。
+    // fileMemoryEstimatesRef から読むことで、同一バッチで子が通知した最新値を失わない。
+    const activeFileIds = new Set(visibleFileIdsRef.current);
+    const current = fileMemoryEstimatesRef.current;
+    const currentKeys = Object.keys(current);
+    let changed = false;
+    const pruned: Record<number, ViewerFileMemoryEstimate> = {};
+    for (const key of currentKeys) {
+      if (activeFileIds.has(Number(key))) {
+        pruned[Number(key)] = current[Number(key)];
+      } else {
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      commitFileMemoryEstimates(pruned);
+    }
+
+    emitMemorySampleRef.current();
+    // 内部バグの保険。利用側コールバック例外は emitMemorySample 内で握る。
+    refreshPrecisePageMemoryRef.current().catch(() => {});
+  }, [isMemoryMonitoringEnabled, clearMemoryAlertLevel, commitFileMemoryEstimates]);
+
+  useEffect(() => {
+    if (!isMemoryMonitoringEnabled) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      emitMemorySampleRef.current();
+      // 内部バグの保険。利用側コールバック例外は emitMemorySample 内で握る。
+      refreshPrecisePageMemoryRef.current().catch(() => {});
+    }, memorySampleIntervalMs);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [isMemoryMonitoringEnabled, memorySampleIntervalMs]);
+
+  useEffect(() => {
+    if (!isMemoryMonitoringEnabled) {
+      return;
+    }
+
+    emitMemorySampleRef.current();
+  }, [isMemoryMonitoringEnabled, fileMemoryEstimates, visibleFileIdsKey]);
 
   useEffect(() => {
     const listener = (e: MessageEvent) => {
@@ -428,6 +808,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     <Box width={1} height={1} display="flex">
       <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
         <Canvas camera={camera} {...r3f?.canvas}>
+          <RendererMemoryBridge onRendererReady={handleRendererReady} />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <perspectiveCamera ref={cameraRef as any} />
           {r3f?.map !== false && <MapControls ref={controlsRef} makeDefault screenSpacePanning />}
@@ -468,6 +849,9 @@ const Viewer: FC<ViewerProps> = (props) => {
                   inspectorPointSize={fileAppearance?.pointSize}
                   inspectorOpacity={fileAppearance?.opacity}
                   inspectorCoordinateSystem={fileAppearance?.coordinateSystem}
+                  onMemoryEstimateChange={
+                    isMemoryMonitoringEnabled ? handleFileMemoryEstimateChange : undefined
+                  }
                 />
               );
             })}

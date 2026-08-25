@@ -118,6 +118,97 @@ const App = () => {
 };
 ```
 
+### `memoryMonitoring` の使い方
+
+`RCDE` / `Viewer` には、3D 表示まわりのメモリ使用量を監視するための `memoryMonitoring` オプションを渡せます。
+点群タイルの読み込み量から算出した推定メモリ量を定期サンプリングし、閾値を超えた場合にアラートを発火できます。
+
+```tsx
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  RCDE,
+  type ViewerMemoryAlert,
+  type ViewerMemoryMonitoringOptions,
+  type ViewerMemorySample,
+} from "@i-con/frontend-sdk";
+
+const MEBIBYTE = 1024 * 1024;
+
+const App = () => {
+  const [lastSample, setLastSample] = useState<ViewerMemorySample | undefined>(undefined);
+  const [lastAlert, setLastAlert] = useState<ViewerMemoryAlert | undefined>(undefined);
+
+  const memoryMonitoring = useMemo<ViewerMemoryMonitoringOptions>(
+    () => ({
+      enabled: true,
+      sampleIntervalMs: 15000,
+      thresholds: {
+        warningBytes: 256 * MEBIBYTE,
+        criticalBytes: 384 * MEBIBYTE,
+        source: "max-available",
+        hysteresisBytes: 32 * MEBIBYTE,
+      },
+      onSample: (sample) => {
+        setLastSample(sample);
+      },
+      onAlert: (alert) => {
+        setLastAlert(alert);
+      },
+      onAlertLevelChange: (level) => {
+        if (level === undefined) {
+          setLastAlert(undefined);
+        }
+      },
+    }),
+    []
+  );
+
+  return (
+    <RCDE
+      constructionId={constructionId}
+      contractId={contractId}
+      app={app}
+      memoryMonitoring={memoryMonitoring}
+    />
+  );
+};
+```
+
+主な設定項目は以下の通りです。
+
+- `enabled`: `true` を明示した場合のみ監視を有効化します。省略時は無効です。
+- `sampleIntervalMs`: 定期サンプリングの基準間隔です。短くしすぎるとブラウザ負荷が上がるため、`10000` から `30000` ミリ秒程度を推奨します。精密メモリ計測が解決したタイミングでは、この間隔とは別に追加サンプルが発火することがあります。
+- `thresholds.warningBytes`: 警告レベルの閾値です。
+- `thresholds.criticalBytes`: 危険レベルの閾値です。
+- `thresholds.source`: 閾値判定に使う値です。`"estimate"`、`"js-heap"`、`"page"`、`"max-available"` を選べます。未指定時は `"max-available"` として扱います。
+- `thresholds.hysteresisBytes`: 閾値付近で警告が連続発火しないようにする戻り幅です。
+- `onSample`: サンプル取得時のコールバックです。
+- `onAlert`: 閾値超過時のコールバックです。
+- `onAlertLevelChange`: アラートレベルが変化したときのコールバックです。`undefined` を受け取ったときは警告解除に利用できます。解除時に渡される `sample` は直前に発火した値のため、`sample.timestamp` が現在時刻より古い場合があります。`memoryMonitoring` プロップを外して無効化した場合、解除通知は最後に有効だった時点のコールバックが呼ばれます。
+
+`onSample` で受け取れる `ViewerMemorySample` には、主に以下の値が含まれます。
+
+- `estimatedViewerBytes`: SDK が推定した Viewer 単位のメモリ量です。PNG キャッシュ保持量ベースであり、LOD タイルの表示/非表示だけでは減少しません。
+- `pageBytes`: `performance.measureUserAgentSpecificMemory()` が利用できる場合のページ全体メモリ量です。
+- `pageBytesMeasuredAt`: `pageBytes` を取得した時刻（Unix time ミリ秒）です。`pageBytes` は最新サンプル時刻より古い場合があります。
+- `jsHeapBytes`: `performance.memory.usedJSHeapSize` が利用できる場合の JS ヒープ量です。
+- `loadedFileCount`: メモリ推定対象として読み込み済みのファイル数です。
+- `loadedTileCount`: 読み込み済み点群タイル数です。
+- `geometryCount`, `textureCount`: Three.js / WebGL の統計情報です。
+- `source`: 実際に取得できたメモリ値の種別です。
+
+> 注意:
+>
+> - `pageBytes` を返す `performance.measureUserAgentSpecificMemory()` はブラウザ依存で、利用できない環境があります。
+> - `thresholds.source` に `"page"` や `"js-heap"` を指定しても、その値を取得できない環境では閾値判定は発火しません。
+> - `"max-available"` はブラウザや実行環境に応じて `pageBytes` / `jsHeapBytes` / `estimatedViewerBytes` のどれを使うかが変わるため、同じ閾値でも挙動が一致しないことがあります。
+> - ブラウザから GPU / WebGL メモリを厳密に取得することは難しいため、SDK では Viewer 推定値をベースに監視します。
+> - `estimatedViewerBytes` は PNG キャッシュ保持量ベースのため、ファイルのアンマウントまたは `meta.version` 変更時にリセットされます。
+> - タイル集計の flush は `requestAnimationFrame` ベースのため、バックグラウンドタブでは推定値更新が遅延または停止することがあります。
+> - アラート表示 UI は SDK ではなく、`onAlert` / `onAlertLevelChange` を使ってアプリケーション側で `Snackbar` や `Alert` を出す構成を推奨します。
+
 ---
 
 ## ViewerBridgeの使い方
