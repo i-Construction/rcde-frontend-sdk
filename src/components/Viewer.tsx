@@ -446,8 +446,11 @@ const Viewer: FC<ViewerProps> = (props) => {
     Record<number, ViewerFileMemoryEstimate>
   >({});
 
-  const metaCacheRef = useRef<Map<number, { meta: PointCloudMeta; boundingBox: Box3 }>>(new Map());
+  const metaCacheRef = useRef<
+    Map<number, { meta: PointCloudMeta; boundingBox: Box3; batchId?: number }>
+  >(new Map());
   const metaCacheProjectKeyRef = useRef<string>("");
+  const metaCacheClientRef = useRef<RCDEClient | undefined>(undefined);
 
   const transformRootRef = useRef<Group>(null);
   const cameraRef = useRef<PerspectiveCamera>(null);
@@ -576,8 +579,8 @@ const Viewer: FC<ViewerProps> = (props) => {
   const metadataFetchKey = useMemo(() => {
     return containers
       .filter((container) => container.visible && isPclodCompleted(container.file))
-      .map((container) => container.file.id)
-      .sort((left, right) => left - right)
+      .map((container) => `${container.file.id}:${container.file.batchProcessingResult?.id ?? ""}`)
+      .sort()
       .join(",");
   }, [containers]);
 
@@ -597,9 +600,20 @@ const Viewer: FC<ViewerProps> = (props) => {
 
     // project / client が切り替わったらキャッシュを破棄して全件再取得する
     const projectKey = `${project.constructionId}:${project.contractId}`;
-    if (metaCacheProjectKeyRef.current !== projectKey) {
+    if (metaCacheProjectKeyRef.current !== projectKey || metaCacheClientRef.current !== client) {
       metaCacheRef.current.clear();
       metaCacheProjectKeyRef.current = projectKey;
+      metaCacheClientRef.current = client;
+    }
+
+    // pclod 再生成でバッチ ID が変わったエントリを破棄する
+    for (const target of targets) {
+      const id = target.file.id;
+      if (id === undefined) continue;
+      const cached = metaCacheRef.current.get(id);
+      if (cached && cached.batchId !== target.file.batchProcessingResult?.id) {
+        metaCacheRef.current.delete(id);
+      }
     }
 
     const targetIds = targets.map((c) => c.file.id).filter((id): id is number => id !== undefined);
@@ -635,13 +649,14 @@ const Viewer: FC<ViewerProps> = (props) => {
 
     const promises = toFetch.map((container) => {
       const id = container.file.id!;
+      const batchId = container.file.batchProcessingResult?.id;
       return client
         .getContractFileMetadata({ ...project, contractFileId: id })
         .then((d) => {
           const meta = d as unknown as PointCloudMeta;
           const { min, max } = meta.bounds;
           const boundingBox = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
-          metaCacheRef.current.set(id, { meta, boundingBox });
+          metaCacheRef.current.set(id, { meta, boundingBox, batchId });
         })
         .catch((e) => {
           console.error(e);
