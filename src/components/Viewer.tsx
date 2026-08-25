@@ -595,6 +595,8 @@ const Viewer: FC<ViewerProps> = (props) => {
 
     if (targets.length === 0) {
       metaCacheRef.current.clear();
+      metaCacheProjectKeyRef.current = "";
+      metaCacheClientRef.current = undefined;
       setViews([]);
       return;
     }
@@ -648,12 +650,15 @@ const Viewer: FC<ViewerProps> = (props) => {
       return;
     }
 
+    let cancelled = false;
+
     const promises = toFetch.map((container) => {
       const id = container.file.id!;
       const batchId = container.file.batchProcessingResult?.id;
       return client
         .getContractFileMetadata({ ...project, contractFileId: id })
         .then((d) => {
+          if (cancelled) return;
           const meta = d as unknown as PointCloudMeta;
           const { min, max } = meta.bounds;
           const boundingBox = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
@@ -665,8 +670,13 @@ const Viewer: FC<ViewerProps> = (props) => {
     });
 
     Promise.all(promises).then(() => {
+      if (cancelled) return;
       buildViews();
     });
+
+    return () => {
+      cancelled = true;
+    };
     // metadataFetchKey が同じなら contractFilesRefetchKey 由来の containers 参照更新では再取得しない
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadataFetchKey, project, client]);
