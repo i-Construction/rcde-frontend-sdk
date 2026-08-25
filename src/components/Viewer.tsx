@@ -235,6 +235,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     decodedBytes: 0,
     estimatedViewerBytes: 0,
   });
+  const lastEmittedMemorySampleRef = useRef<ViewerMemorySample | undefined>(undefined);
   const visibleFileIdsRef = useRef<number[]>([]);
   const precisePageBytesRef = useRef<number | undefined>(undefined);
   const precisePageMeasurementInFlightRef = useRef(false);
@@ -533,6 +534,7 @@ const Viewer: FC<ViewerProps> = (props) => {
         textureCount: rendererMemory?.textures,
         visibleFileIds: visibleFileIdsRef.current,
       };
+      lastEmittedMemorySampleRef.current = sample;
 
       const options = memoryMonitoringRef.current;
       options?.onSample?.(sample);
@@ -564,8 +566,12 @@ const Viewer: FC<ViewerProps> = (props) => {
     const generation = precisePageMeasurementGenerationRef.current;
     const perf = performance as BrowserPerformance;
     if (typeof perf.measureUserAgentSpecificMemory !== "function") {
+      const hadPrecisePageBytes = precisePageBytesRef.current !== undefined;
       precisePageBytesRef.current = undefined;
       precisePageBytesMeasuredAtRef.current = undefined;
+      if (hadPrecisePageBytes) {
+        emitMemorySample({ force: true });
+      }
       return;
     }
 
@@ -578,13 +584,17 @@ const Viewer: FC<ViewerProps> = (props) => {
       precisePageBytesRef.current = typeof result.bytes === "number" ? result.bytes : undefined;
       precisePageBytesMeasuredAtRef.current =
         typeof result.bytes === "number" ? Date.now() : undefined;
-      emitMemorySample();
+      emitMemorySample({ force: true });
     } catch {
       if (!isMountedRef.current || generation !== precisePageMeasurementGenerationRef.current) {
         return;
       }
+      const hadPrecisePageBytes = precisePageBytesRef.current !== undefined;
       precisePageBytesRef.current = undefined;
       precisePageBytesMeasuredAtRef.current = undefined;
+      if (hadPrecisePageBytes) {
+        emitMemorySample({ force: true });
+      }
     } finally {
       precisePageMeasurementInFlightRef.current = false;
     }
@@ -596,11 +606,17 @@ const Viewer: FC<ViewerProps> = (props) => {
 
   useEffect(() => {
     if (!isMemoryMonitoringEnabled) {
+      const previousLevel = memoryAlertLevelRef.current;
+      const lastSample = lastEmittedMemorySampleRef.current;
+      if (previousLevel !== undefined && lastSample !== undefined) {
+        memoryMonitoringRef.current?.onAlertLevelChange?.(undefined, lastSample);
+      }
       precisePageMeasurementGenerationRef.current += 1;
       precisePageMeasurementInFlightRef.current = false;
       precisePageBytesRef.current = undefined;
       precisePageBytesMeasuredAtRef.current = undefined;
       memoryAlertLevelRef.current = undefined;
+      lastEmittedMemorySampleRef.current = undefined;
       lastSampleAtRef.current = 0;
       return;
     }
