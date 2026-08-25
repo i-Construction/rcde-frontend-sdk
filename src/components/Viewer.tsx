@@ -411,40 +411,42 @@ const Viewer: FC<ViewerProps> = (props) => {
   }, [metadataFetchKey, project, client]);
 
   const handleFileMemoryEstimateChange = useCallback((estimate: ViewerFileMemoryEstimate) => {
-    setFileMemoryEstimates((prev) => {
-      const current = prev[estimate.fileId];
-      const isZeroEstimate =
-        estimate.loadedTileCount === 0 &&
-        estimate.compressedBytes === 0 &&
-        estimate.decodedBytes === 0 &&
-        estimate.totalBytes === 0;
+    const prev = fileMemoryEstimatesRef.current;
+    const current = prev[estimate.fileId];
+    const isZeroEstimate =
+      estimate.loadedTileCount === 0 &&
+      estimate.compressedBytes === 0 &&
+      estimate.decodedBytes === 0 &&
+      estimate.totalBytes === 0;
 
-      if (isZeroEstimate) {
-        if (current === undefined) {
-          return prev;
-        }
-        const next = { ...prev };
-        delete next[estimate.fileId];
-        fileMemoryEstimatesRef.current = next;
-        return next;
+    if (isZeroEstimate) {
+      if (current === undefined) {
+        return;
       }
-
-      if (
-        current?.loadedTileCount === estimate.loadedTileCount &&
-        current.compressedBytes === estimate.compressedBytes &&
-        current.decodedBytes === estimate.decodedBytes &&
-        current.totalBytes === estimate.totalBytes
-      ) {
-        return prev;
-      }
-
-      const next = {
-        ...prev,
-        [estimate.fileId]: estimate,
-      };
+      const next = { ...prev };
+      delete next[estimate.fileId];
       fileMemoryEstimatesRef.current = next;
-      return next;
-    });
+      memoryEstimateSummaryRef.current = summarizeMemoryEstimates(next);
+      setFileMemoryEstimates(next);
+      return;
+    }
+
+    if (
+      current?.loadedTileCount === estimate.loadedTileCount &&
+      current.compressedBytes === estimate.compressedBytes &&
+      current.decodedBytes === estimate.decodedBytes &&
+      current.totalBytes === estimate.totalBytes
+    ) {
+      return;
+    }
+
+    const next = {
+      ...prev,
+      [estimate.fileId]: estimate,
+    };
+    fileMemoryEstimatesRef.current = next;
+    memoryEstimateSummaryRef.current = summarizeMemoryEstimates(next);
+    setFileMemoryEstimates(next);
   }, []);
 
   const handleRendererReady = useCallback((renderer: WebGLRenderer | null) => {
@@ -504,10 +506,6 @@ const Viewer: FC<ViewerProps> = (props) => {
   useEffect(() => {
     memoryMonitoringRef.current = memoryMonitoring;
   }, [memoryMonitoring]);
-
-  useEffect(() => {
-    memoryEstimateSummaryRef.current = memoryEstimateSummary;
-  }, [memoryEstimateSummary]);
 
   useEffect(() => {
     visibleFileIdsRef.current = visibleFileIds;
