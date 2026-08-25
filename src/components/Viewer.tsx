@@ -626,21 +626,38 @@ const Viewer: FC<ViewerProps> = (props) => {
 
     // 無効化中にアンマウントされたファイルのゴースト推定値を刈り取る。
     // まだ表示中のファイルの推定値は保持し、再有効化直後のサンプルが 0 値にならないようにする。
+    // setFileMemoryEstimates は次のコミットまで反映されないため、刈り取り後の集計値を
+    // memoryEstimateSummaryRef に同期的に書き込んでから emitMemorySample を呼ぶ。
     const activeFileIds = new Set(visibleFileIdsRef.current);
-    setFileMemoryEstimates((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      for (const key of Object.keys(next)) {
-        if (!activeFileIds.has(Number(key))) {
-          delete next[key];
-          changed = true;
-        }
+    const pruned: Record<number, ViewerFileMemoryEstimate> = {};
+    for (const [key, value] of Object.entries(fileMemoryEstimates)) {
+      if (activeFileIds.has(Number(key))) {
+        pruned[Number(key)] = value;
       }
-      return changed ? next : prev;
-    });
+    }
+    setFileMemoryEstimates(pruned);
+
+    let prunedTileCount = 0;
+    let prunedCompressedBytes = 0;
+    let prunedDecodedBytes = 0;
+    for (const estimate of Object.values(pruned)) {
+      prunedTileCount += estimate.loadedTileCount;
+      prunedCompressedBytes += estimate.compressedBytes;
+      prunedDecodedBytes += estimate.decodedBytes;
+    }
+    memoryEstimateSummaryRef.current = {
+      loadedFileCount: Object.keys(pruned).length,
+      loadedTileCount: prunedTileCount,
+      compressedBytes: prunedCompressedBytes,
+      decodedBytes: prunedDecodedBytes,
+      estimatedViewerBytes: prunedDecodedBytes,
+    };
 
     emitMemorySample();
     void refreshPrecisePageMemory();
+    // fileMemoryEstimates を closure で参照するが、estimates 変化で再実行すると
+    // 無限ループになるため依存配列には含めない（トグル時のみ実行する意図）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMemoryMonitoringEnabled, clearMemoryAlertLevel, emitMemorySample, refreshPrecisePageMemory]);
 
   useEffect(() => {
