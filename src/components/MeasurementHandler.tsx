@@ -1,15 +1,23 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FC, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { BufferGeometry, Matrix4, Points, Scene, Vector3 } from "three";
 import { buildTree, pick } from "../services/Picking";
 import { useMouseUVPosition } from "../hooks/useMouseUVPosition";
 import { MeasurementView } from "./MeasurementView";
 import { useReferencePoint } from "../contexts/referencePoint";
+import { useMeasurementOptional } from "../contexts/measurement";
+import { RCDE_CLICK_HANDLED } from "./Viewer";
 
 export type MeasurementHandlerProps = {
   onChange?: (points: Vector3[]) => void;
   // 外部から制御する測定点（座標編集時に更新）
   externalAppEditedPoints?: Vector3[];
+  /**
+   * 計測モードの有効/無効。`false` のときイベントを遮断せず、
+   * ClickHandler や実装者のリスナーが正常に動作する。
+   * @default true
+   */
+  isActive?: boolean;
 };
 
 // シーンから点群データを抽出
@@ -37,11 +45,35 @@ const extractPointsFromScene = (scene: Scene, sampleRate = 10): Vector3[] => {
   return allPoints;
 };
 
-const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalAppEditedPoints }) => {
+const MeasurementHandler: FC<MeasurementHandlerProps> = ({
+  onChange,
+  externalAppEditedPoints,
+  isActive: isActiveProp,
+}) => {
   const lastRef = useRef<Vector3 | null>(null);
   const [head, setHead] = useState<Vector3 | null>(null);
-  // ローカルstateを使用（R3F Context問題を回避）
-  const [points, setPoints] = useState<Vector3[]>([]);
+
+  // MeasurementContext が存在すればそちらを使い、なければローカル state にフォールバック
+  const ctx = useMeasurementOptional();
+  const [localPoints, setLocalPoints] = useState<Vector3[]>([]);
+  const points = ctx ? ctx.points : localPoints;
+  const setPoints = ctx ? ctx.setPoints : setLocalPoints;
+
+  // isActive: props が明示的に渡されていればそちら優先、なければ context、どちらもなければ true
+  const isActive = isActiveProp ?? ctx?.isActive ?? true;
+
+  // ref で最新値を保持し、イベントリスナーの再登録を防ぐ
+  const measurementPointsRef = useRef(points);
+  const setPointsRef = useRef(setPoints);
+  const onChangeRef = useRef(onChange);
+  useLayoutEffect(() => {
+    measurementPointsRef.current = points;
+    setPointsRef.current = setPoints;
+    onChangeRef.current = onChange;
+  });
+
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useReferencePoint(); // コンテキスト接続を維持
   const treeRef = useRef<ReturnType<typeof buildTree>["tree"] | null>(null);
   const pointsRef = useRef<Vector3[]>([]);
@@ -103,22 +135,24 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
   }, []);
 
   useEffect(() => {
+    if (!isActive) return;
+
     const handleMouseDown = (e: MouseEvent) => {
-      // 計測モード時は他のハンドラーへの伝播を防ぐ
       e.stopPropagation();
 
       const last = lastRef.current;
       if (last !== null) {
-        const newPoints = [...points, last];
-        setPoints(newPoints);
-        onChange?.(newPoints);
+        const currentPoints = measurementPointsRef.current;
+        const newPoints = [...currentPoints, last];
+        setPointsRef.current(newPoints);
+        onChangeRef.current?.(newPoints);
         lastRef.current = null;
 
-        // 2点選択したらリセット準備（次のクリックで新しい計測開始）
         if (newPoints.length >= 2) {
-          // 少し遅延してリセット
-          setTimeout(() => {
-            setPoints([]);
+          if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+          resetTimerRef.current = setTimeout(() => {
+            resetTimerRef.current = null;
+            setPointsRef.current([]);
           }, 2000);
         }
       }
@@ -135,7 +169,7 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setPoints([]);
+        setPointsRef.current([]);
         setHead(null);
         lastRef.current = null;
       }
@@ -144,18 +178,15 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setPoints([]);
+      setPointsRef.current([]);
       setHead(null);
       lastRef.current = null;
     };
 
-    // clickイベントの伝播を防ぐ（Viewer.ClickHandlerによるファイル選択を防ぐ）
     const handleClick = (e: MouseEvent) => {
-      e.stopPropagation();
-      e.stopImmediatePropagation();
+      (e as any)[RCDE_CLICK_HANDLED] = true;
     };
 
-    // capture: true でイベントを先に捕捉
     canvas.addEventListener("mousedown", handleMouseDown, { capture: true });
     canvas.addEventListener("click", handleClick, { capture: true });
     canvas.addEventListener("mousemove", handleMouseMove);
@@ -163,15 +194,19 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
     canvas.addEventListener("contextmenu", handleContextMenu, { capture: true });
 
     return () => {
+      if (resetTimerRef.current) {
+        clearTimeout(resetTimerRef.current);
+        resetTimerRef.current = null;
+      }
       canvas.removeEventListener("mousedown", handleMouseDown, { capture: true });
       canvas.removeEventListener("click", handleClick, { capture: true });
       canvas.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("keydown", handleKeyDown);
       canvas.removeEventListener("contextmenu", handleContextMenu, { capture: true });
     };
-  }, [canvas, getUV, pickPoint, points, setPoints, onChange]);
+  }, [isActive, canvas, getUV, pickPoint]);
 
-  return <MeasurementView edit points={displayPoints} />;
+  return isActive ? <MeasurementView edit points={displayPoints} /> : null;
 };
 
 export { MeasurementHandler };

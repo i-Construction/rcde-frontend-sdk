@@ -1,4 +1,4 @@
-import { createContext, FC, ReactNode, useCallback, useContext, useState } from "react";
+import { createContext, FC, ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { Box3, Vector3 } from "three";
 import { PointCloudMeta } from "@i-con/pcd-viewer";
 import { useClient } from "./client";
@@ -70,8 +70,13 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
     [client, project, containers, change]
   );
 
+  const value = useMemo(
+    () => ({ point, change, save, focusFileById }),
+    [point, change, save, focusFileById]
+  );
+
   return (
-    <ReferencePointContext.Provider value={{ point, change, save, focusFileById }}>
+    <ReferencePointContext.Provider value={value}>
       {children}
     </ReferencePointContext.Provider>
   );

@@ -8,6 +8,7 @@ import {
   SetStateAction,
   useCallback,
   useContext,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -51,8 +52,13 @@ export const ClientProvider: FC<{ children: ReactNode }> = ({ children }) => {
     setClient(client);
   }, []);
 
+  const value = useMemo(
+    () => ({ client, initialize, project, setProject }),
+    [client, initialize, project, setProject]
+  );
+
   return (
-    <ClientContext.Provider value={{ client, initialize, project, setProject }}>
+    <ClientContext.Provider value={value}>
       {children}
     </ClientContext.Provider>
   );
