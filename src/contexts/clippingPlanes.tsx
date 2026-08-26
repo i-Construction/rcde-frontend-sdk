@@ -5,6 +5,7 @@ import {
   SetStateAction,
   createContext,
   useContext,
+  useMemo,
   useState,
 } from "react";
 import { Plane } from "three";
@@ -24,22 +25,12 @@ export const ClippingPlanesProvider: FC<{
 }> = ({ children }) => {
   const [clippingPlanes, setClippingPlanes] = useState<Plane[]>([]);
 
-  return (
-    <ClippingPlanesContext.Provider
-      value={{
-        clippingPlanes,
-        setClippingPlanes,
-      }}
-    >
-      {children}
-    </ClippingPlanesContext.Provider>
-  );
+  const value = useMemo(() => ({ clippingPlanes, setClippingPlanes }), [clippingPlanes]);
+
+  return <ClippingPlanesContext.Provider value={value}>{children}</ClippingPlanesContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useClippingPlanes = (): ClippingPlanesContextProps => {
-  const context = useContext(ClippingPlanesContext);
-  if (!context) {
-    throw new Error("useClippingPlanes must be used within a ClippingPlanesProvider");
-  }
-  return context;
+  return useContext(ClippingPlanesContext);
 };

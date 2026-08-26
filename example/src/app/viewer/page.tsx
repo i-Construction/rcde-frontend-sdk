@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getStoredToken } from "@/lib/auth-store";
-import { create2LeggedClient, resolveAccessToken } from "@/lib/rcde-server";
+import { isExpiringSoon } from "@/lib/rcde-auth-common";
+import { create2LeggedClient } from "@/lib/rcde-server";
 import { ConstructionSelector } from "@/components/ConstructionSelector";
 import { ViewerClientLoader } from "./ViewerClientLoader";
 
@@ -14,9 +15,9 @@ type SearchParams = {
 /**
  * URLに名前が含まれない場合（手動IDまたはブックマーク経由）は
  * 2-legged APIで現場・契約名をサーバーサイドで取得する。
- * Cookie の保存済みトークンを再利用し（`resolveAccessToken`）、都度 authenticate はしない。
  */
 async function resolveNames(
+  accessToken: string,
   constructionId: number,
   contractId: number,
   constructionNameFromUrl: string | undefined,
@@ -31,10 +32,6 @@ async function resolveNames(
   }
 
   try {
-    const accessToken = await resolveAccessToken();
-    if (!accessToken) {
-      throw new Error("Unauthorized");
-    }
     const client = create2LeggedClient();
     client.setAccessToken(accessToken);
 
@@ -66,7 +63,13 @@ export default async function ViewerPage({
 }) {
   const token = await getStoredToken();
   if (!token) {
-    redirect("/login");
+    redirect("/api/auth/login");
+  }
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (isExpiringSoon(token.expiresAt, nowSec)) {
+    // Route Handler 経由で silent refresh → /viewer へ戻る
+    redirect("/api/auth/login");
   }
 
   const params = await searchParams;
@@ -79,6 +82,7 @@ export default async function ViewerPage({
   }
 
   const { constructionName, contractName } = await resolveNames(
+    token.accessToken,
     constructionId,
     contractId,
     params.constructionName,

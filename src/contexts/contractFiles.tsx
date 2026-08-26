@@ -1,5 +1,5 @@
 import { RCDEClient } from "../lib/rcde-client";
-import { createContext, FC, ReactNode, useCallback, useContext, useState } from "react";
+import { createContext, FC, ReactNode, useCallback, useContext, useMemo, useState } from "react";
 
 export type ContractFiles = NonNullable<
   Awaited<ReturnType<RCDEClient["getContractFileList"]>>["contractFiles"]
@@ -58,11 +58,12 @@ export const ContractFilesProvider: FC<{ children: ReactNode }> = ({ children })
     );
   }, []);
 
-  return (
-    <ContractFilesContext.Provider value={{ load, updateFiles, toggleVisibility, containers }}>
-      {children}
-    </ContractFilesContext.Provider>
+  const value = useMemo(
+    () => ({ load, updateFiles, toggleVisibility, containers }),
+    [load, updateFiles, toggleVisibility, containers]
   );
+
+  return <ContractFilesContext.Provider value={value}>{children}</ContractFilesContext.Provider>;
 };
 
 // eslint-disable-next-line react-refresh/only-export-components

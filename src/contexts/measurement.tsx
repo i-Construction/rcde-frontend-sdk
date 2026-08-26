@@ -5,6 +5,7 @@ import {
   SetStateAction,
   createContext,
   useContext,
+  useMemo,
   useState,
 } from "react";
 import { Vector3 } from "three";
@@ -19,32 +20,37 @@ export type MeasurementContextProps = {
 export const MeasurementContext = createContext<MeasurementContextProps>({
   points: [],
   setPoints: () => {},
-  isActive: false,
+  isActive: true,
   setIsActive: () => {},
 });
 
+const MeasurementProviderPresent = createContext(false);
+
 export const MeasurementProvider: FC<{ children?: ReactNode }> = ({ children }) => {
   const [points, setPoints] = useState<Vector3[]>([]);
-  const [isActive, setIsActive] = useState(false);
+  const [isActive, setIsActive] = useState(true);
+
+  const value = useMemo(() => ({ points, setPoints, isActive, setIsActive }), [points, isActive]);
 
   return (
-    <MeasurementContext.Provider
-      value={{
-        points,
-        setPoints,
-        isActive,
-        setIsActive,
-      }}
-    >
-      {children}
-    </MeasurementContext.Provider>
+    <MeasurementProviderPresent.Provider value={true}>
+      <MeasurementContext.Provider value={value}>{children}</MeasurementContext.Provider>
+    </MeasurementProviderPresent.Provider>
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useMeasurement = (): MeasurementContextProps => {
-  const context = useContext(MeasurementContext);
-  if (!context) {
-    throw new Error("useMeasurement must be used within a MeasurementProvider");
-  }
-  return context;
+  return useContext(MeasurementContext);
+};
+
+/**
+ * Provider 外でも安全に呼べる内部ユーティリティ。
+ * Provider が存在しなければ `null` を返す。
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export const useMeasurementOptional = (): MeasurementContextProps | null => {
+  const isPresent = useContext(MeasurementProviderPresent);
+  const ctx = useContext(MeasurementContext);
+  return isPresent ? ctx : null;
 };
