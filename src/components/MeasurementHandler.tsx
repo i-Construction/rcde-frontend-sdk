@@ -95,6 +95,8 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({
 
   // カメラが移動したらQuadTreeを再構築
   useFrame(() => {
+    if (!isActive) return;
+
     // カメラマトリックスが変わった時のみ更新
     if (!prevCameraMatrix.current.equals(camera.matrixWorld)) {
       prevCameraMatrix.current.copy(camera.matrixWorld);
@@ -111,6 +113,8 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({
 
   // 初回のQuadTree構築
   useEffect(() => {
+    if (!isActive) return;
+
     // 少し遅延してシーンがロードされるのを待つ
     const timer = setTimeout(() => {
       const scenePoints = extractPointsFromScene(scene);
@@ -122,8 +126,11 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({
       }
     }, 500);
 
+    // 再アクティブ化時に次のカメラ移動で即再構築されるようリセット
+    prevCameraMatrix.current.identity();
+
     return () => clearTimeout(timer);
-  }, [camera, scene]);
+  }, [isActive, camera, scene]);
 
   const pickPoint = useCallback((uv: { x: number; y: number }): Vector3 | undefined => {
     if (!treeRef.current || pointsRef.current.length === 0) {
@@ -138,6 +145,9 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({
     if (!isActive) return;
 
     const handleMouseDown = (e: MouseEvent) => {
+      // OrbitControls のドラッグ開始を抑制するために stopPropagation が必要。
+      // click と異なり、mousedown は three.js のカメラ制御に直結するため
+      // フラグ方式では代替できない。
       e.stopPropagation();
 
       const last = lastRef.current;
@@ -176,6 +186,8 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({
     };
 
     const handleContextMenu = (e: MouseEvent) => {
+      // ブラウザ標準コンテキストメニューの表示を防ぎ、計測リセット動作を確実にするため
+      // preventDefault + stopPropagation の両方が必要。
       e.preventDefault();
       e.stopPropagation();
       setPointsRef.current([]);
