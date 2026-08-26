@@ -184,7 +184,7 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({
     };
 
     const handleClick = (e: MouseEvent) => {
-      (e as any)[RCDE_CLICK_HANDLED] = true;
+      (e as unknown as Record<string, boolean>)[RCDE_CLICK_HANDLED] = true;
     };
 
     canvas.addEventListener("mousedown", handleMouseDown, { capture: true });

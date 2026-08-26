@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getStoredToken } from "@/lib/auth-store";
+import { isExpiringSoon } from "@/lib/rcde-auth-common";
 import { create2LeggedClient, resolveAccessToken } from "@/lib/rcde-server";
 import { ConstructionSelector } from "@/components/ConstructionSelector";
 import { ViewerClientLoader } from "./ViewerClientLoader";
@@ -66,6 +67,11 @@ export default async function ViewerPage({
 }) {
   const token = await getStoredToken();
   if (!token) {
+    redirect("/login");
+  }
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (isExpiringSoon(token.expiresAt, nowSec)) {
     redirect("/login");
   }
 

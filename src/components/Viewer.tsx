@@ -221,7 +221,7 @@ const ClickHandler: FC<{
   const handleClick = useCallback(
     (event: MouseEvent) => {
       if (!clickEnabledRef.current) return;
-      if ((event as any)[RCDE_CLICK_HANDLED]) return;
+      if ((event as unknown as Record<string, boolean>)[RCDE_CLICK_HANDLED]) return;
       if (!onContractFileClickRef.current && !onObjectClickRef.current) return;
 
       const rect = gl.domElement.getBoundingClientRect();
