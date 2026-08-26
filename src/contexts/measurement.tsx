@@ -31,10 +31,7 @@ export const MeasurementProvider: FC<{ children?: ReactNode }> = ({ children }) 
   const [points, setPoints] = useState<Vector3[]>([]);
   const [isActive, setIsActive] = useState(false);
 
-  const value = useMemo(
-    () => ({ points, setPoints, isActive, setIsActive }),
-    [points, isActive]
-  );
+  const value = useMemo(() => ({ points, setPoints, isActive, setIsActive }), [points, isActive]);
 
   return (
     <MeasurementContextInternal.Provider value={value}>

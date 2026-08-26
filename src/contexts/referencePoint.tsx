@@ -75,11 +75,7 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
     [point, change, save, focusFileById]
   );
 
-  return (
-    <ReferencePointContext.Provider value={value}>
-      {children}
-    </ReferencePointContext.Provider>
-  );
+  return <ReferencePointContext.Provider value={value}>{children}</ReferencePointContext.Provider>;
 };
 
 /**

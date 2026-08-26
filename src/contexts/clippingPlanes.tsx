@@ -30,10 +30,7 @@ export const ClippingPlanesProvider: FC<{
 }> = ({ children }) => {
   const [clippingPlanes, setClippingPlanes] = useState<Plane[]>([]);
 
-  const value = useMemo(
-    () => ({ clippingPlanes, setClippingPlanes }),
-    [clippingPlanes]
-  );
+  const value = useMemo(() => ({ clippingPlanes, setClippingPlanes }), [clippingPlanes]);
 
   return (
     <ClippingPlanesContextInternal.Provider value={value}>

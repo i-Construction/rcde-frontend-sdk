@@ -63,11 +63,7 @@ export const ContractFilesProvider: FC<{ children: ReactNode }> = ({ children })
     [load, updateFiles, toggleVisibility, containers]
   );
 
-  return (
-    <ContractFilesContext.Provider value={value}>
-      {children}
-    </ContractFilesContext.Provider>
-  );
+  return <ContractFilesContext.Provider value={value}>{children}</ContractFilesContext.Provider>;
 };
 
 // eslint-disable-next-line react-refresh/only-export-components

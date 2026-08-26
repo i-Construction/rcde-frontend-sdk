@@ -57,11 +57,7 @@ export const ClientProvider: FC<{ children: ReactNode }> = ({ children }) => {
     [client, initialize, project, setProject]
   );
 
-  return (
-    <ClientContext.Provider value={value}>
-      {children}
-    </ClientContext.Provider>
-  );
+  return <ClientContext.Provider value={value}>{children}</ClientContext.Provider>;
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
