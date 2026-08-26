@@ -1,5 +1,4 @@
 import {
-  Context,
   Dispatch,
   FC,
   ReactNode,
@@ -18,40 +17,40 @@ export type MeasurementContextProps = {
   setIsActive: Dispatch<SetStateAction<boolean>>;
 };
 
-const MeasurementContextInternal = createContext<MeasurementContextProps | null>(null);
+export const MeasurementContext = createContext<MeasurementContextProps>({
+  points: [],
+  setPoints: () => {},
+  isActive: true,
+  setIsActive: () => {},
+});
 
-/**
- * 後方互換のため非 null 型として export する。
- * Provider 外で直接 useContext する場合は useMeasurement() フックの利用を推奨。
- */
-export const MeasurementContext =
-  MeasurementContextInternal as unknown as Context<MeasurementContextProps>;
+const MeasurementProviderPresent = createContext(false);
 
 export const MeasurementProvider: FC<{ children?: ReactNode }> = ({ children }) => {
   const [points, setPoints] = useState<Vector3[]>([]);
-  const [isActive, setIsActive] = useState(false);
+  const [isActive, setIsActive] = useState(true);
 
   const value = useMemo(() => ({ points, setPoints, isActive, setIsActive }), [points, isActive]);
 
   return (
-    <MeasurementContextInternal.Provider value={value}>
-      {children}
-    </MeasurementContextInternal.Provider>
+    <MeasurementProviderPresent.Provider value={true}>
+      <MeasurementContext.Provider value={value}>{children}</MeasurementContext.Provider>
+    </MeasurementProviderPresent.Provider>
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useMeasurement = (): MeasurementContextProps => {
-  const context = useContext(MeasurementContextInternal);
-  if (!context) {
-    throw new Error("useMeasurement must be used within a MeasurementProvider");
-  }
-  return context;
+  return useContext(MeasurementContext);
 };
 
 /**
  * Provider 外でも安全に呼べる内部ユーティリティ。
  * Provider が存在しなければ `null` を返す。
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useMeasurementOptional = (): MeasurementContextProps | null => {
-  return useContext(MeasurementContextInternal);
+  const isPresent = useContext(MeasurementProviderPresent);
+  const ctx = useContext(MeasurementContext);
+  return isPresent ? ctx : null;
 };

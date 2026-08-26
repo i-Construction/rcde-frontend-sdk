@@ -1,5 +1,4 @@
 import {
-  Context,
   Dispatch,
   FC,
   ReactNode,
@@ -16,14 +15,10 @@ export type ClippingPlanesContextProps = {
   setClippingPlanes: Dispatch<SetStateAction<Plane[]>>;
 };
 
-const ClippingPlanesContextInternal = createContext<ClippingPlanesContextProps | null>(null);
-
-/**
- * 後方互換のため非 null 型として export する。
- * Provider 外で直接 useContext する場合は useClippingPlanes() フックの利用を推奨。
- */
-export const ClippingPlanesContext =
-  ClippingPlanesContextInternal as unknown as Context<ClippingPlanesContextProps>;
+export const ClippingPlanesContext = createContext<ClippingPlanesContextProps>({
+  clippingPlanes: [],
+  setClippingPlanes: () => {},
+});
 
 export const ClippingPlanesProvider: FC<{
   children?: ReactNode;
@@ -32,17 +27,10 @@ export const ClippingPlanesProvider: FC<{
 
   const value = useMemo(() => ({ clippingPlanes, setClippingPlanes }), [clippingPlanes]);
 
-  return (
-    <ClippingPlanesContextInternal.Provider value={value}>
-      {children}
-    </ClippingPlanesContextInternal.Provider>
-  );
+  return <ClippingPlanesContext.Provider value={value}>{children}</ClippingPlanesContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useClippingPlanes = (): ClippingPlanesContextProps => {
-  const context = useContext(ClippingPlanesContextInternal);
-  if (!context) {
-    throw new Error("useClippingPlanes must be used within a ClippingPlanesProvider");
-  }
-  return context;
+  return useContext(ClippingPlanesContext);
 };

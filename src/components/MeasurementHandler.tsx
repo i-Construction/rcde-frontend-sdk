@@ -59,8 +59,8 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({
   const points = ctx ? ctx.points : localPoints;
   const setPoints = ctx ? ctx.setPoints : setLocalPoints;
 
-  // isActive: props が明示的に渡されていればそちら優先、なければ context、どちらもなければ true
-  const isActive = isActiveProp ?? ctx?.isActive ?? true;
+  // isActive: props が明示的に渡されていればそちらを使い、なければ常に有効
+  const isActive = isActiveProp ?? true;
 
   // ref で最新値を保持し、イベントリスナーの再登録を防ぐ
   const measurementPointsRef = useRef(points);
