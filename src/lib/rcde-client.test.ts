@@ -25,6 +25,24 @@ function createClient(payload: RawListPayload) {
   return new RCDEClient({ baseUrl: "https://example.com", fetchImpl });
 }
 
+/** 送信されたリクエストを控えるクライアント。URL・ヘッダの検証は本 PR のスコープ外なので body だけ見る */
+function createRequestCapturingClient(responsePayload: unknown) {
+  const sentBodies: unknown[] = [];
+  const fetchImpl = (async (_url: string, init?: RequestInit) => {
+    sentBodies.push(init?.body === undefined ? undefined : JSON.parse(String(init.body)));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => responsePayload,
+    } as Response;
+  }) as unknown as typeof fetch;
+
+  return {
+    client: new RCDEClient({ baseUrl: "https://example.com", fetchImpl }),
+    sentBodies,
+  };
+}
+
 /** バッチ処理結果だけを差し替えた 1 件の一覧レスポンスを組み立てる */
 function listPayloadWithBatchResult(batchProcessingResult: unknown): RawListPayload {
   return {
@@ -105,6 +123,40 @@ describe("契約ファイル一覧のバッチ処理ステータス取り込み�
 
     it("バッチ処理結果が null で届いても、一覧取得ごと失敗させない", async () => {
       await expect(fetchFirstBatchResult(null)).resolves.toBeUndefined();
+    });
+  });
+});
+
+describe("契約一覧のステータス取り込み（getContractList）", () => {
+  describe("正常系", () => {
+    it("承認済みの契約が届いたとき、承認状態を表す 2 を数値のまま利用側へ渡す", async () => {
+      const { client } = createRequestCapturingClient({
+        contracts: [{ id: 7, name: "契約A", contractedAt: "2024-11-19T06:56:31Z", status: 2 }],
+      });
+
+      const { contracts } = await client.getContractList({ constructionId: 1 });
+
+      expect(contracts[0].status).toBe(2);
+    });
+  });
+});
+
+describe("契約作成リクエストの組み立て（createContract）", () => {
+  describe("正常系", () => {
+    // R-CDE の ContractCreateFor2LeggedParams / ContractCreateFor3LeggedParams に status が無く、
+    // 送っても echo の Bind に捨てられる。SDK 側から status を送らないことを固定する
+    it("契約を作成するとき、R-CDE が受け取らないステータスはリクエストに載せない", async () => {
+      const { client, sentBodies } = createRequestCapturingClient({ id: 7 });
+
+      await client.createContract({
+        constructionId: 1,
+        name: "契約A",
+        contractedAt: "2024-11-19T06:56:31Z",
+      });
+
+      expect(sentBodies).toEqual([
+        { constructionId: 1, name: "契約A", contractedAt: "2024-11-19T06:56:31Z" },
+      ]);
     });
   });
 });
