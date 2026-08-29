@@ -267,21 +267,27 @@ export class RCDEClient {
    * ContractCreateFor3LeggedParams）に status フィールドが無く、送っても echo の Bind が捨てるため。
    * 作成直後の状態は R-CDE 側が決める（2-legged は受注者がダミーなので承認済みまで自動で進む）。
    *
-   * TODO: R-CDE が必須にしている unitPrice / unitVolume をまだ送っていないため、
-   * 現状このメソッドは 400 で失敗する。3-legged はさらに contracteeEmail / contractorEmail が要る。
-   * 引数が増える破壊的変更になるので別 PR で対応する。
+   * unitPrice / unitVolume は R-CDE が `validate:"required"` にしている（uint64 なのでゼロ値は
+   * required 不合格になる）ため必須で受け取る。1 以上を渡すこと。
+   *
+   * TODO: 3-legged は contracteeEmail / contractorEmail のどちらかが必須（required_without）で、
+   * まだ受け取れないため 3-legged では 400 で失敗する。別 PR で対応する。
    */
   async createContract(params: {
     constructionId: number;
     name: string;
     contractedAt: string;
+    unitPrice: number;
+    unitVolume: number;
   }): Promise<Json> {
-    const { constructionId, name, contractedAt } = params;
+    const { constructionId, name, contractedAt, unitPrice, unitVolume } = params;
     const url = this.getApiPath("/contract");
     const requestBody: Record<string, unknown> = {
       name,
       contractedAt,
       constructionId,
+      unitPrice,
+      unitVolume,
     };
     const res = await this.fetchImpl(url, {
       method: "POST",
