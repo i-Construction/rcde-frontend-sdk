@@ -118,6 +118,13 @@ describe("契約ファイルの状態導出（deriveFileStatus / isFileStatusAct
     it("RCD が SDK の知らないステータスを返したファイルは、表示可能（PCLOD 完了）とみなさない", () => {
       expect(isPclodCompleted(pclodUnknownStatusFile)).toBe(false);
     });
+
+    it("前回失敗したファイルを再アップロード中のあいだは、失敗ではなくアップロード追跡中の状態を出す", () => {
+      const status = deriveFileStatus(pclodFailedFile, true);
+
+      expect(status).toEqual({ upload: "uploading", pclod: "none" });
+      expect(isFileStatusActive(status)).toBe(true);
+    });
   });
 });
 
