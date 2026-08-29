@@ -300,7 +300,13 @@ export type Contract = {
   id: number;
   name: string;
   contractedAt?: string;
-  status?: string;
+  /**
+   * 契約の承認ライフサイクル（R-CDE の ContactStatus）。1: 作成中（未承認） / 2: 作成済み（承認済み）。
+   *
+   * 契約ファイルの `ContractFile.status`（CDEStatus）とも PCLOD の
+   * `batchProcessingResult.status`（BatchProcessingResultStatus）とも別軸なので混同しない。
+   */
+  status?: number;
 };
 
 function parseBatchProcessingResult(
