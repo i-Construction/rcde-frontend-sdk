@@ -41,7 +41,7 @@ type RawContractFile = {
   name: string;
   status?: string;
   uploadedAt?: string;
-  batchProcessingResult?: { id?: unknown; status?: unknown };
+  batchProcessingResult?: { id?: unknown; status?: unknown } | null;
 };
 
 type Json = Record<string, unknown>;
@@ -299,7 +299,10 @@ export type Contract = {
 function parseBatchProcessingResult(
   raw: RawContractFile["batchProcessingResult"]
 ): BatchProcessingResult | undefined {
-  if (raw === undefined) return undefined;
+  // R-CDE は nil のとき batchProcessingResult のキーごと落とす（Go 側が omitempty 付きポインタ）ので
+  // 実際に null は届かない。ただしここは res.json() 由来の未検証 JSON を受ける境界で、null を素通しすると
+  // 分割代入が TypeError になり .map(parseContractFile) ごと reject して一覧が丸ごと落ちる
+  if (raw == null) return undefined;
   const { id, status } = raw;
   if (typeof id !== "number") return undefined;
   if (typeof status !== "number") return undefined;

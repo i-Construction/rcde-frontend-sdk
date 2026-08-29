@@ -96,5 +96,9 @@ describe("契約ファイル一覧のバッチ処理ステータス取り込み�
     it("バッチ処理結果の id が欠けているときは、バッチ処理結果そのものを取り込まない", async () => {
       expect(await fetchFirstBatchResult({ status: 4 })).toBeUndefined();
     });
+
+    it("バッチ処理結果が null で届いても、一覧取得ごと失敗させない", async () => {
+      await expect(fetchFirstBatchResult(null)).resolves.toBeUndefined();
+    });
   });
 });
