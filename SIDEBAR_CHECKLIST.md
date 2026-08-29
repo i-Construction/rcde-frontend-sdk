@@ -16,9 +16,13 @@
 
 ## 2. ステータス表示（`getFileStatus`）
 
+`getFileStatus` は日本語ラベルではなく状態値（`upload`: `uploading` / `uploaded`、`pclod`: `none` / `waiting` / `processing` / `completed` / `failed` / `unknown`）を返す。文言は example 側の写像で決まる。
+
 - [ ] 各行に「アップロード: xxx」チップが表示される
 - [ ] 各行に「PCLOD: xxx」チップが表示される
-- [ ] アップロード中の行は「アップロード: アップロード中 / PCLOD: -」になる
+- [ ] アップロード追跡中の行は `upload: uploading` / `pclod: none` になる（表示は「アップロード中」「-」）
+- [ ] PCLOD が失敗したファイルは `pclod: failed` になり、表示が「失敗」になる
+- [ ] `pclod: failed` の行は表示切替・フォーカスとも無効のままで、待機中の表示に戻らない
 
 ## 3. 表示/非表示切替（`toggleVisibility`）
 
