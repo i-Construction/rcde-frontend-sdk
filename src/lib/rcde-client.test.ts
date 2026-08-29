@@ -141,6 +141,35 @@ describe("契約一覧のステータス取り込み（getContractList）", () =
   });
 });
 
+describe("現場作成リクエストの組み立て（createConstruction）", () => {
+  describe("正常系", () => {
+    // R-CDE の ConstructionCreateParams は 6 項目すべて validate:"required"。1 つでも欠けると 400 になる
+    it("現場を作成するとき、R-CDE が必須とする 6 項目をすべてリクエストに載せる", async () => {
+      const { client, sentBodies } = createRequestCapturingClient({ id: 3 });
+
+      await client.createConstruction({
+        name: "現場A",
+        address: "東京都千代田区",
+        contractedAt: "2024-11-19T06:56:31Z",
+        period: "2025-11-19T06:56:31Z",
+        contractAmount: 1000000,
+        advancePaymentRate: 30,
+      });
+
+      expect(sentBodies).toEqual([
+        {
+          name: "現場A",
+          address: "東京都千代田区",
+          contractedAt: "2024-11-19T06:56:31Z",
+          period: "2025-11-19T06:56:31Z",
+          contractAmount: 1000000,
+          advancePaymentRate: 30,
+        },
+      ]);
+    });
+  });
+});
+
 describe("契約作成リクエストの組み立て（createContract）", () => {
   describe("正常系", () => {
     // R-CDE の ContractCreateFor2LeggedParams / ContractCreateFor3LeggedParams に status が無く、

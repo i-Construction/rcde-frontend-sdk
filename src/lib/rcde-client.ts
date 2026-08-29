@@ -364,11 +364,18 @@ function parseContractFile(rawContractFile: RawContractFile): ContractFile {
   };
 }
 
+/**
+ * 現場の作成パラメータ。R-CDE の ConstructionCreateParams と 1 対 1 で、6 項目すべてが
+ * `validate:"required"`（数値は uint / uint64 なのでゼロ値も不合格）。省略できる項目は無い。
+ *
+ * `name` は 1〜50 文字、`address` は 1〜100 文字。`contractedAt` / `period` は R-CDE 側が
+ * time.Time で受けるので ISO 8601 の文字列を渡す。
+ */
 export type CreateConstructionParams = {
   name: string;
-  address?: string;
-  contractedAt?: string;
-  period?: string;
-  contractAmount?: number;
-  advancePaymentRate?: number;
+  address: string;
+  contractedAt: string;
+  period: string;
+  contractAmount: number;
+  advancePaymentRate: number;
 };
