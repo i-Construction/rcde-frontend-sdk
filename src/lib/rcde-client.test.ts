@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { deriveFileStatus, isFileStatusActive } from "./contractFileStatus";
 import { RCDEClient } from "./rcde-client";
 
 const contractId = 1;
@@ -38,10 +39,15 @@ function listPayloadWithBatchResult(batchProcessingResult: unknown): RawListPayl
   };
 }
 
-async function fetchFirstBatchResult(batchProcessingResult: unknown) {
+async function fetchFirstContractFile(batchProcessingResult: unknown) {
   const client = createClient(listPayloadWithBatchResult(batchProcessingResult));
   const { contractFiles } = await client.getContractFileList({ contractId });
-  return contractFiles[0].batchProcessingResult;
+  return contractFiles[0];
+}
+
+async function fetchFirstBatchResult(batchProcessingResult: unknown) {
+  const contractFile = await fetchFirstContractFile(batchProcessingResult);
+  return contractFile.batchProcessingResult;
 }
 
 describe("契約ファイル一覧のバッチ処理ステータス取り込み（getContractFileList）", () => {
@@ -99,6 +105,32 @@ describe("契約ファイル一覧のバッチ処理ステータス取り込み�
 
     it("バッチ処理結果が null で届いても、一覧取得ごと失敗させない", async () => {
       await expect(fetchFirstBatchResult(null)).resolves.toBeUndefined();
+    });
+  });
+});
+
+describe("取り込んだステータスからポーリング継続判断まで（getContractFileList → deriveFileStatus → isFileStatusActive）", () => {
+  describe("異常系", () => {
+    it("R-CDE が SDK の知らない数値を返したファイルは、不明として扱いポーリングを止める", async () => {
+      const contractFile = await fetchFirstContractFile({ id: 100, status: 5 });
+
+      const status = deriveFileStatus(contractFile, false);
+
+      expect(status).toEqual({ upload: "uploaded", pclod: "unknown" });
+      expect(isFileStatusActive(status)).toBe(false);
+    });
+
+    // 未知の「数値」は unknown で止まるのに、数値でない「型」はバッチ処理結果ごと落ちて waiting
+    // に見えるため止まらない、という非対称がある。R-CDE の BatchProcessingResultDetailResponse
+    // は `Status uint8 json:"status"`（omitempty なし）なので、この経路は R-CDE からは発生しない。
+    // 実装は変えず、いまの挙動をテストとして残しておく
+    it("ステータスが数値でないファイルは、待機中と区別できずポーリングを止められない", async () => {
+      const contractFile = await fetchFirstContractFile({ id: 100, status: "failed" });
+
+      const status = deriveFileStatus(contractFile, false);
+
+      expect(status).toEqual({ upload: "uploaded", pclod: "waiting" });
+      expect(isFileStatusActive(status)).toBe(true);
     });
   });
 });
