@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveFileStatus, isFileStatusActive } from "./contractFileStatus";
-import { RCDEClient } from "./rcde-client";
+import { RCDEClient, type AuthType } from "./rcde-client";
 
 const contractId = 1;
 
@@ -137,6 +137,53 @@ describe("契約一覧のステータス取り込み（getContractList）", () =
       const { contracts } = await client.getContractList({ constructionId: 1 });
 
       expect(contracts[0].status).toBe(2);
+    });
+  });
+});
+
+describe("点群ファイルのアップロード経路の選択（uploadContractFile）", () => {
+  /** fetch が何回呼ばれたかだけを数えるクライアント。送信前に止まったかを見る */
+  function createFetchCountingClient(authType: AuthType) {
+    const calls: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      calls.push(url);
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    }) as unknown as typeof fetch;
+
+    return {
+      client: new RCDEClient({ baseUrl: "https://example.com", fetchImpl, authType }),
+      calls,
+    };
+  }
+
+  const uploadParams = {
+    contractId: 1,
+    name: "sample.las",
+    buffer: new ArrayBuffer(8),
+  };
+
+  describe("異常系", () => {
+    // R-CDE は POST /contractFile/pointCloud と PUT /contractFile/uploaded/:id を 2legged にしか
+    // 用意していない。3legged で呼ぶと 404 になるので、原因の分かるエラーで手前から止める
+    it("3legged で単発アップロードを呼ぶとき、リクエストを送らずに失敗する", async () => {
+      const { client, calls } = createFetchCountingClient("3legged");
+
+      await expect(client.uploadContractFile(uploadParams)).rejects.toThrow(
+        "単発アップロードは 2legged 専用です"
+      );
+      expect(calls).toHaveLength(0);
+    });
+  });
+
+  describe("正常系", () => {
+    it("2legged で単発アップロードを呼ぶとき、アップロード開始のリクエストを送る", async () => {
+      const { client, calls } = createFetchCountingClient("2legged");
+
+      // 空レスポンスなのでアップロードは後段で失敗する。ここで見たいのは 3legged ガードが
+      // 2legged を巻き込まず、最初のリクエストまで到達することだけ
+      await client.uploadContractFile(uploadParams).catch(() => undefined);
+
+      expect(calls[0]).toContain("/contractFile/pointCloud");
     });
   });
 });
