@@ -49,13 +49,25 @@ describe("契約ファイル一覧のバッチ処理ステータス取り込み�
     it("PCLOD が失敗したファイルは、失敗を表す 4 を保ったまま利用側へ渡す", async () => {
       const result = await fetchFirstBatchResult({ id: 100, status: 4 });
 
-      expect(result).toEqual({ id: 100, status: 4 });
+      expect(result).toEqual({ id: 100, status: 4, rawStatus: 4 });
     });
 
     it("開始・進行中・完了のステータスも、RCD が返した数値をそのまま保つ", async () => {
-      expect(await fetchFirstBatchResult({ id: 100, status: 1 })).toEqual({ id: 100, status: 1 });
-      expect(await fetchFirstBatchResult({ id: 100, status: 2 })).toEqual({ id: 100, status: 2 });
-      expect(await fetchFirstBatchResult({ id: 100, status: 3 })).toEqual({ id: 100, status: 3 });
+      expect(await fetchFirstBatchResult({ id: 100, status: 1 })).toEqual({
+        id: 100,
+        status: 1,
+        rawStatus: 1,
+      });
+      expect(await fetchFirstBatchResult({ id: 100, status: 2 })).toEqual({
+        id: 100,
+        status: 2,
+        rawStatus: 2,
+      });
+      expect(await fetchFirstBatchResult({ id: 100, status: 3 })).toEqual({
+        id: 100,
+        status: 3,
+        rawStatus: 3,
+      });
     });
 
     it("バッチ処理がまだ始まっていないファイルは、バッチ処理結果を持たない", async () => {
@@ -64,16 +76,16 @@ describe("契約ファイル一覧のバッチ処理ステータス取り込み�
   });
 
   describe("異常系", () => {
-    it("RCD が SDK の知らないステータスを返したときは、unknown として生の数値を残す", async () => {
+    it("RCD が SDK の知らないステータスを返したときは、ステータスを持たせず生の数値を残す", async () => {
       const result = await fetchFirstBatchResult({ id: 100, status: 5 });
 
-      expect(result).toEqual({ id: 100, status: "unknown", rawStatus: 5 });
+      expect(result).toEqual({ id: 100, status: undefined, rawStatus: 5 });
     });
 
-    it("RCD の定義に無い 0 も、完了や処理中に混ぜず unknown として扱う", async () => {
+    it("RCD の定義に無い 0 も、完了や処理中に混ぜずステータス無しとして扱う", async () => {
       const result = await fetchFirstBatchResult({ id: 100, status: 0 });
 
-      expect(result).toEqual({ id: 100, status: "unknown", rawStatus: 0 });
+      expect(result).toEqual({ id: 100, status: undefined, rawStatus: 0 });
     });
 
     it("ステータスが数値でないときは、バッチ処理結果そのものを取り込まない", async () => {

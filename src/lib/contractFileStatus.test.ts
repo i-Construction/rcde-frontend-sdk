@@ -14,31 +14,31 @@ const uploadedFile: ContractFile = {
 /** API から取得した、PCLOD バッチ開始直後のファイル */
 const pclodStartedFile: ContractFile = {
   ...uploadedFile,
-  batchProcessingResult: { id: 100, status: 1 },
+  batchProcessingResult: { id: 100, status: 1, rawStatus: 1 },
 };
 
 /** API から取得した、PCLOD バッチ実行中のファイル */
 const pclodProcessingFile: ContractFile = {
   ...uploadedFile,
-  batchProcessingResult: { id: 100, status: 2 },
+  batchProcessingResult: { id: 100, status: 2, rawStatus: 2 },
 };
 
 /** API から取得した、PCLOD 処理完了のファイル */
 const pclodCompletedFile: ContractFile = {
   ...uploadedFile,
-  batchProcessingResult: { id: 100, status: 3 },
+  batchProcessingResult: { id: 100, status: 3, rawStatus: 3 },
 };
 
 /** API から取得した、PCLOD 処理が失敗したファイル */
 const pclodFailedFile: ContractFile = {
   ...uploadedFile,
-  batchProcessingResult: { id: 100, status: 4 },
+  batchProcessingResult: { id: 100, status: 4, rawStatus: 4 },
 };
 
 /** RCD が SDK の知らないステータスを返し、unknown として取り込まれたファイル */
 const pclodUnknownStatusFile: ContractFile = {
   ...uploadedFile,
-  batchProcessingResult: { id: 100, status: "unknown", rawStatus: 5 },
+  batchProcessingResult: { id: 100, rawStatus: 5 },
 };
 
 describe("契約ファイルの状態導出（deriveFileStatus / isFileStatusActive）", () => {

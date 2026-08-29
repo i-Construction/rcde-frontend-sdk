@@ -17,12 +17,15 @@ export type RCDEClientOptions = {
 };
 
 /**
- * PCLOD バッチ処理の結果。`status` は RCD の値集合（BATCH_PROCESSING_STATUS）と対になる。
- * RCD が SDK の知らない値を返した場合だけ `"unknown"` になり、受け取った生値は `rawStatus` に残る。
+ * PCLOD バッチ処理の結果。`status` の値集合は RCD の BatchProcessingResultStatus と 1 対 1 で、
+ * SDK が独自の値を混ぜることはない。RCD が SDK の知らない値を返したときだけ `status` が undefined になる。
+ * `rawStatus` は RCD が返した数値そのもので、常に読める（`status` が undefined のときの調査に使う）。
  */
-export type BatchProcessingResult =
-  | { id: number; status: BatchProcessingStatus }
-  | { id: number; status: "unknown"; rawStatus: number };
+export type BatchProcessingResult = {
+  id: number;
+  status?: BatchProcessingStatus;
+  rawStatus: number;
+};
 
 export type ContractFile = {
   id: number;
@@ -299,11 +302,12 @@ function parseBatchProcessingResult(
   if (raw === undefined) return undefined;
   const { id, status } = raw;
   if (typeof id !== "number") return undefined;
-  if (isBatchProcessingStatus(status)) return { id, status };
-  // RCD と SDK のステータス値集合がずれたときだけここに来る。生値を捨てず "unknown" として渡し、
-  // 利用側が処理中と誤認して待ち続けないようにする
-  if (typeof status === "number") return { id, status: "unknown", rawStatus: status };
-  return undefined;
+  if (typeof status !== "number") return undefined;
+  // RCD と SDK のステータス値集合がずれたときは status を undefined にする。生値は rawStatus に残るので、
+  // 利用側が処理中と誤認して待ち続けることも、原因を追えなくなることも起きない
+  return isBatchProcessingStatus(status)
+    ? { id, status, rawStatus: status }
+    : { id, rawStatus: status };
 }
 
 function parseContractFile(raw: RawContractFile): ContractFile {

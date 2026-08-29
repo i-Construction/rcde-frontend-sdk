@@ -35,7 +35,7 @@ const completedFile: ContractFile = {
   id: 1,
   name: "completed.las",
   uploadedAt,
-  batchProcessingResult: { id: 100, status: 3 },
+  batchProcessingResult: { id: 100, status: 3, rawStatus: 3 },
 };
 
 const toggleVisibilityMock = vi.fn();

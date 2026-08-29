@@ -29,6 +29,9 @@ function derivePclodStatus(result: BatchProcessingResult | undefined): PclodStat
   if (result === undefined) return "waiting";
 
   const status = result.status;
+  // RCD が SDK の知らない値を返したとき。生値は result.rawStatus で追える
+  if (status === undefined) return "unknown";
+
   switch (status) {
     case BATCH_PROCESSING_STATUS.start:
     case BATCH_PROCESSING_STATUS.inProgress:
@@ -37,8 +40,6 @@ function derivePclodStatus(result: BatchProcessingResult | undefined): PclodStat
       return "completed";
     case BATCH_PROCESSING_STATUS.failed:
       return "failed";
-    case "unknown":
-      return "unknown";
     default: {
       // RCD 側にステータスを足したらここでコンパイルが落ちる。PclodStatus も同時に更新する
       const exhaustive: never = status;
