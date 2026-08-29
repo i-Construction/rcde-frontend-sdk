@@ -3,7 +3,9 @@
 import {
   useContractFileActions,
   type ContractFile,
+  type PclodStatus,
   type PendingUploads,
+  type UploadStatus,
 } from "@i-con/frontend-sdk";
 import CenterFocusStrongIcon from "@mui/icons-material/CenterFocusStrong";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -15,6 +17,22 @@ import { useCallback, useState, type ReactNode } from "react";
 
 const SIDEBAR_WIDTH = 320;
 
+// SDK が返すのは状態値なので、日本語の文言は利用側で決める。網羅した Record にしておくと
+// R-CDE 側でステータスが増えて SDK の状態値が増えたとき、ここが型エラーで落ちる
+const UPLOAD_STATUS_LABELS: Record<UploadStatus, string> = {
+  uploading: "アップロード中",
+  uploaded: "完了",
+};
+
+const PCLOD_STATUS_LABELS: Record<PclodStatus, string> = {
+  none: "-",
+  waiting: "待機中",
+  processing: "処理中",
+  completed: "完了",
+  failed: "失敗",
+  unknown: "不明",
+};
+
 const ICON_BUTTON_SX = {
   width: 28,
   height: 28,
@@ -25,8 +43,8 @@ const ICON_BUTTON_SX = {
 
 type FileRowProps = {
   filename: string;
-  uploadStatus: string;
-  pclodStatus: string;
+  uploadStatus: UploadStatus;
+  pclodStatus: PclodStatus;
   isPclodDone: boolean;
   isVisible: boolean;
   disabled?: boolean;
@@ -73,11 +91,15 @@ function FileRow({
         </Typography>
         <Box sx={{ display: "flex", gap: 0.5, mt: 0.25 }}>
           <Chip
-            label={`アップロード: ${uploadStatus}`}
+            label={`アップロード: ${UPLOAD_STATUS_LABELS[uploadStatus]}`}
             size="small"
             sx={{ height: 18, fontSize: 10 }}
           />
-          <Chip label={`PCLOD: ${pclodStatus}`} size="small" sx={{ height: 18, fontSize: 10 }} />
+          <Chip
+            label={`PCLOD: ${PCLOD_STATUS_LABELS[pclodStatus]}`}
+            size="small"
+            sx={{ height: 18, fontSize: 10 }}
+          />
         </Box>
       </Box>
 
@@ -204,8 +226,8 @@ export function ContractFileSidebar({ pendingUploads, headerActions }: ContractF
                 <FileRow
                   key={`pending-${row.contractFileId}`}
                   filename={row.name}
-                  uploadStatus="アップロード中"
-                  pclodStatus="-"
+                  uploadStatus="uploading"
+                  pclodStatus="none"
                   isPclodDone={false}
                   isVisible={false}
                   disabled
