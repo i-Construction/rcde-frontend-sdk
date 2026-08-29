@@ -260,22 +260,29 @@ export class RCDEClient {
     return { contracts: data.contracts ?? [] };
   }
 
+  /**
+   * 契約を作成する。
+   *
+   * status は受け取らない。R-CDE の契約作成 API（ContractCreateFor2LeggedParams /
+   * ContractCreateFor3LeggedParams）に status フィールドが無く、送っても echo の Bind が捨てるため。
+   * 作成直後の状態は R-CDE 側が決める（2-legged は受注者がダミーなので承認済みまで自動で進む）。
+   *
+   * TODO: R-CDE が必須にしている unitPrice / unitVolume をまだ送っていないため、
+   * 現状このメソッドは 400 で失敗する。3-legged はさらに contracteeEmail / contractorEmail が要る。
+   * 引数が増える破壊的変更になるので別 PR で対応する。
+   */
   async createContract(params: {
     constructionId: number;
     name: string;
     contractedAt: string;
-    status?: string;
   }): Promise<Json> {
-    const { constructionId, name, contractedAt, status } = params;
+    const { constructionId, name, contractedAt } = params;
     const url = this.getApiPath("/contract");
     const requestBody: Record<string, unknown> = {
       name,
       contractedAt,
       constructionId,
     };
-    if (status !== undefined) {
-      requestBody.status = status;
-    }
     const res = await this.fetchImpl(url, {
       method: "POST",
       headers: this.headers(),
