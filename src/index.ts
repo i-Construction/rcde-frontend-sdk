@@ -1,6 +1,16 @@
 export * from "./components/RCDE";
 export * from "./bridge/viewerBridge";
-export { RCDEClient, type AuthType, type RCDEClientOptions } from "./lib/rcde-client";
+export {
+  RCDEClient,
+  type AuthType,
+  type RCDEClientOptions,
+  type BatchProcessingResult,
+} from "./lib/rcde-client";
+export {
+  BATCH_PROCESSING_STATUS,
+  isBatchProcessingStatus,
+  type BatchProcessingStatus,
+} from "./lib/batchProcessingStatus";
 export {
   deriveFileStatus,
   isPclodCompleted,

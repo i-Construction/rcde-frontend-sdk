@@ -1,4 +1,5 @@
 import type { AuthType } from "../types/rcdeApiTypes";
+import { isBatchProcessingStatus, type BatchProcessingStatus } from "./batchProcessingStatus";
 import {
   uploadPointCloudFile,
   uploadPointCloudFileMultipart,
@@ -15,10 +16,13 @@ export type RCDEClientOptions = {
   fetchImpl?: typeof fetch;
 };
 
-export type BatchProcessingResult = {
-  id: number;
-  status: 1 | 2 | 3 | 4;
-};
+/**
+ * PCLOD バッチ処理の結果。`status` は RCD の値集合（BATCH_PROCESSING_STATUS）と対になる。
+ * RCD が SDK の知らない値を返した場合だけ `"unknown"` になり、受け取った生値は `rawStatus` に残る。
+ */
+export type BatchProcessingResult =
+  | { id: number; status: BatchProcessingStatus }
+  | { id: number; status: "unknown"; rawStatus: number };
 
 export type ContractFile = {
   id: number;
@@ -26,6 +30,15 @@ export type ContractFile = {
   status?: string;
   uploadedAt?: string;
   batchProcessingResult?: BatchProcessingResult;
+};
+
+/** API から届いたままの契約ファイル。検証前なので batchProcessingResult の中身は unknown 扱いにする */
+type RawContractFile = {
+  id: number;
+  name: string;
+  status?: string;
+  uploadedAt?: string;
+  batchProcessingResult?: { id?: unknown; status?: unknown };
 };
 
 type Json = Record<string, unknown>;
@@ -71,7 +84,7 @@ export class RCDEClient {
       headers: this.headers(),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { contractFiles: ContractFile[]; total?: number };
+    const data = (await res.json()) as { contractFiles: RawContractFile[]; total?: number };
     const contractFiles = (data.contractFiles ?? []).map(parseContractFile);
     return { contractFiles };
   }
@@ -280,19 +293,21 @@ export type Contract = {
   status?: string;
 };
 
-function parseContractFile(raw: ContractFile): ContractFile {
-  const batchProcessingResult = raw.batchProcessingResult;
-  const hasBatchResult =
-    batchProcessingResult !== undefined &&
-    typeof batchProcessingResult.id === "number" &&
-    typeof batchProcessingResult.status === "number";
+function parseBatchProcessingResult(
+  raw: RawContractFile["batchProcessingResult"]
+): BatchProcessingResult | undefined {
+  if (raw === undefined) return undefined;
+  const { id, status } = raw;
+  if (typeof id !== "number") return undefined;
+  if (isBatchProcessingStatus(status)) return { id, status };
+  // RCD と SDK のステータス値集合がずれたときだけここに来る。生値を捨てず "unknown" として渡し、
+  // 利用側が処理中と誤認して待ち続けないようにする
+  if (typeof status === "number") return { id, status: "unknown", rawStatus: status };
+  return undefined;
+}
 
-  const normalizedBatchResult: BatchProcessingResult | undefined = hasBatchResult
-    ? {
-        id: batchProcessingResult.id,
-        status: batchProcessingResult.status,
-      }
-    : undefined;
+function parseContractFile(raw: RawContractFile): ContractFile {
+  const normalizedBatchResult = parseBatchProcessingResult(raw.batchProcessingResult);
 
   return {
     id: raw.id,

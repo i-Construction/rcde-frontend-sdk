@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveFileStatus, isFileStatusActive } from "./contractFileStatus";
+import { deriveFileStatus, isFileStatusActive, isPclodCompleted } from "./contractFileStatus";
 import type { ContractFile } from "./rcde-client";
 
 const uploadedAt = "2024-11-19T06:56:31Z";
@@ -9,6 +9,12 @@ const uploadedFile: ContractFile = {
   id: 1,
   name: "sample.las",
   uploadedAt,
+};
+
+/** API から取得した、PCLOD バッチ開始直後のファイル */
+const pclodStartedFile: ContractFile = {
+  ...uploadedFile,
+  batchProcessingResult: { id: 100, status: 1 },
 };
 
 /** API から取得した、PCLOD バッチ実行中のファイル */
@@ -27,6 +33,12 @@ const pclodCompletedFile: ContractFile = {
 const pclodFailedFile: ContractFile = {
   ...uploadedFile,
   batchProcessingResult: { id: 100, status: 4 },
+};
+
+/** RCD が SDK の知らないステータスを返し、unknown として取り込まれたファイル */
+const pclodUnknownStatusFile: ContractFile = {
+  ...uploadedFile,
+  batchProcessingResult: { id: 100, status: "unknown", rawStatus: 5 },
 };
 
 describe("契約ファイルの状態導出（deriveFileStatus / isFileStatusActive）", () => {
@@ -52,6 +64,13 @@ describe("契約ファイルの状態導出（deriveFileStatus / isFileStatusAct
       expect(isFileStatusActive(status)).toBe(true);
     });
 
+    it("PCLOD バッチ開始直後は、アップロード：uploaded、PCLOD：processing とする", () => {
+      const status = deriveFileStatus(pclodStartedFile, false);
+
+      expect(status).toEqual({ upload: "uploaded", pclod: "processing" });
+      expect(isFileStatusActive(status)).toBe(true);
+    });
+
     it("PCLOD バッチ実行中は、アップロード：uploaded、PCLOD：processing とする", () => {
       const status = deriveFileStatus(pclodProcessingFile, false);
 
@@ -73,6 +92,21 @@ describe("契約ファイルの状態導出（deriveFileStatus / isFileStatusAct
 
       expect(status).toEqual({ upload: "uploaded", pclod: "failed" });
       expect(isFileStatusActive(status)).toBe(false);
+    });
+
+    it("PCLOD 処理が失敗したファイルは、表示可能（PCLOD 完了）とみなさない", () => {
+      expect(isPclodCompleted(pclodFailedFile)).toBe(false);
+    });
+
+    it("RCD が SDK の知らないステータスを返したときは、アップロード：uploaded、PCLOD：unknown とし、待ち続けない", () => {
+      const status = deriveFileStatus(pclodUnknownStatusFile, false);
+
+      expect(status).toEqual({ upload: "uploaded", pclod: "unknown" });
+      expect(isFileStatusActive(status)).toBe(false);
+    });
+
+    it("RCD が SDK の知らないステータスを返したファイルは、表示可能（PCLOD 完了）とみなさない", () => {
+      expect(isPclodCompleted(pclodUnknownStatusFile)).toBe(false);
     });
   });
 });
@@ -96,5 +130,9 @@ describe("契約ファイルの状態がアクティブかどうかの判定（i
 
   it("PCLOD が failed のときは false である", () => {
     expect(isFileStatusActive({ upload: "uploaded", pclod: "failed" })).toBe(false);
+  });
+
+  it("PCLOD が unknown のときは false である", () => {
+    expect(isFileStatusActive({ upload: "uploaded", pclod: "unknown" })).toBe(false);
   });
 });
