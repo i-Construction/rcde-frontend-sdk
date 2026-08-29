@@ -26,7 +26,7 @@ function createClient(payload: RawListPayload) {
 }
 
 /** 送信されたリクエストを控えるクライアント。URL・ヘッダの検証は本 PR のスコープ外なので body だけ見る */
-function createRequestCapturingClient(responsePayload: unknown) {
+function createRequestCapturingClient(responsePayload: unknown, authType: AuthType = "2legged") {
   const sentBodies: unknown[] = [];
   const fetchImpl = (async (_url: string, init?: RequestInit) => {
     sentBodies.push(init?.body === undefined ? undefined : JSON.parse(String(init.body)));
@@ -38,7 +38,7 @@ function createRequestCapturingClient(responsePayload: unknown) {
   }) as unknown as typeof fetch;
 
   return {
-    client: new RCDEClient({ baseUrl: "https://example.com", fetchImpl }),
+    client: new RCDEClient({ baseUrl: "https://example.com", fetchImpl, authType }),
     sentBodies,
   };
 }
@@ -188,6 +188,35 @@ describe("点群ファイルのアップロード経路の選択（uploadContrac
   });
 });
 
+describe("現場作成リクエストの組み立て（createConstruction）", () => {
+  describe("正常系", () => {
+    // R-CDE の ConstructionCreateParams は 6 項目すべて validate:"required"。1 つでも欠けると 400 になる
+    it("現場を作成するとき、R-CDE が必須とする 6 項目をすべてリクエストに載せる", async () => {
+      const { client, sentBodies } = createRequestCapturingClient({ id: 3 });
+
+      await client.createConstruction({
+        name: "現場A",
+        address: "東京都千代田区",
+        contractedAt: "2024-11-19T06:56:31Z",
+        period: "2025-11-19T06:56:31Z",
+        contractAmount: 1000000,
+        advancePaymentRate: 30,
+      });
+
+      expect(sentBodies).toEqual([
+        {
+          name: "現場A",
+          address: "東京都千代田区",
+          contractedAt: "2024-11-19T06:56:31Z",
+          period: "2025-11-19T06:56:31Z",
+          contractAmount: 1000000,
+          advancePaymentRate: 30,
+        },
+      ]);
+    });
+  });
+});
+
 describe("契約作成リクエストの組み立て（createContract）", () => {
   describe("正常系", () => {
     // R-CDE の ContractCreateFor2LeggedParams / ContractCreateFor3LeggedParams に status が無く、
@@ -199,11 +228,83 @@ describe("契約作成リクエストの組み立て（createContract）", () =>
         constructionId: 1,
         name: "契約A",
         contractedAt: "2024-11-19T06:56:31Z",
+        unitPrice: 1000,
+        unitVolume: 5,
       });
 
       expect(sentBodies).toEqual([
-        { constructionId: 1, name: "契約A", contractedAt: "2024-11-19T06:56:31Z" },
+        {
+          constructionId: 1,
+          name: "契約A",
+          contractedAt: "2024-11-19T06:56:31Z",
+          unitPrice: 1000,
+          unitVolume: 5,
+        },
       ]);
+    });
+
+    // R-CDE は UnitPrice / UnitVolume を validate:"required" にしており、送らないと必ず 400 になる
+    it("単価と数量を指定して契約を作成するとき、その 2 つをリクエストに載せる", async () => {
+      const { client, sentBodies } = createRequestCapturingClient({ id: 7 });
+
+      await client.createContract({
+        constructionId: 1,
+        name: "契約A",
+        contractedAt: "2024-11-19T06:56:31Z",
+        unitPrice: 1000,
+        unitVolume: 5,
+      });
+
+      expect(sentBodies[0]).toMatchObject({ unitPrice: 1000, unitVolume: 5 });
+    });
+
+    it("3legged で相手先メールを指定して契約を作成するとき、そのメールをリクエストに載せる", async () => {
+      const { client, sentBodies } = createRequestCapturingClient({ id: 7 }, "3legged");
+
+      await client.createContract({
+        constructionId: 1,
+        name: "契約A",
+        contractedAt: "2024-11-19T06:56:31Z",
+        unitPrice: 1000,
+        unitVolume: 5,
+        contracteeEmail: "contractee@example.com",
+      });
+
+      expect(sentBodies[0]).toMatchObject({ contracteeEmail: "contractee@example.com" });
+    });
+
+    // 2legged は受注者がダミー企業として自動設定されるため、R-CDE 側もメールを要求しない
+    it("2legged で契約を作成するとき、相手先メールが無くてもリクエストを送る", async () => {
+      const { client, sentBodies } = createRequestCapturingClient({ id: 7 });
+
+      await client.createContract({
+        constructionId: 1,
+        name: "契約A",
+        contractedAt: "2024-11-19T06:56:31Z",
+        unitPrice: 1000,
+        unitVolume: 5,
+      });
+
+      expect(sentBodies).toHaveLength(1);
+    });
+  });
+
+  describe("異常系", () => {
+    // R-CDE の ContractCreateFor3LeggedParams は required_without で相互必須。送っても必ず 400 になるので、
+    // HTTP 400 ではなく原因の分かるエラーで手前から止める
+    it("3legged で相手先メールをどちらも指定しないとき、リクエストを送らずに失敗する", async () => {
+      const { client, sentBodies } = createRequestCapturingClient({ id: 7 }, "3legged");
+
+      await expect(
+        client.createContract({
+          constructionId: 1,
+          name: "契約A",
+          contractedAt: "2024-11-19T06:56:31Z",
+          unitPrice: 1000,
+          unitVolume: 5,
+        })
+      ).rejects.toThrow("contracteeEmail か contractorEmail のどちらかが必要です");
+      expect(sentBodies).toHaveLength(0);
     });
   });
 });
