@@ -84,6 +84,16 @@ describe("契約ファイルの状態導出（deriveFileStatus / isFileStatusAct
       expect(status).toEqual({ upload: "uploaded", pclod: "completed" });
       expect(isFileStatusActive(status)).toBe(false);
     });
+
+    it("PCLOD 処理が完了したファイルは、表示可能（PCLOD 完了）とみなす", () => {
+      expect(isPclodCompleted(pclodCompletedFile)).toBe(true);
+    });
+
+    it("PCLOD が未着手・開始直後・実行中のファイルは、まだ表示可能とみなさない", () => {
+      expect(isPclodCompleted(uploadedFile)).toBe(false);
+      expect(isPclodCompleted(pclodStartedFile)).toBe(false);
+      expect(isPclodCompleted(pclodProcessingFile)).toBe(false);
+    });
   });
 
   describe("異常系", () => {
