@@ -186,8 +186,19 @@ export class RCDEClient {
     return { url: presignedURL, presignedURL };
   }
 
-  // アップロード開始（点群アップロードAPIを使用）
+  /**
+   * 点群ファイルを 1 リクエストでアップロードする。**2-legged 専用**。
+   *
+   * 経路の `POST /contractFile/pointCloud` と `PUT /contractFile/uploaded/:id` は R-CDE の
+   * 2-legged 側にしか無く、3-legged では 404 になる。原因の分かるエラーで手前から止める。
+   * 3-legged では `uploadContractFileMultipart` を使う。
+   */
   async uploadContractFile(params: PointCloudUploadParams): Promise<Json> {
+    if (this.authType === "3legged") {
+      throw new Error(
+        "uploadContractFile: 単発アップロードは 2legged 専用です。3legged では uploadContractFileMultipart を使ってください"
+      );
+    }
     return uploadPointCloudFile(
       {
         getApiPath: (segment) => this.getApiPath(segment),
@@ -198,7 +209,12 @@ export class RCDEClient {
     );
   }
 
-  // チャンク分割アップロード（点群マルチパートアップロードAPIを使用）
+  /**
+   * 点群ファイルをチャンク分割してアップロードする。2-legged / 3-legged の**どちらでも使える**。
+   *
+   * R-CDE は 3-legged 側にマルチパートの 3 ルートだけを用意しているため、3-legged の
+   * アップロードはこちらが唯一の経路になる。
+   */
   async uploadContractFileMultipart(
     params: PointCloudMultipartUploadParams
   ): Promise<{ contractFileId: number }> {
