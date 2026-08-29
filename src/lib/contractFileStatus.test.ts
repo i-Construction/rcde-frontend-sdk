@@ -35,7 +35,7 @@ const pclodFailedFile: ContractFile = {
   batchProcessingResult: { id: 100, status: 4, rawStatus: 4 },
 };
 
-/** RCD が SDK の知らないステータスを返し、unknown として取り込まれたファイル */
+/** R-CDE が SDK の知らないステータスを返し、unknown として取り込まれたファイル */
 const pclodUnknownStatusFile: ContractFile = {
   ...uploadedFile,
   batchProcessingResult: { id: 100, rawStatus: 5 },
@@ -108,14 +108,14 @@ describe("契約ファイルの状態導出（deriveFileStatus / isFileStatusAct
       expect(isPclodCompleted(pclodFailedFile)).toBe(false);
     });
 
-    it("RCD が SDK の知らないステータスを返したときは、アップロード：uploaded、PCLOD：unknown とし、待ち続けない", () => {
+    it("R-CDE が SDK の知らないステータスを返したときは、アップロード：uploaded、PCLOD：unknown とし、待ち続けない", () => {
       const status = deriveFileStatus(pclodUnknownStatusFile, false);
 
       expect(status).toEqual({ upload: "uploaded", pclod: "unknown" });
       expect(isFileStatusActive(status)).toBe(false);
     });
 
-    it("RCD が SDK の知らないステータスを返したファイルは、表示可能（PCLOD 完了）とみなさない", () => {
+    it("R-CDE が SDK の知らないステータスを返したファイルは、表示可能（PCLOD 完了）とみなさない", () => {
       expect(isPclodCompleted(pclodUnknownStatusFile)).toBe(false);
     });
 

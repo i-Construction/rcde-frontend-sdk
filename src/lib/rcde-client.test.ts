@@ -4,7 +4,7 @@ import { RCDEClient } from "./rcde-client";
 
 const contractId = 1;
 
-/** RCD から届く契約ファイル一覧の生 JSON。batchProcessingResult は検証前なので型を緩めておく */
+/** R-CDE から届く契約ファイル一覧の生 JSON。batchProcessingResult は検証前なので型を緩めておく */
 type RawListPayload = {
   contractFiles: {
     id: number;
@@ -58,7 +58,7 @@ describe("契約ファイル一覧のバッチ処理ステータス取り込み�
       expect(result).toEqual({ id: 100, status: 4, rawStatus: 4 });
     });
 
-    it("開始・進行中・完了のステータスも、RCD が返した数値をそのまま保つ", async () => {
+    it("開始・進行中・完了のステータスも、R-CDE が返した数値をそのまま保つ", async () => {
       expect(await fetchFirstBatchResult({ id: 100, status: 1 })).toEqual({
         id: 100,
         status: 1,
@@ -82,13 +82,13 @@ describe("契約ファイル一覧のバッチ処理ステータス取り込み�
   });
 
   describe("異常系", () => {
-    it("RCD が SDK の知らないステータスを返したときは、ステータスを持たせず生の数値を残す", async () => {
+    it("R-CDE が SDK の知らないステータスを返したときは、ステータスを持たせず生の数値を残す", async () => {
       const result = await fetchFirstBatchResult({ id: 100, status: 5 });
 
       expect(result).toEqual({ id: 100, status: undefined, rawStatus: 5 });
     });
 
-    it("RCD の定義に無い 0 も、完了や処理中に混ぜずステータス無しとして扱う", async () => {
+    it("R-CDE の定義に無い 0 も、完了や処理中に混ぜずステータス無しとして扱う", async () => {
       const result = await fetchFirstBatchResult({ id: 100, status: 0 });
 
       expect(result).toEqual({ id: 100, status: undefined, rawStatus: 0 });

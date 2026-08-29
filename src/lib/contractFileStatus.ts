@@ -4,8 +4,8 @@ import type { BatchProcessingResult, ContractFile } from "./rcde-client";
 export type UploadStatus = "uploading" | "uploaded";
 
 /**
- * PCLOD 処理の状態。RCD の BatchProcessingResultStatus と対になる（batchProcessingStatus.ts）。
- * `unknown` は RCD と SDK の値集合がずれたときだけ現れる異常系で、SDK の追随漏れを示す。
+ * PCLOD 処理の状態。R-CDE の BatchProcessingResultStatus と対になる（batchProcessingStatus.ts）。
+ * `unknown` は R-CDE と SDK の値集合がずれたときだけ現れる異常系で、SDK の追随漏れを示す。
  */
 export type PclodStatus = "none" | "waiting" | "processing" | "completed" | "failed" | "unknown";
 
@@ -29,7 +29,7 @@ function derivePclodStatus(result: BatchProcessingResult | undefined): PclodStat
   if (result === undefined) return "waiting";
 
   const status = result.status;
-  // RCD が SDK の知らない値を返したとき。生値は result.rawStatus で追える
+  // R-CDE が SDK の知らない値を返したとき。生値は result.rawStatus で追える
   if (status === undefined) return "unknown";
 
   switch (status) {
@@ -41,7 +41,7 @@ function derivePclodStatus(result: BatchProcessingResult | undefined): PclodStat
     case BATCH_PROCESSING_STATUS.failed:
       return "failed";
     default: {
-      // RCD 側にステータスを足したらここでコンパイルが落ちる。PclodStatus も同時に更新する
+      // R-CDE 側にステータスを足したらここでコンパイルが落ちる。PclodStatus も同時に更新する
       const exhaustive: never = status;
       return exhaustive;
     }
