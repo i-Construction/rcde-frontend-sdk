@@ -304,13 +304,13 @@ export type Contract = {
 };
 
 function parseBatchProcessingResult(
-  raw: RawContractFile["batchProcessingResult"]
+  rawBatchResult: RawContractFile["batchProcessingResult"]
 ): BatchProcessingResult | undefined {
   // R-CDE は nil のとき batchProcessingResult のキーごと落とす（Go 側が omitempty 付きポインタ）ので
   // 実際に null は届かない。ただしここは res.json() 由来の未検証 JSON を受ける境界で、null を素通しすると
   // 分割代入が TypeError になり .map(parseContractFile) ごと reject して一覧が丸ごと落ちる
-  if (raw == null) return undefined;
-  const { id, status } = raw;
+  if (rawBatchResult == null) return undefined;
+  const { id, status } = rawBatchResult;
   if (typeof id !== "number") return undefined;
   if (typeof status !== "number") return undefined;
   // R-CDE と SDK のステータス値集合がずれたときは status を undefined にする。生値は rawStatus に残るので、
@@ -320,14 +320,14 @@ function parseBatchProcessingResult(
     : { id, rawStatus: status };
 }
 
-function parseContractFile(raw: RawContractFile): ContractFile {
-  const normalizedBatchResult = parseBatchProcessingResult(raw.batchProcessingResult);
+function parseContractFile(rawContractFile: RawContractFile): ContractFile {
+  const normalizedBatchResult = parseBatchProcessingResult(rawContractFile.batchProcessingResult);
 
   return {
-    id: raw.id,
-    name: raw.name,
-    status: raw.status,
-    uploadedAt: raw.uploadedAt,
+    id: rawContractFile.id,
+    name: rawContractFile.name,
+    status: rawContractFile.status,
+    uploadedAt: rawContractFile.uploadedAt,
     batchProcessingResult: normalizedBatchResult,
   };
 }

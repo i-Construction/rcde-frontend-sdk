@@ -22,6 +22,6 @@ export type BatchProcessingStatus =
 const KNOWN_STATUSES: readonly number[] = Object.values(BATCH_PROCESSING_STATUS);
 
 /** R-CDE と SDK の値集合が揃っているか（＝受け取った値が既知のステータスか）を判定する */
-export function isBatchProcessingStatus(value: unknown): value is BatchProcessingStatus {
-  return typeof value === "number" && KNOWN_STATUSES.includes(value);
+export function isBatchProcessingStatus(rawStatus: unknown): rawStatus is BatchProcessingStatus {
+  return typeof rawStatus === "number" && KNOWN_STATUSES.includes(rawStatus);
 }

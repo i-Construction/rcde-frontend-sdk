@@ -53,9 +53,9 @@ async function fetchFirstBatchResult(batchProcessingResult: unknown) {
 describe("契約ファイル一覧のバッチ処理ステータス取り込み（getContractFileList）", () => {
   describe("正常系", () => {
     it("PCLOD が失敗したファイルは、失敗を表す 4 を保ったまま利用側へ渡す", async () => {
-      const result = await fetchFirstBatchResult({ id: 100, status: 4 });
+      const batchResult = await fetchFirstBatchResult({ id: 100, status: 4 });
 
-      expect(result).toEqual({ id: 100, status: 4, rawStatus: 4 });
+      expect(batchResult).toEqual({ id: 100, status: 4, rawStatus: 4 });
     });
 
     it("開始・進行中・完了のステータスも、R-CDE が返した数値をそのまま保つ", async () => {
@@ -83,15 +83,15 @@ describe("契約ファイル一覧のバッチ処理ステータス取り込み�
 
   describe("異常系", () => {
     it("R-CDE が SDK の知らないステータスを返したときは、ステータスを持たせず生の数値を残す", async () => {
-      const result = await fetchFirstBatchResult({ id: 100, status: 5 });
+      const batchResult = await fetchFirstBatchResult({ id: 100, status: 5 });
 
-      expect(result).toEqual({ id: 100, status: undefined, rawStatus: 5 });
+      expect(batchResult).toEqual({ id: 100, status: undefined, rawStatus: 5 });
     });
 
     it("R-CDE の定義に無い 0 も、完了や処理中に混ぜずステータス無しとして扱う", async () => {
-      const result = await fetchFirstBatchResult({ id: 100, status: 0 });
+      const batchResult = await fetchFirstBatchResult({ id: 100, status: 0 });
 
-      expect(result).toEqual({ id: 100, status: undefined, rawStatus: 0 });
+      expect(batchResult).toEqual({ id: 100, status: undefined, rawStatus: 0 });
     });
 
     it("ステータスが数値でないときは、バッチ処理結果そのものを取り込まない", async () => {

@@ -24,12 +24,12 @@ function isUploaded(file: ContractFile): boolean {
   return file.uploadedAt !== undefined && file.uploadedAt.length > 0;
 }
 
-function derivePclodStatus(result: BatchProcessingResult | undefined): PclodStatus {
+function derivePclodStatus(batchResult: BatchProcessingResult | undefined): PclodStatus {
   // バッチ結果がまだ無いファイルは PCLOD 未着手
-  if (result === undefined) return "waiting";
+  if (batchResult === undefined) return "waiting";
 
-  const status = result.status;
-  // R-CDE が SDK の知らない値を返したとき。生値は result.rawStatus で追える
+  const status = batchResult.status;
+  // R-CDE が SDK の知らない値を返したとき。生値は batchResult.rawStatus で追える
   if (status === undefined) return "unknown";
 
   switch (status) {
