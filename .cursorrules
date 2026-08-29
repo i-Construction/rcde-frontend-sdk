@@ -6,3 +6,21 @@ Git のコミットメッセージを生成するとき（ソース管理の「G
 
 - 英語のメッセージは出さない（例: "Added..." → 「追加: ...」にすること）。
 - 1行目: `<種類>: <簡潔な説明>`（種類は 追加・修正・削除・リファクタ など）。
+
+## RCDE とのステータス型の同期
+
+本 SDK と RCDE 本体（rcde リポジトリ）は常に対で動く。API が返すステータスの値集合を SDK が知らないまま放置しない。
+
+### DO
+
+- `src/lib/batchProcessingStatus.ts` の `BATCH_PROCESSING_STATUS` を、RCDE の `server/pkg/ent/schema/batchprocessingresult.go` の `BatchProcessingResultStatus` と 1 対 1 に保つ。
+- RCDE 側に値が増えたら、同じタイミングで `BATCH_PROCESSING_STATUS` と `PclodStatus`（`src/lib/contractFileStatus.ts`）の両方を更新する。
+- 値集合の対応は `src/lib/batchProcessingStatus.test.ts` で固定する。RCDE 側の追加時にこのテストが落ちることを、追随漏れの検知手段として使う。
+- 想定外の値は握り潰さず `"unknown"` として利用側へ渡す（生値は `rawStatus` に残す）。
+
+### DON'T
+
+- SDK 単独でステータス値を発明・追加する。
+- 未知の値を `processing` などの既知状態へ寄せる（ポーリングが止まらなくなる）。
+- 検証せずに数値をステータス型へ型アサーションで通す。
+- 値集合の同期テストを「重複」として削除する。
