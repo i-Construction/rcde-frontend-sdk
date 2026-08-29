@@ -2,7 +2,16 @@ import { Box } from "@mui/material";
 import { GizmoHelper, GizmoViewport, Grid, MapControls } from "@react-three/drei";
 import { Canvas, CanvasProps, useThree } from "@react-three/fiber";
 import { PointCloudMeta } from "@i-con/pcd-viewer";
-import { FC, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  FC,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Box3,
   Color,
@@ -14,11 +23,23 @@ import {
   PerspectiveCamera,
   Object3D,
   Raycaster,
+  WebGLRenderer,
 } from "three";
 import { useClient } from "../contexts/client";
+import type { RCDEClient } from "../lib/rcde-client";
 import { ContractFile, useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
 import { isPclodCompleted } from "../lib/contractFileStatus";
+import { computeMetadataFetchPlan } from "../lib/metadataFetchPlan";
+import {
+  evaluateViewerMemoryAlert,
+  type ViewerFileMemoryEstimate,
+  type ViewerMemoryAlertLevel,
+  type ViewerMemoryMonitoringOptions,
+  type ViewerMemorySample,
+  type ViewerMemorySource,
+} from "../lib/viewerMemory";
+import { raycastViews } from "../lib/viewerRaycast";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { ReferencePointAxis } from "./ReferencePointAxis";
 import { ReferencePointView } from "./ReferencePointView";
@@ -51,6 +72,72 @@ type Command =
   | { type: "RESET" };
 const CHANNEL = "RCDE_VIEWER_CMD";
 
+/**
+ * 3D ビューア上のクリックイベント。
+ *
+ * - `hit: true` — オブジェクト（ContractFile のバウンディングボックス）がクリックされた。
+ * - `hit: false` — 空白がクリックされた（選択解除に利用可能）。
+ *
+ * ### 座標系
+ * - `boundingBox` はメタデータの生座標（基準点オフセット未適用）。`onContractFileClick` と同一。
+ * - `intersectionPoint` は基準点オフセット適用済みのワールド座標。
+ * - `localIntersectionPoint` は基準点オフセット未適用の座標。`boundingBox` と同じ座標系。
+ * - `screenPosition` はビューポート座標（`MouseEvent.clientX/clientY`）。
+ *   キャンバス相対座標が必要な場合は `canvas.getBoundingClientRect()` で変換してください。
+ *
+ * ### 制限事項
+ * `RCDE_VIEWER_CMD` (`SET_TRANSFORM`) によるファイル個別の translation / rotation は
+ * 当たり判定に反映されません。移動・回転されたファイルの判定は元の位置の boundingBox に
+ * 基づきます。この制限は `onContractFileClick` と同一です。
+ */
+export type ViewerClickEvent =
+  | {
+      hit: true;
+      file: ContractFile;
+      boundingBox: Box3;
+      /** 基準点オフセット適用済みのワールド座標 */
+      intersectionPoint: Vector3;
+      /** 基準点オフセット未適用の座標（boundingBox と同じ座標系） */
+      localIntersectionPoint: Vector3;
+      /** ビューポート座標（clientX/clientY） */
+      screenPosition: { x: number; y: number };
+    }
+  | {
+      hit: false;
+      /** ビューポート座標（clientX/clientY） */
+      screenPosition: { x: number; y: number };
+    };
+
+/**
+ * 3D ビューア上のホバーイベント（enter/leave セマンティクス）。
+ *
+ * ホバー対象のオブジェクトが**変わったとき**のみ発火します。
+ * 同一オブジェクト上でカーソルが移動しても `screenPosition` は更新されません。
+ * カーソル追従が必要な場合は、利用側で別途 `mousemove` をリスンしてください。
+ *
+ * - `hit: true` — オブジェクトにカーソルが入った。
+ * - `hit: false` — カーソルがオブジェクトから外れた、またはキャンバス外に出た。
+ *
+ * ### 座標系
+ * - `boundingBox` はメタデータの生座標（基準点オフセット未適用）。
+ * - `screenPosition` はビューポート座標（`MouseEvent.clientX/clientY`）。
+ *
+ * ### 制限事項
+ * `RCDE_VIEWER_CMD` (`SET_TRANSFORM`) によるファイル個別の translation / rotation は
+ * 当たり判定に反映されません。この制限は `onContractFileClick` と同一です。
+ */
+export type ViewerHoverEvent =
+  | {
+      hit: true;
+      file: ContractFile;
+      boundingBox: Box3;
+      /** ビューポート座標（clientX/clientY） */
+      screenPosition: { x: number; y: number };
+    }
+  | {
+      hit: false;
+    };
+
 type R3FProps = {
   canvas?: CanvasProps;
   map?: boolean;
@@ -58,6 +145,13 @@ type R3FProps = {
   grid?: boolean;
   gizmo?: boolean;
   referencePointAxis?: boolean;
+};
+
+type BrowserPerformance = Performance & {
+  memory?: {
+    usedJSHeapSize?: number;
+  };
+  measureUserAgentSpecificMemory?: () => Promise<{ bytes: number }>;
 };
 
 export type RCDEAppConfig = {
@@ -78,81 +172,71 @@ export type ViewerProps = {
   contractFilesRefetchKey?: number;
   selectedFileId?: number;
   onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
+  onObjectClick?: (event: ViewerClickEvent) => void;
+  onObjectHover?: (event: ViewerHoverEvent) => void;
+  memoryMonitoring?: ViewerMemoryMonitoringOptions;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
-// Helper function to check if a ray intersects with a Box3
-const rayIntersectBox = (
-  ray: { origin: Vector3; direction: Vector3 },
-  box: Box3
-): Vector3 | null => {
-  const invDir = new Vector3(1 / ray.direction.x, 1 / ray.direction.y, 1 / ray.direction.z);
-  const t1 = (box.min.x - ray.origin.x) * invDir.x;
-  const t2 = (box.max.x - ray.origin.x) * invDir.x;
-  const t3 = (box.min.y - ray.origin.y) * invDir.y;
-  const t4 = (box.max.y - ray.origin.y) * invDir.y;
-  const t5 = (box.min.z - ray.origin.z) * invDir.z;
-  const t6 = (box.max.z - ray.origin.z) * invDir.z;
-
-  const tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
-  const tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
-
-  if (tmax < 0 || tmin > tmax) {
-    return null;
-  }
-
-  const t = tmin > 0 ? tmin : tmax;
-  return ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
-};
-
-// Component to handle click events inside Canvas
 const ClickHandler: FC<{
   views: (ContractFileProps & { boundingBox: Box3 })[];
   referencePoint: Vector3;
   onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
-}> = ({ views, referencePoint, onContractFileClick }) => {
+  onObjectClick?: (event: ViewerClickEvent) => void;
+}> = ({ views, referencePoint, onContractFileClick, onObjectClick }) => {
   const { camera, gl } = useThree();
   const raycaster = useMemo(() => new Raycaster(), []);
 
+  const viewsRef = useRef(views);
+  const referencePointRef = useRef(referencePoint);
+  const cameraRef = useRef(camera);
+  const onContractFileClickRef = useRef(onContractFileClick);
+  const onObjectClickRef = useRef(onObjectClick);
+
+  useLayoutEffect(() => {
+    viewsRef.current = views;
+    referencePointRef.current = referencePoint;
+    cameraRef.current = camera;
+    onContractFileClickRef.current = onContractFileClick;
+    onObjectClickRef.current = onObjectClick;
+  });
+
   const handleClick = useCallback(
     (event: MouseEvent) => {
-      if (!onContractFileClick) return;
+      if (!onContractFileClickRef.current && !onObjectClickRef.current) return;
 
       const rect = gl.domElement.getBoundingClientRect();
       const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-      raycaster.setFromCamera(new Vector2(x, y), camera);
-      const ray = raycaster.ray;
+      const hit = raycastViews(
+        new Vector2(x, y),
+        cameraRef.current,
+        raycaster,
+        viewsRef.current,
+        referencePointRef.current
+      );
 
-      // Find the closest bounding box that intersects with the ray
-      let closestIntersection: {
-        view: ContractFileProps & { boundingBox: Box3 };
-        distance: number;
-      } | null = null;
-
-      for (const view of views) {
-        // Apply reference point offset to bounding box
-        const offsetBoundingBox = view.boundingBox.clone();
-        offsetBoundingBox.translate(referencePoint);
-
-        const intersection = rayIntersectBox(ray, offsetBoundingBox);
-        if (intersection) {
-          const distance = ray.origin.distanceTo(intersection);
-          if (!closestIntersection || distance < closestIntersection.distance) {
-            closestIntersection = { view, distance };
-          }
-        }
-      }
-
-      if (closestIntersection) {
-        onContractFileClick(closestIntersection.view.file, closestIntersection.view.boundingBox);
+      if (hit) {
+        onContractFileClickRef.current?.(hit.view.file, hit.view.boundingBox);
+        onObjectClickRef.current?.({
+          hit: true,
+          file: hit.view.file,
+          boundingBox: hit.view.boundingBox,
+          intersectionPoint: hit.intersectionPoint,
+          localIntersectionPoint: hit.intersectionPoint.clone().sub(referencePointRef.current),
+          screenPosition: { x: event.clientX, y: event.clientY },
+        });
       } else {
-        onContractFileClick(undefined, undefined);
+        onContractFileClickRef.current?.(undefined, undefined);
+        onObjectClickRef.current?.({
+          hit: false,
+          screenPosition: { x: event.clientX, y: event.clientY },
+        });
       }
     },
-    [views, referencePoint, onContractFileClick, camera, gl, raycaster]
+    [gl, raycaster]
   );
 
   useEffect(() => {
@@ -165,6 +249,178 @@ const ClickHandler: FC<{
 
   return null;
 };
+
+const HOVER_THROTTLE_MS = 50;
+
+const HoverHandler: FC<{
+  views: (ContractFileProps & { boundingBox: Box3 })[];
+  referencePoint: Vector3;
+  onObjectHover: (event: ViewerHoverEvent) => void;
+}> = ({ views, referencePoint, onObjectHover }) => {
+  const { camera, gl } = useThree();
+  const raycaster = useMemo(() => new Raycaster(), []);
+  const lastHoveredFileIdRef = useRef<number | undefined>(undefined);
+  const throttleTimerRef = useRef<number | null>(null);
+  const pendingEventRef = useRef<MouseEvent | null>(null);
+  const onObjectHoverRef = useRef(onObjectHover);
+  const viewsRef = useRef(views);
+  const referencePointRef = useRef(referencePoint);
+  const cameraRef = useRef(camera);
+
+  useLayoutEffect(() => {
+    onObjectHoverRef.current = onObjectHover;
+    viewsRef.current = views;
+    referencePointRef.current = referencePoint;
+    cameraRef.current = camera;
+  });
+
+  const processEvent = useCallback(
+    (event: MouseEvent) => {
+      const rect = gl.domElement.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      const hit = raycastViews(
+        new Vector2(x, y),
+        cameraRef.current,
+        raycaster,
+        viewsRef.current,
+        referencePointRef.current
+      );
+      const fileId = hit?.view.file.id;
+
+      if (fileId === lastHoveredFileIdRef.current) return;
+      lastHoveredFileIdRef.current = fileId;
+
+      if (hit) {
+        onObjectHoverRef.current({
+          hit: true,
+          file: hit.view.file,
+          boundingBox: hit.view.boundingBox,
+          screenPosition: { x: event.clientX, y: event.clientY },
+        });
+      } else {
+        onObjectHoverRef.current({ hit: false });
+      }
+    },
+    [gl, raycaster]
+  );
+
+  const handleMouseMove = useCallback(
+    (event: MouseEvent) => {
+      pendingEventRef.current = event;
+
+      if (throttleTimerRef.current !== null) return;
+
+      processEvent(event);
+      pendingEventRef.current = null;
+
+      throttleTimerRef.current = window.setTimeout(() => {
+        throttleTimerRef.current = null;
+        const pending = pendingEventRef.current;
+        if (pending) {
+          pendingEventRef.current = null;
+          processEvent(pending);
+        }
+      }, HOVER_THROTTLE_MS);
+    },
+    [processEvent]
+  );
+
+  const emitLeave = useCallback(() => {
+    if (lastHoveredFileIdRef.current !== undefined) {
+      lastHoveredFileIdRef.current = undefined;
+      onObjectHoverRef.current({ hit: false });
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = lastHoveredFileIdRef.current;
+    if (id !== undefined && !views.some((v) => v.file.id === id)) {
+      emitLeave();
+    }
+  }, [views, emitLeave]);
+
+  // リスナー登録: gl のみに依存し、views / referencePoint の変化で再登録しない
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const onMove = (e: MouseEvent) => handleMouseMove(e);
+    const onLeave = () => {
+      if (throttleTimerRef.current !== null) {
+        window.clearTimeout(throttleTimerRef.current);
+        throttleTimerRef.current = null;
+      }
+      pendingEventRef.current = null;
+      emitLeave();
+    };
+    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mouseleave", onLeave);
+    return () => {
+      canvas.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mouseleave", onLeave);
+    };
+  }, [gl, handleMouseMove, emitLeave]);
+
+  // アンマウント時のみ: タイマ解除 + leave 通知
+  useEffect(
+    () => () => {
+      if (throttleTimerRef.current !== null) {
+        window.clearTimeout(throttleTimerRef.current);
+        throttleTimerRef.current = null;
+      }
+      pendingEventRef.current = null;
+      emitLeave();
+    },
+    [emitLeave]
+  );
+
+  return null;
+};
+
+const RendererMemoryBridge: FC<{ onRendererReady: (renderer: WebGLRenderer | null) => void }> = ({
+  onRendererReady,
+}) => {
+  const { gl } = useThree();
+
+  useEffect(() => {
+    onRendererReady(gl);
+    return () => {
+      onRendererReady(null);
+    };
+  }, [gl, onRendererReady]);
+
+  return null;
+};
+
+type MemoryEstimateSummary = {
+  loadedFileCount: number;
+  loadedTileCount: number;
+  compressedBytes: number;
+  decodedBytes: number;
+  estimatedViewerBytes: number;
+};
+
+function summarizeMemoryEstimates(
+  estimates: Record<number, ViewerFileMemoryEstimate>
+): MemoryEstimateSummary {
+  let loadedTileCount = 0;
+  let compressedBytes = 0;
+  let decodedBytes = 0;
+
+  for (const estimate of Object.values(estimates)) {
+    loadedTileCount += estimate.loadedTileCount;
+    compressedBytes += estimate.compressedBytes;
+    decodedBytes += estimate.decodedBytes;
+  }
+
+  return {
+    loadedFileCount: Object.keys(estimates).length,
+    loadedTileCount,
+    compressedBytes,
+    decodedBytes,
+    estimatedViewerBytes: decodedBytes,
+  };
+}
 
 const Viewer: FC<ViewerProps> = (props) => {
   const { load, containers } = useContractFiles();
@@ -180,13 +436,49 @@ const Viewer: FC<ViewerProps> = (props) => {
     contractFilesRefetchKey,
     selectedFileId,
     onContractFileClick,
+    onObjectClick,
+    onObjectHover,
+    memoryMonitoring,
   } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point } = useReferencePoint();
   const [views, setViews] = useState<(ContractFileProps & { boundingBox: Box3 })[]>([]);
+  const [fileMemoryEstimates, setFileMemoryEstimates] = useState<
+    Record<number, ViewerFileMemoryEstimate>
+  >({});
+
+  const metaCacheRef = useRef<
+    Map<number, { meta: PointCloudMeta; boundingBox: Box3; batchId?: number }>
+  >(new Map());
+  const metaCacheProjectKeyRef = useRef<string>("");
+  const metaCacheClientRef = useRef<RCDEClient | undefined>(undefined);
 
   const transformRootRef = useRef<Group>(null);
   const cameraRef = useRef<PerspectiveCamera>(null);
+  const rendererRef = useRef<WebGLRenderer | null>(null);
+  const memoryMonitoringRef = useRef<ViewerMemoryMonitoringOptions | undefined>(memoryMonitoring);
+  const activeMonitoringRef = useRef<ViewerMemoryMonitoringOptions | undefined>(
+    memoryMonitoring?.enabled === true ? memoryMonitoring : undefined
+  );
+  const lastSampleAtRef = useRef(0);
+  const precisePageBytesMeasuredAtRef = useRef<number | undefined>(undefined);
+  const precisePageMeasurementGenerationRef = useRef(0);
+  const fileMemoryEstimatesRef = useRef<Record<number, ViewerFileMemoryEstimate>>({});
+  const memoryEstimateSummaryRef = useRef({
+    loadedFileCount: 0,
+    loadedTileCount: 0,
+    compressedBytes: 0,
+    decodedBytes: 0,
+    estimatedViewerBytes: 0,
+  });
+  const lastEmittedMemorySampleRef = useRef<ViewerMemorySample | undefined>(undefined);
+  const visibleFileIdsRef = useRef<number[]>([]);
+  const precisePageBytesRef = useRef<number | undefined>(undefined);
+  const precisePageMeasurementInFlightRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const memoryAlertLevelRef = useRef<ViewerMemoryAlertLevel | undefined>(undefined);
+  const emitMemorySampleRef = useRef<(opts?: { force?: boolean }) => void>(() => {});
+  const refreshPrecisePageMemoryRef = useRef<() => Promise<void>>(async () => {});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
@@ -194,6 +486,22 @@ const Viewer: FC<ViewerProps> = (props) => {
     pointSize: 2,
     opacity: 100,
   });
+  const isMemoryMonitoringEnabled = memoryMonitoring?.enabled === true;
+  const memorySampleIntervalMs = Math.max(memoryMonitoring?.sampleIntervalMs ?? 15000, 1000);
+
+  const clearMemoryAlertLevel = useCallback(() => {
+    const previousLevel = memoryAlertLevelRef.current;
+    const lastSample = lastEmittedMemorySampleRef.current;
+    if (previousLevel !== undefined && lastSample !== undefined) {
+      const handler =
+        memoryMonitoringRef.current?.onAlertLevelChange ??
+        activeMonitoringRef.current?.onAlertLevelChange;
+      handler?.(undefined, lastSample);
+      activeMonitoringRef.current = undefined;
+    }
+    memoryAlertLevelRef.current = undefined;
+    lastEmittedMemorySampleRef.current = undefined;
+  }, []);
 
   // File-specific transforms (fileId -> translation + rotation)
   const [fileTransforms, setFileTransforms] = useState<
@@ -272,8 +580,8 @@ const Viewer: FC<ViewerProps> = (props) => {
   const metadataFetchKey = useMemo(() => {
     return containers
       .filter((container) => container.visible && isPclodCompleted(container.file))
-      .map((container) => container.file.id)
-      .sort((left, right) => left - right)
+      .map((container) => `${container.file.id}:${container.file.batchProcessingResult?.id ?? ""}`)
+      .sort()
       .join(",");
   }, [containers]);
 
@@ -286,33 +594,145 @@ const Viewer: FC<ViewerProps> = (props) => {
     );
 
     if (targets.length === 0) {
+      metaCacheRef.current.clear();
+      metaCacheProjectKeyRef.current = "";
+      metaCacheClientRef.current = undefined;
       setViews([]);
       return;
     }
 
-    const promises = targets.map((container) => {
-      const id = container.file.id;
+    // project / client が切り替わったらキャッシュを破棄して全件再取得する
+    const projectKey = `${project.constructionId}:${project.contractId}`;
+    if (metaCacheProjectKeyRef.current !== projectKey || metaCacheClientRef.current !== client) {
+      metaCacheRef.current.clear();
+      metaCacheProjectKeyRef.current = projectKey;
+      metaCacheClientRef.current = client;
+    }
+
+    // pclod 再生成でバッチ ID が変わったエントリを破棄する
+    for (const target of targets) {
+      const id = target.file.id;
+      if (id === undefined) continue;
+      const cached = metaCacheRef.current.get(id);
+      if (cached && cached.batchId !== target.file.batchProcessingResult?.id) {
+        metaCacheRef.current.delete(id);
+      }
+    }
+
+    const targetIds = targets.map((c) => c.file.id).filter((id): id is number => id !== undefined);
+    const { toFetch: toFetchIds, toRemove } = computeMetadataFetchPlan(
+      targetIds,
+      new Set(metaCacheRef.current.keys())
+    );
+
+    for (const id of toRemove) {
+      metaCacheRef.current.delete(id);
+    }
+
+    const toFetchIdSet = new Set(toFetchIds);
+    const toFetch = targets.filter((c) => c.file.id !== undefined && toFetchIdSet.has(c.file.id));
+
+    const buildViews = () => {
+      const nextViews = targets
+        .map((container) => {
+          const id = container.file.id;
+          if (id === undefined) return undefined;
+          const cached = metaCacheRef.current.get(id);
+          if (!cached) return undefined;
+          return { file: container.file, meta: cached.meta, boundingBox: cached.boundingBox };
+        })
+        .filter((v): v is ContractFileProps & { boundingBox: Box3 } => v !== undefined);
+      setViews(nextViews);
+    };
+
+    if (toFetch.length === 0) {
+      buildViews();
+      return;
+    }
+
+    let cancelled = false;
+
+    const promises = toFetch.map((container) => {
+      const id = container.file.id!;
+      const batchId = container.file.batchProcessingResult?.id;
       return client
         .getContractFileMetadata({ ...project, contractFileId: id })
         .then((d) => {
+          if (cancelled) return;
           const meta = d as unknown as PointCloudMeta;
           const { min, max } = meta.bounds;
           const boundingBox = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
-          return { file: container.file, meta, boundingBox };
+          metaCacheRef.current.set(id, { meta, boundingBox, batchId });
         })
         .catch((e) => {
           console.error(e);
-          return undefined;
         });
     });
 
-    Promise.all(promises).then((vs) => {
-      setViews(vs.filter((v): v is ContractFileProps & { boundingBox: Box3 } => v !== undefined));
+    Promise.all(promises).then(() => {
+      if (cancelled) return;
+      buildViews();
     });
+
+    return () => {
+      cancelled = true;
+    };
     // metadataFetchKey が同じなら contractFilesRefetchKey 由来の containers 参照更新では再取得しない
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadataFetchKey, project, client]);
 
+  // deps を空に保つこと。identity が変わると handleFileMemoryEstimateChange → loader まで
+  // 伝播し、点群ロード経路が再走する。
+  const commitFileMemoryEstimates = useCallback(
+    (next: Record<number, ViewerFileMemoryEstimate>) => {
+      fileMemoryEstimatesRef.current = next;
+      memoryEstimateSummaryRef.current = summarizeMemoryEstimates(next);
+      setFileMemoryEstimates(next);
+    },
+    []
+  );
+
+  const handleFileMemoryEstimateChange = useCallback(
+    (estimate: ViewerFileMemoryEstimate) => {
+      const prev = fileMemoryEstimatesRef.current;
+      const current = prev[estimate.fileId];
+      const isZeroEstimate =
+        estimate.loadedTileCount === 0 &&
+        estimate.compressedBytes === 0 &&
+        estimate.decodedBytes === 0 &&
+        estimate.totalBytes === 0;
+
+      if (isZeroEstimate) {
+        if (current === undefined) {
+          return;
+        }
+        const next = { ...prev };
+        delete next[estimate.fileId];
+        commitFileMemoryEstimates(next);
+        return;
+      }
+
+      if (
+        current?.loadedTileCount === estimate.loadedTileCount &&
+        current.compressedBytes === estimate.compressedBytes &&
+        current.decodedBytes === estimate.decodedBytes &&
+        current.totalBytes === estimate.totalBytes
+      ) {
+        return;
+      }
+
+      const next = {
+        ...prev,
+        [estimate.fileId]: estimate,
+      };
+      commitFileMemoryEstimates(next);
+    },
+    [commitFileMemoryEstimates]
+  );
+
+  const handleRendererReady = useCallback((renderer: WebGLRenderer | null) => {
+    rendererRef.current = renderer;
+  }, []);
   const applyAppearanceToScene = useCallback(
     (root: Group | null, ps: number, opPercent: number) => {
       if (!root) return;
@@ -351,9 +771,231 @@ const Viewer: FC<ViewerProps> = (props) => {
     []
   );
 
+  const visibleFileIds = useMemo(
+    () =>
+      views.map((view) => view.file.id).filter((fileId): fileId is number => fileId !== undefined),
+    [views]
+  );
+
+  const visibleFileIdsKey = useMemo(() => visibleFileIds.join(","), [visibleFileIds]);
+
+  // この effect は有効化 effect（下方）より宣言順が前でなければならない。
+  // 無効化コミットでは有効化 effect 本体の clearMemoryAlertLevel が activeMonitoringRef を
+  // 読むため、その時点で最新化されている必要がある。
+  useEffect(() => {
+    memoryMonitoringRef.current = memoryMonitoring;
+    if (memoryMonitoring?.enabled === true) {
+      activeMonitoringRef.current = memoryMonitoring;
+    }
+  }, [memoryMonitoring]);
+
+  // emitMemorySample とゴースト刈り取り effect が読むため、有効化 effect より前に同期する。
+  useEffect(() => {
+    visibleFileIdsRef.current = visibleFileIds;
+  }, [visibleFileIds]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      clearMemoryAlertLevel();
+      isMountedRef.current = false;
+      rendererRef.current = null;
+    };
+  }, [clearMemoryAlertLevel]);
+
+  const emitMemorySample = useCallback(
+    ({ force = false }: { force?: boolean } = {}) => {
+      if (memoryMonitoringRef.current?.enabled !== true) {
+        return;
+      }
+
+      const now = Date.now();
+      if (!force) {
+        if (now - lastSampleAtRef.current < memorySampleIntervalMs) {
+          return;
+        }
+        lastSampleAtRef.current = now;
+      }
+
+      const perf = performance as BrowserPerformance;
+      const jsHeapBytes =
+        typeof perf.memory?.usedJSHeapSize === "number" ? perf.memory.usedJSHeapSize : undefined;
+      const pageBytes = precisePageBytesRef.current;
+      const pageBytesMeasuredAt = precisePageBytesMeasuredAtRef.current;
+
+      let source: ViewerMemorySource = "estimate";
+      if (pageBytes !== undefined) {
+        source = "browser-precise";
+      } else if (jsHeapBytes !== undefined) {
+        source = "js-heap";
+      }
+
+      const rendererMemory = rendererRef.current?.info.memory;
+      const estimateSummary = memoryEstimateSummaryRef.current;
+      const sample: ViewerMemorySample = {
+        timestamp: now,
+        source,
+        estimatedViewerBytes: estimateSummary.estimatedViewerBytes,
+        pageBytes,
+        pageBytesMeasuredAt,
+        jsHeapBytes,
+        loadedFileCount: estimateSummary.loadedFileCount,
+        loadedTileCount: estimateSummary.loadedTileCount,
+        compressedBytes: estimateSummary.compressedBytes,
+        decodedBytes: estimateSummary.decodedBytes,
+        geometryCount: rendererMemory?.geometries,
+        textureCount: rendererMemory?.textures,
+        visibleFileIds: [...visibleFileIdsRef.current],
+      };
+      lastEmittedMemorySampleRef.current = sample;
+
+      const options = memoryMonitoringRef.current;
+      try {
+        options?.onSample?.(sample);
+      } catch {
+        // 利用側コールバックの例外は監視ラインに波及させない
+      }
+
+      const previousLevel = memoryAlertLevelRef.current;
+      const { nextLevel, alert } = evaluateViewerMemoryAlert({
+        sample,
+        thresholds: options?.thresholds,
+        previousLevel,
+      });
+      memoryAlertLevelRef.current = nextLevel;
+
+      if (nextLevel !== previousLevel) {
+        try {
+          options?.onAlertLevelChange?.(nextLevel, sample);
+        } catch {
+          // 利用側コールバックの例外は監視ラインに波及させない
+        }
+      }
+
+      if (alert !== undefined) {
+        try {
+          options?.onAlert?.(alert);
+        } catch {
+          // 利用側コールバックの例外は監視ラインに波及させない
+        }
+      }
+    },
+    [memorySampleIntervalMs]
+  );
+
+  const refreshPrecisePageMemory = useCallback(async () => {
+    if (
+      memoryMonitoringRef.current?.enabled !== true ||
+      precisePageMeasurementInFlightRef.current
+    ) {
+      return;
+    }
+
+    const generation = precisePageMeasurementGenerationRef.current;
+    const perf = performance as BrowserPerformance;
+    if (typeof perf.measureUserAgentSpecificMemory !== "function") {
+      precisePageBytesRef.current = undefined;
+      precisePageBytesMeasuredAtRef.current = undefined;
+      return;
+    }
+
+    precisePageMeasurementInFlightRef.current = true;
+    let shouldEmit = false;
+    try {
+      const result = await perf.measureUserAgentSpecificMemory();
+      if (!isMountedRef.current || generation !== precisePageMeasurementGenerationRef.current) {
+        return;
+      }
+      precisePageBytesRef.current = typeof result.bytes === "number" ? result.bytes : undefined;
+      precisePageBytesMeasuredAtRef.current =
+        typeof result.bytes === "number" ? Date.now() : undefined;
+      shouldEmit = true;
+    } catch {
+      if (!isMountedRef.current || generation !== precisePageMeasurementGenerationRef.current) {
+        return;
+      }
+      shouldEmit = precisePageBytesRef.current !== undefined;
+      precisePageBytesRef.current = undefined;
+      precisePageBytesMeasuredAtRef.current = undefined;
+    } finally {
+      precisePageMeasurementInFlightRef.current = false;
+    }
+    if (shouldEmit) {
+      emitMemorySample({ force: true });
+    }
+  }, [emitMemorySample]);
+
+  // 毎コミットで最新の関数参照を ref に同期。宣言順が後続の有効化 effect / interval effect
+  // よりも前であるため、初回コミットでも noop を掴まない。
+  useEffect(() => {
+    emitMemorySampleRef.current = emitMemorySample;
+    refreshPrecisePageMemoryRef.current = refreshPrecisePageMemory;
+  });
+
   useEffect(() => {
     applyAppearanceToScene(transformRootRef.current, appearance.pointSize, appearance.opacity);
   }, [appearance, applyAppearanceToScene]);
+
+  useEffect(() => {
+    if (!isMemoryMonitoringEnabled) {
+      clearMemoryAlertLevel();
+      activeMonitoringRef.current = undefined;
+      precisePageMeasurementGenerationRef.current += 1;
+      precisePageMeasurementInFlightRef.current = false;
+      precisePageBytesRef.current = undefined;
+      precisePageBytesMeasuredAtRef.current = undefined;
+      lastSampleAtRef.current = 0;
+      return;
+    }
+
+    // 無効化中にアンマウントされたファイルのゴースト推定値を刈り取る。
+    // まだ表示中のファイルの推定値は保持し、再有効化直後のサンプルが 0 値にならないようにする。
+    // fileMemoryEstimatesRef から読むことで、同一バッチで子が通知した最新値を失わない。
+    const activeFileIds = new Set(visibleFileIdsRef.current);
+    const current = fileMemoryEstimatesRef.current;
+    const currentKeys = Object.keys(current);
+    let changed = false;
+    const pruned: Record<number, ViewerFileMemoryEstimate> = {};
+    for (const key of currentKeys) {
+      if (activeFileIds.has(Number(key))) {
+        pruned[Number(key)] = current[Number(key)];
+      } else {
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      commitFileMemoryEstimates(pruned);
+    }
+
+    emitMemorySampleRef.current();
+    // 内部バグの保険。利用側コールバック例外は emitMemorySample 内で握る。
+    refreshPrecisePageMemoryRef.current().catch(() => {});
+  }, [isMemoryMonitoringEnabled, clearMemoryAlertLevel, commitFileMemoryEstimates]);
+
+  useEffect(() => {
+    if (!isMemoryMonitoringEnabled) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      emitMemorySampleRef.current();
+      // 内部バグの保険。利用側コールバック例外は emitMemorySample 内で握る。
+      refreshPrecisePageMemoryRef.current().catch(() => {});
+    }, memorySampleIntervalMs);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [isMemoryMonitoringEnabled, memorySampleIntervalMs]);
+
+  useEffect(() => {
+    if (!isMemoryMonitoringEnabled) {
+      return;
+    }
+
+    emitMemorySampleRef.current();
+  }, [isMemoryMonitoringEnabled, fileMemoryEstimates, visibleFileIdsKey]);
 
   useEffect(() => {
     const listener = (e: MessageEvent) => {
@@ -428,6 +1070,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     <Box width={1} height={1} display="flex">
       <Box width={1} height={1} flex={1} position="relative" overflow="hidden">
         <Canvas camera={camera} {...r3f?.canvas}>
+          <RendererMemoryBridge onRendererReady={handleRendererReady} />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <perspectiveCamera ref={cameraRef as any} />
           {r3f?.map !== false && <MapControls ref={controlsRef} makeDefault screenSpacePanning />}
@@ -468,6 +1111,9 @@ const Viewer: FC<ViewerProps> = (props) => {
                   inspectorPointSize={fileAppearance?.pointSize}
                   inspectorOpacity={fileAppearance?.opacity}
                   inspectorCoordinateSystem={fileAppearance?.coordinateSystem}
+                  onMemoryEstimateChange={
+                    isMemoryMonitoringEnabled ? handleFileMemoryEstimateChange : undefined
+                  }
                 />
               );
             })}
@@ -476,12 +1122,16 @@ const Viewer: FC<ViewerProps> = (props) => {
             )}
             <group position={point}>{positionOffsetComponent}</group>
             <group>{children}</group>
-            {onContractFileClick && (
+            {(onContractFileClick || onObjectClick) && (
               <ClickHandler
                 views={views}
                 referencePoint={point}
                 onContractFileClick={onContractFileClick}
+                onObjectClick={onObjectClick}
               />
+            )}
+            {onObjectHover && (
+              <HoverHandler views={views} referencePoint={point} onObjectHover={onObjectHover} />
             )}
           </group>
         </Canvas>

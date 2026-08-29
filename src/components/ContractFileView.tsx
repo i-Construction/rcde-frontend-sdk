@@ -8,11 +8,13 @@ import {
   PointCloudLODParser,
   PointCloudMeta,
 } from "@i-con/pcd-viewer";
-import { PNG } from "pngjs/browser";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Euler, Group, Object3D, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile } from "../contexts/contractFiles";
+import { parsePngBuffer } from "../lib/pngParse";
+import { loadTile } from "../lib/tileLoader";
+import type { ViewerFileMemoryEstimate } from "../lib/viewerMemory";
 
 // 座標系の型定義
 type CoordinateSystemType =
@@ -55,6 +57,7 @@ export type ContractFileProps = {
   inspectorPointSize?: number;
   inspectorOpacity?: number;
   inspectorCoordinateSystem?: CoordinateSystemType;
+  onMemoryEstimateChange?: (estimate: ViewerFileMemoryEstimate) => void;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -69,23 +72,100 @@ const ContractFileView = ({
   inspectorPointSize,
   inspectorOpacity,
   inspectorCoordinateSystem,
+  onMemoryEstimateChange,
 }: ContractFileProps) => {
   const { client, project } = useClient();
   const [init, setInit] = useState(false);
   const [hasIntensity, setHasIntensity] = useState(false);
   const groupRef = useRef<Group>(null);
+  const memoryEstimateFrameRef = useRef<number | null>(null);
+  const cacheStateKey = `${file.id ?? "unknown"}-${meta?.version ?? "unknown"}`;
+  const cacheStateRef = useRef<{
+    key: string;
+    pngBufferCache: Map<string, Promise<PngBuffer>>;
+    loadedTileMemory: Map<string, { compressedBytes: number; decodedBytes: number }>;
+  }>({
+    key: cacheStateKey,
+    pngBufferCache: new Map(),
+    loadedTileMemory: new Map(),
+  });
+  const fileIdRef = useRef(file.id);
+  const onMemoryEstimateChangeRef = useRef(onMemoryEstimateChange);
+
+  // file / meta.version の切り替わりと同じ commit で読み込み側も新しいキャッシュを参照できるよう、
+  // 描画中の ref として世代を持つ。破棄される render でも更新され得る pragmatic pattern なので、
+  // effect タイミングに戻す際は loader との race に注意すること。
+  if (cacheStateRef.current.key !== cacheStateKey) {
+    cacheStateRef.current = {
+      key: cacheStateKey,
+      pngBufferCache: new Map(),
+      loadedTileMemory: new Map(),
+    };
+  }
 
   // 基準点変更時に parser の参照が変わり PointCloudGrid 側の読み込み処理が
   // 再実行されても、同一ファイル・同一LODタイルであれば取得済みのPNGバッファを
   // 再利用してネットワーク再取得を避けるためのキャッシュ。
   // file / meta が変わった場合のみキャッシュを作り直す。
-  const pngBufferCache = useMemo(
-    () => new Map<string, Promise<PngBuffer>>(),
-    [file.id, meta?.version]
+  const emitMemoryEstimate = useCallback(() => {
+    if (file.id === undefined || onMemoryEstimateChange === undefined) {
+      return;
+    }
+
+    let loadedTileCount = 0;
+    let compressedBytes = 0;
+    let decodedBytes = 0;
+    for (const tile of cacheStateRef.current.loadedTileMemory.values()) {
+      loadedTileCount += 1;
+      compressedBytes += tile.compressedBytes;
+      decodedBytes += tile.decodedBytes;
+    }
+
+    onMemoryEstimateChange({
+      fileId: file.id,
+      loadedTileCount,
+      compressedBytes,
+      decodedBytes,
+      totalBytes: decodedBytes,
+    });
+  }, [file.id, onMemoryEstimateChange]);
+
+  const scheduleMemoryEstimateFlush = useCallback(() => {
+    if (onMemoryEstimateChange === undefined) {
+      return;
+    }
+    if (memoryEstimateFrameRef.current !== null) {
+      return;
+    }
+
+    memoryEstimateFrameRef.current = window.requestAnimationFrame(() => {
+      memoryEstimateFrameRef.current = null;
+      emitMemoryEstimate();
+    });
+  }, [emitMemoryEstimate, onMemoryEstimateChange]);
+
+  const registerTileMemory = useCallback(
+    (cacheKey: string, metrics: { compressedBytes: number; decodedBytes: number }) => {
+      const previous = cacheStateRef.current.loadedTileMemory.get(cacheKey);
+      if (
+        previous?.compressedBytes === metrics.compressedBytes &&
+        previous?.decodedBytes === metrics.decodedBytes
+      ) {
+        return;
+      }
+
+      cacheStateRef.current.loadedTileMemory.set(cacheKey, metrics);
+      scheduleMemoryEstimateFlush();
+    },
+    [scheduleMemoryEstimateFlush]
   );
 
+  // memoryMonitoring の ON/OFF で onMemoryEstimateChange が切り替わると
+  // loader 参照も変わるが、PNG キャッシュは file/meta 単位で保持しているため
+  // 同一タイルのネットワーク再取得は避けられる。
   const loader: PointCloudLODLoader<PngBuffer> = useCallback(
     (props) => {
+      const pngBufferCache = cacheStateRef.current.pngBufferCache;
       const { address, color } = props;
       const { lod, coordinate } = address;
       const addr = `${coordinate.x}-${coordinate.y}-${coordinate.z}`;
@@ -96,45 +176,25 @@ const ContractFileView = ({
         return cached;
       }
 
-      // Construct the URL of the PNG file from the address
-      // eslint-disable-next-line no-async-promise-executor
-      const promise = new Promise<PngBuffer>(async (resolve, reject) => {
-        const png = new PNG();
-        const props = {
-          contractId: project!.contractId!,
-          contractFileId: file.id!,
-          level: lod,
-          addr,
-        };
-        // Fetch position data
-        const pBuffer = await client?.getContractFileImagePosition(props);
-        if (pBuffer === undefined) {
-          reject(new Error("Failed to load PNG buffer"));
-          return;
-        }
-        const pParsed = png.parse(pBuffer);
-        pParsed.on("parsed", async () => {
-          if (color) {
-            // Fetch color data
-            const cBuffer = await client?.getContractFileImageColor(props);
-            if (cBuffer === undefined) {
-              reject(new Error("Failed to load PNG buffer"));
-              return;
-            }
-            const png2 = new PNG();
-            const cParsed = png2.parse(cBuffer);
-            cParsed.on("parsed", () => {
-              resolve({
-                position: pParsed,
-                color: cParsed,
-              });
-            });
-          } else {
-            resolve({
-              position: pParsed,
-            });
-          }
+      const requestProps = {
+        contractId: project!.contractId!,
+        contractFileId: file.id!,
+        level: lod,
+        addr,
+      };
+
+      const promise = loadTile(
+        () => client!.getContractFileImagePosition(requestProps),
+        color ? () => client!.getContractFileImageColor(requestProps) : undefined,
+        parsePngBuffer
+      ).then((result) => {
+        registerTileMemory(cacheKey, {
+          compressedBytes: result.compressedBytes,
+          decodedBytes: result.decodedBytes,
         });
+        const buf: PngBuffer = { position: result.position };
+        if (result.color) buf.color = result.color;
+        return buf;
       });
 
       pngBufferCache.set(cacheKey, promise);
@@ -143,8 +203,17 @@ const ContractFileView = ({
       });
       return promise;
     },
-    [client, project, file, pngBufferCache]
+    [client, project, file, registerTileMemory]
   );
+
+  useEffect(() => {
+    fileIdRef.current = file.id;
+    onMemoryEstimateChangeRef.current = onMemoryEstimateChange;
+  }, [file.id, onMemoryEstimateChange]);
+
+  useEffect(() => {
+    emitMemoryEstimate();
+  }, [cacheStateKey, emitMemoryEstimate]);
 
   useEffect(() => {
     (async () => {
@@ -176,6 +245,26 @@ const ContractFileView = ({
       setInit(true);
     })();
   }, [meta, loader]);
+
+  useEffect(() => {
+    return () => {
+      if (memoryEstimateFrameRef.current !== null) {
+        window.cancelAnimationFrame(memoryEstimateFrameRef.current);
+      }
+      cacheStateRef.current.pngBufferCache.clear();
+      cacheStateRef.current.loadedTileMemory.clear();
+      if (fileIdRef.current !== undefined && onMemoryEstimateChangeRef.current !== undefined) {
+        onMemoryEstimateChangeRef.current({
+          fileId: fileIdRef.current,
+          loadedTileCount: 0,
+          compressedBytes: 0,
+          decodedBytes: 0,
+          totalBytes: 0,
+        });
+      }
+    };
+    // cleanup はアンマウント時だけに限定する。依存変更時にキャッシュを破棄しない。
+  }, []);
 
   // Shift metadata considering the reference point
   const shiftedMeta = useMemo(() => {
