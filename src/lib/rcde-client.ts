@@ -267,22 +267,41 @@ export class RCDEClient {
    * ContractCreateFor3LeggedParams）に status フィールドが無く、送っても echo の Bind が捨てるため。
    * 作成直後の状態は R-CDE 側が決める（2-legged は受注者がダミーなので承認済みまで自動で進む）。
    *
-   * TODO: R-CDE が必須にしている unitPrice / unitVolume をまだ送っていないため、
-   * 現状このメソッドは 400 で失敗する。3-legged はさらに contracteeEmail / contractorEmail が要る。
-   * 引数が増える破壊的変更になるので別 PR で対応する。
+   * unitPrice / unitVolume は R-CDE が `validate:"required"` にしている（uint64 なのでゼロ値は
+   * required 不合格になる）ため必須で受け取る。1 以上を渡すこと。
+   *
+   * contracteeEmail / contractorEmail は 3-legged でどちらか必須（R-CDE の required_without）。
+   * 2-legged では受注者がダミー企業として自動設定されるため不要で、渡しても R-CDE は読まない。
+   * authType はクライアントのインスタンス側にあり引数の型では表現できないので、3-legged で
+   * どちらも無いケースは送信前に弾く。
    */
   async createContract(params: {
     constructionId: number;
     name: string;
     contractedAt: string;
+    unitPrice: number;
+    unitVolume: number;
+    contracteeEmail?: string;
+    contractorEmail?: string;
   }): Promise<Json> {
-    const { constructionId, name, contractedAt } = params;
+    const { constructionId, name, contractedAt, unitPrice, unitVolume } = params;
+    const { contracteeEmail, contractorEmail } = params;
+    const hasCounterpartyEmail = contracteeEmail !== undefined || contractorEmail !== undefined;
+    if (this.authType === "3legged" && !hasCounterpartyEmail) {
+      throw new Error(
+        "createContract: 3legged では contracteeEmail か contractorEmail のどちらかが必要です"
+      );
+    }
     const url = this.getApiPath("/contract");
     const requestBody: Record<string, unknown> = {
       name,
       contractedAt,
       constructionId,
+      unitPrice,
+      unitVolume,
     };
+    if (contracteeEmail !== undefined) requestBody.contracteeEmail = contracteeEmail;
+    if (contractorEmail !== undefined) requestBody.contractorEmail = contractorEmail;
     const res = await this.fetchImpl(url, {
       method: "POST",
       headers: this.headers(),
