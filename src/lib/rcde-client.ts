@@ -1,4 +1,5 @@
 import type { AuthType } from "../types/rcdeApiTypes";
+import { isBatchProcessingStatus, type BatchProcessingStatus } from "./batchProcessingStatus";
 import {
   uploadPointCloudFile,
   uploadPointCloudFileMultipart,
@@ -15,19 +16,39 @@ export type RCDEClientOptions = {
   fetchImpl?: typeof fetch;
 };
 
+/**
+ * PCLOD バッチ処理の結果。`status` の値集合は R-CDE の BatchProcessingResultStatus と 1 対 1 で、
+ * SDK が独自の値を混ぜることはない。R-CDE が SDK の知らない値を返したときだけ `status` が undefined になる。
+ * `rawStatus` は R-CDE が返した数値そのもので、常に読める（`status` が undefined のときの調査に使う）。
+ */
 export type BatchProcessingResult = {
   id: number;
-  status: 1 | 2 | 3;
+  status?: BatchProcessingStatus;
+  rawStatus: number;
 };
 
 export type ContractFile = {
   id: number;
   name: string;
-  status?: string;
+  /**
+   * 契約ファイル自体のライフサイクル（R-CDE の CDEStatus）。1: WIP / 2: Shared /
+   * 3: Published（技術検査済み） / 4: Archived（給付検査済み）。
+   *
+   * PCLOD の進捗とは別軸なので `batchProcessingResult.status` と混同しない。
+   * 値 4 が「Archived」と「PCLOD 失敗」で偶然かぶる点に注意する。
+   */
+  status?: number;
   uploadedAt?: string;
   batchProcessingResult?: BatchProcessingResult;
-  /** batchProcessingResult.status が RCDE 既知値 (1|2|3) 以外のとき true */
-  hasUnknownBatchStatus?: boolean;
+};
+
+/** API から届いたままの契約ファイル。検証前なので batchProcessingResult の中身は unknown 扱いにする */
+type RawContractFile = {
+  id: number;
+  name: string;
+  status?: number;
+  uploadedAt?: string;
+  batchProcessingResult?: { id?: unknown; status?: unknown } | null;
 };
 
 type Json = Record<string, unknown>;
@@ -73,7 +94,7 @@ export class RCDEClient {
       headers: this.headers(),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { contractFiles: ContractFile[]; total?: number };
+    const data = (await res.json()) as { contractFiles: RawContractFile[]; total?: number };
     const contractFiles = (data.contractFiles ?? []).map(parseContractFile);
     return { contractFiles };
   }
@@ -239,22 +260,29 @@ export class RCDEClient {
     return { contracts: data.contracts ?? [] };
   }
 
+  /**
+   * 契約を作成する。
+   *
+   * status は受け取らない。R-CDE の契約作成 API（ContractCreateFor2LeggedParams /
+   * ContractCreateFor3LeggedParams）に status フィールドが無く、送っても echo の Bind が捨てるため。
+   * 作成直後の状態は R-CDE 側が決める（2-legged は受注者がダミーなので承認済みまで自動で進む）。
+   *
+   * TODO: R-CDE が必須にしている unitPrice / unitVolume をまだ送っていないため、
+   * 現状このメソッドは 400 で失敗する。3-legged はさらに contracteeEmail / contractorEmail が要る。
+   * 引数が増える破壊的変更になるので別 PR で対応する。
+   */
   async createContract(params: {
     constructionId: number;
     name: string;
     contractedAt: string;
-    status?: string;
   }): Promise<Json> {
-    const { constructionId, name, contractedAt, status } = params;
+    const { constructionId, name, contractedAt } = params;
     const url = this.getApiPath("/contract");
     const requestBody: Record<string, unknown> = {
       name,
       contractedAt,
       constructionId,
     };
-    if (status !== undefined) {
-      requestBody.status = status;
-    }
     const res = await this.fetchImpl(url, {
       method: "POST",
       headers: this.headers(),
@@ -279,45 +307,41 @@ export type Contract = {
   id: number;
   name: string;
   contractedAt?: string;
-  status?: string;
+  /**
+   * 契約の承認ライフサイクル（R-CDE の ContactStatus）。1: 作成中（未承認） / 2: 作成済み（承認済み）。
+   *
+   * 契約ファイルの `ContractFile.status`（CDEStatus）とも PCLOD の
+   * `batchProcessingResult.status`（BatchProcessingResultStatus）とも別軸なので混同しない。
+   */
+  status?: number;
 };
 
-function isKnownBatchStatus(status: number): status is BatchProcessingResult["status"] {
-  const isStart = status === 1;
-  const isInProgress = status === 2;
-  const isFinish = status === 3;
-  return isStart || isInProgress || isFinish;
+function parseBatchProcessingResult(
+  rawBatchResult: RawContractFile["batchProcessingResult"]
+): BatchProcessingResult | undefined {
+  // R-CDE は nil のとき batchProcessingResult のキーごと落とす（Go 側が omitempty 付きポインタ）ので
+  // 実際に null は届かない。ただしここは res.json() 由来の未検証 JSON を受ける境界で、null を素通しすると
+  // 分割代入が TypeError になり .map(parseContractFile) ごと reject して一覧が丸ごと落ちる
+  if (rawBatchResult == null) return undefined;
+  const { id, status } = rawBatchResult;
+  if (typeof id !== "number") return undefined;
+  if (typeof status !== "number") return undefined;
+  // R-CDE と SDK のステータス値集合がずれたときは status を undefined にする。生値は rawStatus に残るので、
+  // 利用側が処理中と誤認して待ち続けることも、原因を追えなくなることも起きない
+  return isBatchProcessingStatus(status)
+    ? { id, status, rawStatus: status }
+    : { id, rawStatus: status };
 }
 
-function parseContractFile(raw: ContractFile): ContractFile {
-  const batchProcessingResult = raw.batchProcessingResult;
-  const hasBatchResult =
-    batchProcessingResult !== undefined &&
-    typeof batchProcessingResult.id === "number" &&
-    typeof batchProcessingResult.status === "number";
-
-  let normalizedBatchResult: BatchProcessingResult | undefined;
-  let hasUnknownBatchStatus = false;
-
-  if (hasBatchResult) {
-    const status = batchProcessingResult.status;
-    if (isKnownBatchStatus(status)) {
-      normalizedBatchResult = {
-        id: batchProcessingResult.id,
-        status,
-      };
-    } else {
-      hasUnknownBatchStatus = true;
-    }
-  }
+function parseContractFile(rawContractFile: RawContractFile): ContractFile {
+  const normalizedBatchResult = parseBatchProcessingResult(rawContractFile.batchProcessingResult);
 
   return {
-    id: raw.id,
-    name: raw.name,
-    status: raw.status,
-    uploadedAt: raw.uploadedAt,
+    id: rawContractFile.id,
+    name: rawContractFile.name,
+    status: rawContractFile.status,
+    uploadedAt: rawContractFile.uploadedAt,
     batchProcessingResult: normalizedBatchResult,
-    hasUnknownBatchStatus: hasUnknownBatchStatus ? true : undefined,
   };
 }
 

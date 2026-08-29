@@ -11,7 +11,7 @@ import { useClient } from "../contexts/client";
 import type { ContractFile, ContractFileContainer } from "../contexts/contractFiles";
 import { useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
-import { deriveFileStatusLabels, type PendingUploads } from "../lib/contractFileStatus";
+import { deriveFileStatus, type PendingUploads } from "../lib/contractFileStatus";
 import { useContractFileActions } from "./useContractFileActions";
 
 /**
@@ -35,7 +35,7 @@ const completedFile: ContractFile = {
   id: 1,
   name: "completed.las",
   uploadedAt,
-  batchProcessingResult: { id: 100, status: 3 },
+  batchProcessingResult: { id: 100, status: 3, rawStatus: 3 },
 };
 
 const toggleVisibilityMock = vi.fn();
@@ -146,42 +146,42 @@ describe("1 ファイル一覧の行データ生成（rows）", () => {
 
 // ---------------------------------------------------------------------------
 // 2: ステータス表示（getFileStatus）
-// ステータスラベルの導出ロジック自体は deriveFileStatusLabels の単体テスト
+// 状態導出ロジック自体は deriveFileStatus の単体テスト
 // （src/lib/contractFileStatus.test.ts）で網羅する。ここではフックが
 // pendingUploads から isPendingUpload を内部判定して委譲することのみ確認する。
 // テスト内容は以下の通り。
-// 1.【正常系】pendingUploads に含まれるファイルは「アップロード中」を返す（内部判定）
-// 2.【正常系】pendingUploads に無いファイルは deriveFileStatusLabels(file, false) と一致する
+// 1.【正常系】pendingUploads に含まれるファイルは upload:"uploading" を返す（内部判定）
+// 2.【正常系】pendingUploads に無いファイルは deriveFileStatus(file, false) と一致する
 // ---------------------------------------------------------------------------
 describe("2 ステータス表示（getFileStatus）", () => {
   // 【正常系】呼び出し側に isPendingUpload を委ねず、フックが pendingUploads から判定する
-  it("pendingUploads に含まれるファイルは「アップロード中」を返す", () => {
+  it("pendingUploads に含まれるファイルは upload:uploading, pclod:none を返す", () => {
     setupMocks({ containers: [makeContainer(completedFile, true)] });
 
     const { getFileStatus } = captureHook(() =>
       useContractFileActions({ 1: { name: "uploading.las" } })
     );
 
-    expect(getFileStatus(completedFile)).toEqual({ upload: "アップロード中", pclod: "-" });
+    expect(getFileStatus(completedFile)).toEqual({ upload: "uploading", pclod: "none" });
   });
 
-  // 【正常系】pendingUploads 非該当時は deriveFileStatusLabels に委譲した結果を返す
-  it("pendingUploads に無いファイルは deriveFileStatusLabels(file, false) と一致する", () => {
+  // 【正常系】pendingUploads 非該当時は deriveFileStatus に委譲した結果を返す
+  it("pendingUploads に無いファイルは deriveFileStatus(file, false) と一致する", () => {
     setupMocks({ containers: [makeContainer(completedFile, true)] });
 
     const { getFileStatus } = captureHook(() => useContractFileActions());
 
-    expect(getFileStatus(completedFile)).toEqual(deriveFileStatusLabels(completedFile, false));
+    expect(getFileStatus(completedFile)).toEqual(deriveFileStatus(completedFile, false));
   });
 
-  // 【異常系】呼び出し側の誤用（file 未指定）でも throw せず既定ラベルを返す（download/focus と対称）
-  it("file 自体が undefined でも例外を投げず既定ラベルを返す", () => {
+  // 【異常系】呼び出し側の誤用（file 未指定）でも throw せず既定の状態を返す（download/focus と対称）
+  it("file 自体が undefined でも例外を投げず既定の状態を返す", () => {
     const { getFileStatus } = captureHook(() => useContractFileActions());
 
     expect(() => getFileStatus(undefined as unknown as ContractFile)).not.toThrow();
     expect(getFileStatus(undefined as unknown as ContractFile)).toEqual({
-      upload: "アップロード中",
-      pclod: "待機中",
+      upload: "uploading",
+      pclod: "waiting",
     });
   });
 });
