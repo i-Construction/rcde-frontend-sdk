@@ -15,8 +15,9 @@ Git のコミットメッセージを生成するとき（ソース管理の「G
 
 - `src/lib/batchProcessingStatus.ts` の `BATCH_PROCESSING_STATUS` を、RCDE の `server/pkg/ent/schema/batchprocessingresult.go` の `BatchProcessingResultStatus` と 1 対 1 に保つ。
 - RCDE 側に値が増えたら、同じタイミングで `BATCH_PROCESSING_STATUS` と `PclodStatus`（`src/lib/contractFileStatus.ts`）の両方を更新する。
-- 値集合の対応は `src/lib/batchProcessingStatus.test.ts` で固定する。RCDE 側の追加時にこのテストが落ちることを、追随漏れの検知手段として使う。
-- 想定外の値は握り潰さず `"unknown"` として利用側へ渡す（生値は `rawStatus` に残す）。
+- 値集合の対応は `src/lib/batchProcessingStatus.test.ts` で固定する。SDK 側で `BATCH_PROCESSING_STATUS` を編集したときに、`PclodStatus` 側の追随漏れをこのテストと `never` 検査で検知する。
+- 想定外の値は握り潰さない。`BatchProcessingResult.status` を undefined にし、生値は `rawStatus` に残して利用側へ渡す。
+- `BatchProcessingResult.status` の値集合に SDK 独自の値を足さない。RCDE の値だけを入れ、SDK 側の状態表現（`unknown` など）は `PclodStatus` に置く。
 
 ### DON'T
 
@@ -24,3 +25,4 @@ Git のコミットメッセージを生成するとき（ソース管理の「G
 - 未知の値を `processing` などの既知状態へ寄せる（ポーリングが止まらなくなる）。
 - 検証せずに数値をステータス型へ型アサーションで通す。
 - 値集合の同期テストを「重複」として削除する。
+- SDK の CI が RCDE 側の追加を検知すると期待する。SDK は RCDE のソースを参照していないので、RCDE 単独で値が増えても CI は緑のままになる。実際の検知はランタイムの `status: undefined` 経路だけ。
