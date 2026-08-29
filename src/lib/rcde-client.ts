@@ -270,8 +270,10 @@ export class RCDEClient {
    * unitPrice / unitVolume は R-CDE が `validate:"required"` にしている（uint64 なのでゼロ値は
    * required 不合格になる）ため必須で受け取る。1 以上を渡すこと。
    *
-   * TODO: 3-legged は contracteeEmail / contractorEmail のどちらかが必須（required_without）で、
-   * まだ受け取れないため 3-legged では 400 で失敗する。別 PR で対応する。
+   * contracteeEmail / contractorEmail は 3-legged でどちらか必須（R-CDE の required_without）。
+   * 2-legged では受注者がダミー企業として自動設定されるため不要で、渡しても R-CDE は読まない。
+   * authType はクライアントのインスタンス側にあり引数の型では表現できないので、3-legged で
+   * どちらも無いケースは送信前に弾く。
    */
   async createContract(params: {
     constructionId: number;
@@ -279,8 +281,17 @@ export class RCDEClient {
     contractedAt: string;
     unitPrice: number;
     unitVolume: number;
+    contracteeEmail?: string;
+    contractorEmail?: string;
   }): Promise<Json> {
     const { constructionId, name, contractedAt, unitPrice, unitVolume } = params;
+    const { contracteeEmail, contractorEmail } = params;
+    const hasCounterpartyEmail = contracteeEmail !== undefined || contractorEmail !== undefined;
+    if (this.authType === "3legged" && !hasCounterpartyEmail) {
+      throw new Error(
+        "createContract: 3legged では contracteeEmail か contractorEmail のどちらかが必要です"
+      );
+    }
     const url = this.getApiPath("/contract");
     const requestBody: Record<string, unknown> = {
       name,
@@ -289,6 +300,8 @@ export class RCDEClient {
       unitPrice,
       unitVolume,
     };
+    if (contracteeEmail !== undefined) requestBody.contracteeEmail = contracteeEmail;
+    if (contractorEmail !== undefined) requestBody.contractorEmail = contractorEmail;
     const res = await this.fetchImpl(url, {
       method: "POST",
       headers: this.headers(),
