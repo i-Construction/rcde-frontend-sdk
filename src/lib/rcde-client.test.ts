@@ -152,11 +152,34 @@ describe("契約作成リクエストの組み立て（createContract）", () =>
         constructionId: 1,
         name: "契約A",
         contractedAt: "2024-11-19T06:56:31Z",
+        unitPrice: 1000,
+        unitVolume: 5,
       });
 
       expect(sentBodies).toEqual([
-        { constructionId: 1, name: "契約A", contractedAt: "2024-11-19T06:56:31Z" },
+        {
+          constructionId: 1,
+          name: "契約A",
+          contractedAt: "2024-11-19T06:56:31Z",
+          unitPrice: 1000,
+          unitVolume: 5,
+        },
       ]);
+    });
+
+    // R-CDE は UnitPrice / UnitVolume を validate:"required" にしており、送らないと必ず 400 になる
+    it("単価と数量を指定して契約を作成するとき、その 2 つをリクエストに載せる", async () => {
+      const { client, sentBodies } = createRequestCapturingClient({ id: 7 });
+
+      await client.createContract({
+        constructionId: 1,
+        name: "契約A",
+        contractedAt: "2024-11-19T06:56:31Z",
+        unitPrice: 1000,
+        unitVolume: 5,
+      });
+
+      expect(sentBodies[0]).toMatchObject({ unitPrice: 1000, unitVolume: 5 });
     });
   });
 });
