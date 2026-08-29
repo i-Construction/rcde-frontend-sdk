@@ -30,7 +30,14 @@ export type BatchProcessingResult = {
 export type ContractFile = {
   id: number;
   name: string;
-  status?: string;
+  /**
+   * 契約ファイル自体のライフサイクル（R-CDE の CDEStatus）。1: WIP / 2: Shared /
+   * 3: Published（技術検査済み） / 4: Archived（給付検査済み）。
+   *
+   * PCLOD の進捗とは別軸なので `batchProcessingResult.status` と混同しない。
+   * 値 4 が「Archived」と「PCLOD 失敗」で偶然かぶる点に注意する。
+   */
+  status?: number;
   uploadedAt?: string;
   batchProcessingResult?: BatchProcessingResult;
 };
@@ -39,7 +46,7 @@ export type ContractFile = {
 type RawContractFile = {
   id: number;
   name: string;
-  status?: string;
+  status?: number;
   uploadedAt?: string;
   batchProcessingResult?: { id?: unknown; status?: unknown } | null;
 };
