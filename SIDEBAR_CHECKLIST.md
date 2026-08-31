@@ -1,8 +1,8 @@
 # サイドバー機能 確認チェックリスト
 
-レフト/ライトサイドバーから切り出した機能（`useContractFileActions` フック / example の `ContractFileSidebar`）の動作確認項目。
+レフト/ライトサイドバーから切り出した機能（`useContractFileActions` フック / examples/standalone の `ContractFileSidebar`）の動作確認項目。
 
-- 確認場所: example アプリ `/viewer` → 現場・契約を選択後の画面
+- 確認場所: examples/standalone アプリ `/viewer` → 現場・契約を選択後の画面
 - 前提: PCLOD 済みの点群ファイルを含む契約
 - 関連ロジックの自動テスト: `src/hooks/useContractFileActions.test.ts`
 
@@ -16,7 +16,7 @@
 
 ## 2. ステータス表示（`getFileStatus`）
 
-`getFileStatus` は日本語ラベルではなく状態値（`upload`: `uploading` / `uploaded`、`pclod`: `none` / `waiting` / `processing` / `completed` / `failed` / `unknown`）を返す。文言は example 側の写像で決まる。
+`getFileStatus` は日本語ラベルではなく状態値（`upload`: `uploading` / `uploaded`、`pclod`: `none` / `waiting` / `processing` / `completed` / `failed` / `unknown`）を返す。文言は examples/standalone 側の写像で決まる。
 
 - [ ] 各行に「アップロード: xxx」チップが表示される
 - [ ] 各行に「PCLOD: xxx」チップが表示される
