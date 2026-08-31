@@ -1,7 +1,7 @@
 export const COMPLETED_TYPE = "contract_file.processing.completed";
 
 const TOP_LEVEL_KEYS = ["id", "type", "createdAt", "data"] as const;
-const SIGNATURE_HEADER_NAMES = ["x-rcde-signature", "x-webhook-signature", "stripe-signature"];
+const SIGNATURE_HEADER_NAMES = ["x-rcde-signature", "x-webhook-signature"];
 
 export type WireEnvelope = {
   id?: unknown;
@@ -240,12 +240,14 @@ function checkContentType(headers: Record<string, string>): EnvelopeCheckRow {
 
 function checkNoSignatureHeaders(headers: Record<string, string>): EnvelopeCheckRow {
   const present = SIGNATURE_HEADER_NAMES.filter((name) => headerValue(headers, name) !== null);
-  const ok = present.length === 0;
   return {
     id: "no-signature",
-    ok,
-    kind: "required",
-    label: ok ? "署名ヘダが無い" : `署名ヘダがある: ${present.join(", ")}`,
+    ok: true,
+    kind: "info",
+    label:
+      present.length === 0
+        ? "署名ヘッダーなし（現状の R-CDE は署名を付けない）"
+        : `署名ヘッダーあり: ${present.join(", ")}（このサンプルは検証しない）`,
   };
 }
 

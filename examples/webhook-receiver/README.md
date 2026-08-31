@@ -119,11 +119,12 @@ curl -sS http://localhost:8765/api/inbox/recv1/events
 - `data.contractFileId` が正の整数
 - `X-RCDE-Event-Id` が本体の `id` と一致
 - `Content-Type` が JSON
-- 署名ヘッダー（`X-RCDE-Signature` / `X-Webhook-Signature` / `Stripe-Signature`）が付いていない
 
 参考（合否には数えない）:
 
 - 知らないトップレベルキーが付いているか。R-CDE がフィールドを足しても不整合にはしない
+- 署名ヘッダー（`X-RCDE-Signature` / `X-Webhook-Signature`）が付いているか。
+  現状の R-CDE は付けないが、付いていても不整合にはしない（このサンプルは検証しない）
 - `data.constructionId` が付いているか
 
 「重複」と「無視」は整合とは別のバッジです。同じ `X-RCDE-Event-Id` を再び受けたら重複、
