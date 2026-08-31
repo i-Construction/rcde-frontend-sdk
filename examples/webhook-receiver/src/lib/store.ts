@@ -98,8 +98,16 @@ export function rememberEvent(
   };
   current.nextSeq += 1;
   current.events.unshift(stored);
-  if (current.events.length > MAX_EVENTS) {
-    current.events.length = MAX_EVENTS;
+  while (current.events.length > MAX_EVENTS) {
+    // 画面から消したときと同じ後始末をする。残さないと seenEventIds だけ増え続ける。
+    const evicted = current.events.pop();
+    if (
+      evicted !== undefined &&
+      evicted.eventId !== null &&
+      !current.events.some((event) => event.eventId === evicted.eventId)
+    ) {
+      current.seenEventIds.delete(evicted.eventId);
+    }
   }
   for (const listener of [...current.subscribers]) {
     try {
