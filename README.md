@@ -81,6 +81,19 @@ packages/
 
 ---
 
+## サンプルアプリ
+
+`examples/` に 2 つのサンプルがあります。選び分けは [examples/README.md](examples/README.md) を参照してください。
+
+| サンプル                                                         | 使う場面                                           | SDK 依存 |
+| ---------------------------------------------------------------- | -------------------------------------------------- | -------- |
+| [examples/standalone](examples/standalone/README.md)             | ブラウザから R-CDE の点群を表示・アップロードする  | あり     |
+| [examples/webhook-receiver](examples/webhook-receiver/README.md) | R-CDE の点群処理の完了通知を自分のサーバーで受ける | なし     |
+
+`examples/` は公開パッケージには含まれません。
+
+---
+
 ## 事前準備
 
 RCDEのサイトでアプリケーションを作成します。
@@ -508,3 +521,4 @@ function FileList({ pendingUploads }) {
 | 1.0.0      | 2025-07-30 | 初版作成                                                                                          |
 | 1.1.0      | 2025-10-21 | React 18.3.1 / Next 14.2.5 固定明記、Three.js依存性追記、ViewerBridge使用例追加、RCDE認証要約追加 |
 | 1.2.0      | 2026-06-25 | Node.js 24 / Next.js 16.2.9 対応、同梱 example 削除                                               |
+| 1.3.0      | 2026-08-31 | サンプルを examples/ 配下の 2 タイプ（standalone / webhook-receiver）に整理                       |
