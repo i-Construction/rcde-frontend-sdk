@@ -113,7 +113,7 @@ curl -sS http://localhost:8765/api/inbox/recv1/events
 
 必須（1 つでも欠けると「不整合」）:
 
-- 本体が JSON オブジェクトで、トップレベルが `id` / `type` / `createdAt` / `data` だけ
+- 本体が JSON オブジェクトで、トップレベルに `id` / `type` / `createdAt` / `data` が揃っている
 - `type` が `contract_file.processing.completed`
 - `id` と `createdAt` が空でない
 - `data.contractFileId` が正の整数
@@ -123,6 +123,7 @@ curl -sS http://localhost:8765/api/inbox/recv1/events
 
 参考（合否には数えない）:
 
+- 知らないトップレベルキーが付いているか。R-CDE がフィールドを足しても不整合にはしない
 - `data.constructionId` が付いているか
 
 「重複」と「無視」は整合とは別のバッジです。同じ `X-RCDE-Event-Id` を再び受けたら重複、

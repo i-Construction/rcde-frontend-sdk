@@ -90,6 +90,7 @@ export function assessCompletedEnvelope(input: EnvelopeAssessmentInput): Envelop
     checkHeaderMatchesBodyId(input.headers, input.parsed),
     checkContentType(input.headers),
     checkNoSignatureHeaders(input.headers),
+    extraTopLevelKeysInfo(body),
     constructionIdInfo(body),
   ];
   const pass = rows.filter((row) => row.kind === "required").every((row) => row.ok);
@@ -136,17 +137,31 @@ function checkTopLevelKeys(body: Record<string, unknown> | null): EnvelopeCheckR
       label: "トップレベルキーを判定できない",
     };
   }
-  const actual = Object.keys(body).sort();
-  const expected = [...TOP_LEVEL_KEYS].sort();
-  const ok =
-    actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+  const actual = Object.keys(body);
+  const missing = TOP_LEVEL_KEYS.filter((key) => !actual.includes(key));
+  const ok = missing.length === 0;
   return {
     id: "top-level-keys",
     ok,
     kind: "required",
     label: ok
-      ? "トップレベルは id / type / createdAt / data"
-      : `トップレベルキーが違う: ${actual.join(", ") || "(empty)"}`,
+      ? "トップレベルに id / type / createdAt / data が揃っている"
+      : `トップレベルキーが足りない: ${missing.join(", ")}`,
+  };
+}
+
+// 未知のキーは無視するのが受信側の正しい振る舞いなので、事実として出すだけにする。
+function extraTopLevelKeysInfo(body: Record<string, unknown> | null): EnvelopeCheckRow {
+  const known: readonly string[] = TOP_LEVEL_KEYS;
+  const extra = body === null ? [] : Object.keys(body).filter((key) => !known.includes(key));
+  return {
+    id: "extra-top-level-keys",
+    ok: true,
+    kind: "info",
+    label:
+      extra.length === 0
+        ? "未知のトップレベルキーなし"
+        : `未知のトップレベルキー: ${extra.join(", ")}（無視する）`,
   };
 }
 
