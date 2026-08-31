@@ -195,7 +195,8 @@ tunnel が起動していない、または Cloudflare 側との回線が切れ�
 `cloudflared tunnel --url http://localhost:8765` を立てて数秒待ってください。
 
 古いホストのまま変わらないときは、前の cloudflared がメトリクスポートに残っています。
-確認画面は `/ready` が 200 を返す tunnel だけを採用します。
+確認画面は `/ready` が 200 を返す tunnel のうち、**番号の若いポートで最初に見つかったもの**を
+採用します。古い方が `20241` に残っていると、新しい tunnel は拾われません。
 
 ```bash
 lsof -nP -iTCP:20241-20245 -sTCP:LISTEN

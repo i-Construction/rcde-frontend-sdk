@@ -27,11 +27,13 @@ async function originFromReadyMetricsPort(port: number): Promise<string | null> 
   }, PROBE_MS);
   const signal = controller.signal;
   try {
+    // /ready は本文を使わない。GET で受けると本文を読み切るまで接続を掴んだままになる。
     const [readyResponse, tunnelResponse] = await Promise.all([
-      fetch(`http://127.0.0.1:${port}/ready`, { signal, cache: "no-store" }),
+      fetch(`http://127.0.0.1:${port}/ready`, { method: "HEAD", signal, cache: "no-store" }),
       fetch(`http://127.0.0.1:${port}/quicktunnel`, { signal, cache: "no-store" }),
     ]);
     if (!readyResponse.ok || !tunnelResponse.ok) {
+      await tunnelResponse.body?.cancel();
       return null;
     }
     const body = (await tunnelResponse.json()) as { hostname?: unknown };
@@ -44,12 +46,16 @@ async function originFromReadyMetricsPort(port: number): Promise<string | null> 
 }
 
 export async function GET() {
-  const probed = await Promise.all(METRICS_PORTS.map(originFromReadyMetricsPort));
-  let origin: string | null = null;
-  for (const candidate of probed) {
+  // 番号の若いポートから順に見て、最初に応答した tunnel を採る。全ポートを毎回
+  // 叩くと、cloudflared が居ないときも 2 秒ごとに 10 リクエストを投げ続けることになる。
+  for (const port of METRICS_PORTS) {
+    const candidate = await originFromReadyMetricsPort(port);
     if (candidate !== null) {
-      origin = candidate;
+      return NextResponse.json(
+        { origin: candidate },
+        { headers: { "Cache-Control": "no-store" } }
+      );
     }
   }
-  return NextResponse.json({ origin }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ origin: null }, { headers: { "Cache-Control": "no-store" } });
 }
