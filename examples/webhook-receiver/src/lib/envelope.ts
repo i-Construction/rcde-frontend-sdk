@@ -1,7 +1,7 @@
 export const COMPLETED_TYPE = "contract_file.processing.completed";
 
 const TOP_LEVEL_KEYS = ["id", "type", "createdAt", "data"] as const;
-const SIGNATURE_HEADER_NAMES = ["x-rcde-signature", "x-webhook-signature"];
+export const SIGNATURE_HEADER_NAMES = ["x-rcde-signature", "x-webhook-signature"];
 
 export type WireEnvelope = {
   id?: unknown;

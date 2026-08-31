@@ -1,15 +1,33 @@
 import { NextResponse } from "next/server";
 import { isInboxTokenValid } from "@/lib/auth";
-import { COMPLETED_TYPE, headerEventId, parseEnvelope } from "@/lib/envelope";
+import {
+  COMPLETED_TYPE,
+  SIGNATURE_HEADER_NAMES,
+  headerEventId,
+  parseEnvelope,
+} from "@/lib/envelope";
 import { getSettings, rememberEvent } from "@/lib/store";
 
 export const runtime = "nodejs";
 
+// 保存したヘッダーは GET /events と SSE でそのまま返る。送信元が付けた
+// Authorization や Cookie を読めてしまわないよう、画面と整合チェックで
+// 使う分だけ残す。
+const STORED_HEADER_NAMES = [
+  "x-rcde-event-id",
+  "content-type",
+  "user-agent",
+  ...SIGNATURE_HEADER_NAMES,
+];
+
 function headersToRecord(headers: Headers): Record<string, string> {
   const out: Record<string, string> = {};
-  headers.forEach((headerValue, key) => {
-    out[key] = headerValue;
-  });
+  for (const name of STORED_HEADER_NAMES) {
+    const headerValue = headers.get(name);
+    if (headerValue !== null) {
+      out[name] = headerValue;
+    }
+  }
   return out;
 }
 
@@ -63,7 +81,6 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     ignoredType,
     duplicate: stored.duplicate,
     path,
-    rawBody,
   });
 
   const status = ignoredType ? 200 : settings.status;
