@@ -350,6 +350,8 @@ export function InboxClient({ token }: Props) {
   const [settings, setSettings] = useState<ReplySettings>({ status: 200, delayMs: 0 });
   const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // 入力中だけ下書きを持つ。null は「settings.delayMs をそのまま出す」。
+  const [delayDraft, setDelayDraft] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -404,7 +406,7 @@ export function InboxClient({ token }: Props) {
     const settingsResponse = await fetch(`/api/inbox/${token}/settings`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...settings, ...next }),
+      body: JSON.stringify(next),
     });
     if (settingsResponse.ok) {
       setSettings((await settingsResponse.json()) as ReplySettings);
@@ -453,9 +455,21 @@ export function InboxClient({ token }: Props) {
               type="number"
               min={0}
               max={30000}
-              value={settings.delayMs}
+              value={delayDraft ?? settings.delayMs}
               onChange={(e) => {
-                void saveSettings({ delayMs: Number(e.target.value) });
+                setDelayDraft(e.target.value);
+              }}
+              onBlur={(e) => {
+                const next = Number(e.currentTarget.value);
+                setDelayDraft(null);
+                if (Number.isFinite(next) && e.currentTarget.value !== "") {
+                  void saveSettings({ delayMs: next });
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.currentTarget.blur();
+                }
               }}
             />
           </label>
