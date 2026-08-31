@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { assessCompletedEnvelope } from "@/lib/envelope";
 import type { InboxEvent, ReplySettings } from "@/lib/store";
 import { ReplyFlowDiagram } from "./reply-flow-diagram";
@@ -77,8 +77,10 @@ function prettyBody(rawBody: string): string {
   }
 }
 
-function EnvelopeChecks({ event }: { event: InboxEvent }) {
-  const assessment = assessCompletedEnvelope(event);
+// 判定はイベントごとに不変で、中で rawBody を JSON.parse する。設定を触るたびに
+// 一覧の全件を再判定しないよう、event の参照が変わったときだけ計算する。
+const EnvelopeChecks = memo(function EnvelopeChecks({ event }: { event: InboxEvent }) {
+  const assessment = useMemo(() => assessCompletedEnvelope(event), [event]);
   return (
     <>
       <h2>整合</h2>
@@ -94,12 +96,12 @@ function EnvelopeChecks({ event }: { event: InboxEvent }) {
       </ul>
     </>
   );
-}
+});
 
-function EnvelopeBadge({ event }: { event: InboxEvent }) {
-  const pass = assessCompletedEnvelope(event).pass;
+const EnvelopeBadge = memo(function EnvelopeBadge({ event }: { event: InboxEvent }) {
+  const pass = useMemo(() => assessCompletedEnvelope(event).pass, [event]);
   return <span className={pass ? "badge pass" : "badge fail"}>{pass ? "整合" : "不整合"}</span>;
-}
+});
 
 function parseStreamMessage(
   raw: string
