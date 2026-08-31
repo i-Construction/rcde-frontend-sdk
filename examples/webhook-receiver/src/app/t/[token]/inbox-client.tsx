@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { assessCompletedEnvelope } from "@/lib/envelope";
 import type { InboxEvent, ReplySettings } from "@/lib/store";
 import { ReplyFlowDiagram } from "./reply-flow-diagram";
@@ -255,6 +255,9 @@ function PublicOriginInput({ token }: { token: string }) {
   const [publicOrigin, setPublicOrigin] = useState("");
   // 入力中だけ下書きを持つ。null は「publicOrigin をそのまま出す」。
   const [editingDraft, setEditingDraft] = useState<string | null>(null);
+  // tunnel から入れた値。手で貼ったら null にして、以後ポーリングに上書きさせない。
+  const tunnelOriginRef = useRef<string | null>(null);
+  const publicOriginRef = useRef("");
   const url = publicOrigin === "" ? "" : postUrl(publicOrigin, token);
   const draft = editingDraft ?? url;
   const copyEnabled = isPublicPostOrigin(publicOrigin);
@@ -272,6 +275,12 @@ function PublicOriginInput({ token }: { token: string }) {
         window.localStorage.removeItem(PUBLIC_ORIGIN_KEY);
         return;
       }
+      if (cancelled) {
+        return;
+      }
+      // 前回 tunnel から拾って保存した値なので、新しい tunnel が見つかれば入れ替えてよい。
+      tunnelOriginRef.current = parsed;
+      publicOriginRef.current = parsed;
       setPublicOrigin(parsed);
     }
 
@@ -289,6 +298,13 @@ function PublicOriginInput({ token }: { token: string }) {
         if (parsed === null || cancelled) {
           return;
         }
+        const current = publicOriginRef.current;
+        if (current !== "" && current !== tunnelOriginRef.current) {
+          // 手で貼った値。tunnel が生きていても上書きしない。
+          return;
+        }
+        tunnelOriginRef.current = parsed;
+        publicOriginRef.current = parsed;
         setPublicOrigin(parsed);
         window.localStorage.setItem(PUBLIC_ORIGIN_KEY, parsed);
       } catch {
@@ -301,6 +317,10 @@ function PublicOriginInput({ token }: { token: string }) {
       await applyLiveTunnel();
     })();
     const intervalId = window.setInterval(() => {
+      // 見えていない間は cloudflared のメトリクスポートを叩かない。
+      if (document.visibilityState === "hidden") {
+        return;
+      }
       void applyLiveTunnel();
     }, TUNNEL_POLL_MS);
     return () => {
@@ -311,6 +331,9 @@ function PublicOriginInput({ token }: { token: string }) {
 
   function commitDraft(raw: string) {
     const parsed = publicOriginFromInput(raw);
+    // 手入力を正とし、以後のポーリングでは戻さない。
+    tunnelOriginRef.current = null;
+    publicOriginRef.current = parsed ?? "";
     setPublicOrigin(parsed ?? "");
     setEditingDraft(null);
     if (parsed === null) {
