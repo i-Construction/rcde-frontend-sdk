@@ -2,7 +2,7 @@
 const path = require("path");
 
 const exampleNodeModules = path.resolve(__dirname, "node_modules");
-const sdkSrc = path.resolve(__dirname, "../src");
+const sdkSrc = path.resolve(__dirname, "../../src");
 
 const nextConfig = {
   transpilePackages: [
@@ -12,7 +12,7 @@ const nextConfig = {
     "@react-three/drei",
   ],
   serverExternalPackages: ["three"],
-  outputFileTracingRoot: path.join(__dirname, ".."),
+  outputFileTracingRoot: path.join(__dirname, "../.."),
   webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
