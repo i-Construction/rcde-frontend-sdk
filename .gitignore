@@ -26,10 +26,10 @@ dist-ssr
 
 *.tsbuildinfo
 
-# Example app（ビルド成果物・秘密情報は除外）
-example/node_modules/
-example/.next/
-example/.env
+# Example apps（ビルド成果物・秘密情報は除外）
+examples/*/node_modules/
+examples/*/.next/
+examples/*/.env
 
 # Backup files
 *.bak
