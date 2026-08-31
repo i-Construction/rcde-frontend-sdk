@@ -46,7 +46,7 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
         try {
           controller.enqueue(encoder.encode(chunk));
         } catch {
-          cleanup();
+          cleanup(controller);
         }
       };
 
