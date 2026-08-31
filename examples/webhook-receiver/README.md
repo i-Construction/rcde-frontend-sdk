@@ -99,7 +99,8 @@ curl -sS http://localhost:8765/api/inbox/recv1/events
 | `INBOX_TOKEN`         | token が 1 本だけのときの秘密。`INBOX_TOKENS` があるときは使わない |
 | `INBOX_REPLY_<token>` | その token の初期応答。`200` / `400` / `500` のみ。未設定は 200    |
 
-どちらの token 変数も空なら、空でない token をすべて通します。ローカル以外では必ず設定してください。
+どちらの token 変数も空なら、すべてのリクエストを 401 で拒否し、起動ログに理由を出します。
+`.env` を置き忘れたまま公開 URL に出しても、未知の token が素通りすることはありません。
 
 `.env.example` では動作確認しやすいよう 4 本の token を用意しています。
 `recv4xx` だけは起動時から 400 を返すので、エラー応答時の挙動を確かめられます。

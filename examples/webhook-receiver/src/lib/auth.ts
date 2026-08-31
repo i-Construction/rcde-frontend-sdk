@@ -19,7 +19,8 @@ export function isInboxTokenValid(token: string): boolean {
   }
   const allowed = allowedTokens();
   if (allowed.length === 0) {
-    return true;
+    console.warn("[inbox] INBOX_TOKENS / INBOX_TOKEN が未設定のため全リクエストを拒否します");
+    return false;
   }
   return allowed.includes(token);
 }
