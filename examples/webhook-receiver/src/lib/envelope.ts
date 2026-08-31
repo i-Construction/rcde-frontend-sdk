@@ -246,7 +246,7 @@ function constructionIdInfo(body: Record<string, unknown> | null): EnvelopeCheck
     ok: true,
     kind: "info",
     label: hasKey
-      ? "data.constructionId あり（017b 以降）"
-      : "data.constructionId なし（現行 017a 期待）",
+      ? "data.constructionId あり"
+      : "data.constructionId なし（オプショナルなので不整合ではない）",
   };
 }
