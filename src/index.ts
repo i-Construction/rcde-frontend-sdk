@@ -20,11 +20,15 @@ export type {
   ViewerFileMemoryEstimate,
   ViewerMemoryAlert,
   ViewerMemoryAlertLevel,
+  ViewerMemoryAlertLevels,
   ViewerMemoryMonitoringOptions,
+  ViewerMemoryObservedBytes,
   ViewerMemorySample,
   ViewerMemorySource,
-  ViewerMemoryThresholdSource,
+  ViewerMemoryThreshold,
+  ViewerMemoryThresholdBreach,
   ViewerMemoryThresholds,
+  ViewerMemoryThresholdTarget,
 } from "./lib/viewerMemory";
 export {
   Viewer,
