@@ -91,7 +91,22 @@ export const ViewerBridge = {
       // e.origin は見ない。同一ウィンドウ宛の postMessage では origin は常に自分自身に
       // なり、source の同一性判定より弱い条件にしかならないため。
       // 外部由来はログにも出さない（敵対的なページに console を溢れさせないため）。
-      if (e.source !== window) return;
+      if (e.source !== window) {
+        if (e.source === null || e.source === undefined) {
+          // source が「相手の window」ではなく空のときは、攻撃ではなくテスト環境の
+          // 制約であることが多い。jsdom / happy-dom の postMessage は
+          // MessageEvent.source をセットしない（jsdom#2745）ため、これらの環境では
+          // 形の正しいコマンドまで無言で落ちて原因不明の無反応になる。ここだけ警告する。
+          // source を持つ外部 window からの message は従来どおり無言で落とす。
+          console.warn(
+            "[ViewerBridge] source を持たない message を無視しました。" +
+              "jsdom / happy-dom の postMessage は MessageEvent.source をセットしないため、" +
+              "これらのテスト環境ではビューアコマンドが届きません:",
+            e.data.cmd
+          );
+        }
+        return;
+      }
       if (!isViewerCommand(e.data.cmd)) {
         // ここまで来たのは同一ウィンドウの、チャンネル名も合っているコマンド。
         // 利用側の実装ミスの可能性が高いので、握り潰さず気づけるようにする。
