@@ -36,13 +36,19 @@ const validTransform: Command = {
   },
 };
 
+const validAppearance: Command = {
+  type: "SET_APPEARANCE",
+  payload: { fileId: 12, pointSize: 3, opacity: 50 },
+};
+
 describe("ViewerBridge.addListener", () => {
   let fakeWindow: ReturnType<typeof createFakeWindow>;
+  let warn: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     fakeWindow = createFakeWindow();
     vi.stubGlobal("window", fakeWindow.target);
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+    warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -148,6 +154,111 @@ describe("ViewerBridge.addListener", () => {
     });
 
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("SET_TRANSFORM に fileId しか入っていないとき、ハンドラはそのコマンドで呼ばれる", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+    const cmd = { type: "SET_TRANSFORM", payload: { fileId: 12 } };
+
+    fakeWindow.dispatch({ channel: CHANNEL, cmd });
+
+    // 現状の仕様。translation / rotation が undefined のまま fileTransforms に入り、
+    // そのファイルの位置と回転が黙って原点へ戻る。ガードは fileId しか見ていない。
+    expect(handler).toHaveBeenCalledWith(cmd);
+  });
+
+  it("pointSize と opacity を持つ SET_APPEARANCE が届いたとき、ハンドラがそのコマンドで呼ばれる", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+
+    fakeWindow.dispatch({ channel: CHANNEL, cmd: validAppearance });
+
+    expect(handler).toHaveBeenCalledWith(validAppearance);
+  });
+
+  it("SET_APPEARANCE が pointSize だけを持つとき、省略された opacity は検証されずハンドラが呼ばれる", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+    const cmd = { type: "SET_APPEARANCE", payload: { pointSize: 3 } };
+
+    fakeWindow.dispatch({ channel: CHANNEL, cmd });
+
+    expect(handler).toHaveBeenCalledWith(cmd);
+  });
+
+  it("SET_APPEARANCE の pointSize が NaN のとき、ハンドラは呼ばれない", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+
+    fakeWindow.dispatch({
+      channel: CHANNEL,
+      cmd: { type: "SET_APPEARANCE", payload: { pointSize: NaN, opacity: 50 } },
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("SET_APPEARANCE の opacity が数値でない文字列のとき、ハンドラは呼ばれない", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+
+    fakeWindow.dispatch({
+      channel: CHANNEL,
+      cmd: { type: "SET_APPEARANCE", payload: { opacity: "50" } },
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("SET_APPEARANCE の fileId が NaN のとき、ハンドラは呼ばれない", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+
+    fakeWindow.dispatch({
+      channel: CHANNEL,
+      cmd: { type: "SET_APPEARANCE", payload: { fileId: NaN, pointSize: 3 } },
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("SET_APPEARANCE の payload が配列のとき、ハンドラは呼ばれない", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+
+    fakeWindow.dispatch({ channel: CHANNEL, cmd: { type: "SET_APPEARANCE", payload: [] } });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("同一ウィンドウから形の不正なコマンドが届いたとき、警告が出る", () => {
+    ViewerBridge.addListener(vi.fn());
+
+    fakeWindow.dispatch({ channel: CHANNEL, cmd: { type: "DROP_DATABASE" } });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("別のウィンドウから投げられたコマンドのとき、警告は出ない", () => {
+    ViewerBridge.addListener(vi.fn());
+    const anotherWindow = createFakeWindow().target;
+
+    fakeWindow.dispatch({ channel: CHANNEL, cmd: validTransform }, anotherWindow);
+
+    // 敵対的なページに console を溢れさせる手段を与えないため、外部由来は無言で落とす。
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("source を持たないイベントで正しいコマンドが届いたとき、ハンドラは呼ばれず警告が出る", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+
+    // jsdom / happy-dom の postMessage は MessageEvent.source をセットしない。
+    fakeWindow.dispatch({ channel: CHANNEL, cmd: validTransform }, null);
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("payload を持たない RESET が届いたとき、ハンドラが呼ばれる", () => {
