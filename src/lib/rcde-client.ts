@@ -118,6 +118,25 @@ function appendContractIdFor2Legged(
   queryParams.append("contractId", String(contractId));
 }
 
+/**
+ * 点群タイル画像の問い合わせ URL を組み立てる。位置画像と色画像は取得先セグメントだけが違い、
+ * 問い合わせの並び（contractFileId → level → addr → contractId）も省略時の既定値も揃っている。
+ */
+function buildPclodImageUrl(
+  imageUrl: string,
+  authType: AuthType,
+  params: { contractId: number; contractFileId: number; level?: number; addr?: string }
+): string {
+  const { contractId, contractFileId, level = 0, addr = "0-0-0" } = params;
+  const queryParams = new URLSearchParams({
+    contractFileId: String(contractFileId),
+    level: String(level),
+    addr,
+  });
+  appendContractIdFor2Legged(queryParams, authType, contractId);
+  return buildUrlWithQuery(imageUrl, queryParams);
+}
+
 export class RCDEClient {
   private baseUrl: string;
   private token?: string;
@@ -180,14 +199,7 @@ export class RCDEClient {
     level?: number;
     addr?: string;
   }): Promise<ArrayBuffer> {
-    const { contractId, contractFileId, level = 0, addr = "0-0-0" } = params;
-    const queryParams = new URLSearchParams({
-      contractFileId: String(contractFileId),
-      level: String(level),
-      addr,
-    });
-    appendContractIdFor2Legged(queryParams, this.authType, contractId);
-    const url = buildUrlWithQuery(this.getApiPath("/pclod/imagePosition"), queryParams);
+    const url = buildPclodImageUrl(this.getApiPath("/pclod/imagePosition"), this.authType, params);
     return requestRcdeArrayBuffer(this.fetchImpl, url, this.headers());
   }
 
@@ -198,14 +210,7 @@ export class RCDEClient {
     level?: number;
     addr?: string;
   }): Promise<ArrayBuffer> {
-    const { contractId, contractFileId, level = 0, addr = "0-0-0" } = params;
-    const queryParams = new URLSearchParams({
-      contractFileId: String(contractFileId),
-      level: String(level),
-      addr,
-    });
-    appendContractIdFor2Legged(queryParams, this.authType, contractId);
-    const url = buildUrlWithQuery(this.getApiPath("/pclod/imageColor"), queryParams);
+    const url = buildPclodImageUrl(this.getApiPath("/pclod/imageColor"), this.authType, params);
     return requestRcdeArrayBuffer(this.fetchImpl, url, this.headers());
   }
 
