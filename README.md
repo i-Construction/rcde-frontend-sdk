@@ -297,7 +297,7 @@ import {
 } from "@i-con/frontend-sdk";
 
 export function ViewerToolbar({ fileId }: { fileId: number }) {
-  // Viewer が送るコマンドを購読する（戻り値は購読解除関数）
+  // 同じチャンネルへ送られたコマンドを購読する（戻り値は購読解除関数）
   useEffect(() => {
     return ViewerBridge.addListener((cmd) => {
       console.log(cmd.type);
@@ -339,12 +339,12 @@ export function ViewerToolbar({ fileId }: { fileId: number }) {
 
 ### 主なAPI一覧
 
-| メソッド                                       | 機能概要                                                             |
-| ---------------------------------------------- | -------------------------------------------------------------------- |
-| `setTransform(tx: ViewerTransform)`            | `tx.fileId` のファイルに平行移動と回転を適用する                     |
-| `setAppearance(app: ViewerAppearance)`         | 点サイズ・不透明度・カメラの上方向・座標系を設定する                 |
-| `reset()`                                      | 位置・回転・見た目・カメラの上方向を初期値へ戻す                     |
-| `addListener(handler: (cmd: Command) => void)` | 同チャンネルのコマンドを購読する。戻り値の関数を呼ぶと購読を解除する |
+| メソッド                                       | 機能概要                                                                     |
+| ---------------------------------------------- | ---------------------------------------------------------------------------- |
+| `setTransform(tx: ViewerTransform)`            | `tx.fileId` のファイルに平行移動と回転を適用する                             |
+| `setAppearance(app: ViewerAppearance)`         | 点サイズ・不透明度・カメラの上方向・座標系を設定する                         |
+| `reset()`                                      | 位置・回転・見た目・カメラの上方向を初期値へ戻す                             |
+| `addListener(handler: (cmd: Command) => void)` | 同チャンネルへ送られたコマンドを購読する。戻り値の関数を呼ぶと購読を解除する |
 
 `ViewerTransform` は `{ translation, rotation, fileId }` です。
 `fileId` は R-CDE に登録されている契約ファイルの ID で、**必須**です。
@@ -359,6 +359,10 @@ export function ViewerToolbar({ fileId }: { fileId: number }) {
 
 `reset()` は点サイズ 2・不透明度 100・カメラ上方向 Z にリセットし、
 `setTransform` / `setAppearance` でファイル単位に積んだ設定をすべて破棄します。
+
+`addListener` が受け取るのは同じチャンネルへ送られたコマンドで、自分が
+`setTransform` などで送ったものも届きます。`Viewer` は購読する側であり、
+コマンドを送り返すことはありません。
 
 ### 補足
 
