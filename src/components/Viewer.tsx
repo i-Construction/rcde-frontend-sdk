@@ -1004,7 +1004,11 @@ const Viewer: FC<ViewerProps> = (props) => {
           }));
         } else {
           // fileId がない場合はグローバル（後方互換）
-          setAppearance({ pointSize: nextPointSize, opacity: nextOpacity });
+          // postMessage はタスクごとに配送されるため、再レンダーを待つと
+          // 直後のコマンドが古い値をフォールバックに使う。ref を先に更新する。
+          const nextAppearance = { pointSize: nextPointSize, opacity: nextOpacity };
+          appearanceRef.current = nextAppearance;
+          setAppearance(nextAppearance);
         }
 
         // upAxis は後方互換のためカメラレベルで適用
@@ -1023,7 +1027,9 @@ const Viewer: FC<ViewerProps> = (props) => {
           g.position.set(0, 0, 0);
           g.rotation.set(0, 0, 0, "XYZ");
         }
-        setAppearance({ pointSize: 2, opacity: 100 });
+        const resetAppearance = { pointSize: 2, opacity: 100 };
+        appearanceRef.current = resetAppearance;
+        setAppearance(resetAppearance);
         setFileAppearances({});
         setFileTransforms({});
 
