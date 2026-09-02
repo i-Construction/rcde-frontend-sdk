@@ -58,6 +58,45 @@ const AUTH_API_PREFIX: Record<AuthType, string> = {
   "3legged": "/ext/v2/userAuthenticated",
 };
 
+/**
+ * R-CDE へ 1 リクエスト送り、成功以外は HTTP ステータス付きで失敗させる。
+ *
+ * 認証ヘッダは呼び出し側が組み立てて渡す。ここで一律に載せる形にすると、点群本体の送信先である
+ * オブジェクトストレージのプリサインド URL にも Authorization が付いてしまい、署名と食い違って
+ * 弾かれる。宛先が R-CDE かどうかを判断できるのは呼び出し側だけなので、その判断をここへ持ち込まない。
+ */
+async function sendRcdeRequest(
+  fetchImpl: typeof fetch,
+  url: string,
+  headers: Record<string, string>,
+  init: Omit<RequestInit, "headers"> = {}
+): Promise<Response> {
+  const res = await fetchImpl(url, { ...init, headers });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res;
+}
+
+/** R-CDE の応答を JSON として読む。成功以外は sendRcdeRequest が失敗させる */
+async function requestRcdeJson<T>(
+  fetchImpl: typeof fetch,
+  url: string,
+  headers: Record<string, string>,
+  init: Omit<RequestInit, "headers"> = {}
+): Promise<T> {
+  const res = await sendRcdeRequest(fetchImpl, url, headers, init);
+  return (await res.json()) as T;
+}
+
+/** R-CDE の応答をバイナリのまま読む。点群タイル画像はここを通す（JSON へ寄せると読めなくなる） */
+async function requestRcdeArrayBuffer(
+  fetchImpl: typeof fetch,
+  url: string,
+  headers: Record<string, string>
+): Promise<ArrayBuffer> {
+  const res = await sendRcdeRequest(fetchImpl, url, headers);
+  return await res.arrayBuffer();
+}
+
 export class RCDEClient {
   private baseUrl: string;
   private token?: string;
@@ -90,11 +129,11 @@ export class RCDEClient {
     const { contractId } = params;
     const url = this.getApiPath("/contractFile");
     const queryParams = new URLSearchParams({ contractId: String(contractId) });
-    const res = await this.fetchImpl(`${url}?${queryParams}`, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { contractFiles: RawContractFile[]; total?: number };
+    const data = await requestRcdeJson<{ contractFiles: RawContractFile[]; total?: number }>(
+      this.fetchImpl,
+      `${url}?${queryParams}`,
+      this.headers()
+    );
     const contractFiles = (data.contractFiles ?? []).map(parseContractFile);
     return { contractFiles };
   }
@@ -111,11 +150,7 @@ export class RCDEClient {
     if (this.authType === "2legged") {
       queryParams.append("contractId", String(contractId));
     }
-    const res = await this.fetchImpl(`${url}?${queryParams}`, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as Json;
+    return requestRcdeJson<Json>(this.fetchImpl, `${url}?${queryParams}`, this.headers());
   }
 
   // 画像（位置）バッファ
@@ -135,11 +170,7 @@ export class RCDEClient {
     if (this.authType === "2legged") {
       queryParams.append("contractId", String(contractId));
     }
-    const res = await this.fetchImpl(`${url}?${queryParams}`, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.arrayBuffer();
+    return requestRcdeArrayBuffer(this.fetchImpl, `${url}?${queryParams}`, this.headers());
   }
 
   // 画像（色）バッファ
@@ -159,11 +190,7 @@ export class RCDEClient {
     if (this.authType === "2legged") {
       queryParams.append("contractId", String(contractId));
     }
-    const res = await this.fetchImpl(`${url}?${queryParams}`, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.arrayBuffer();
+    return requestRcdeArrayBuffer(this.fetchImpl, `${url}?${queryParams}`, this.headers());
   }
 
   // ダウンロードURL
@@ -177,11 +204,11 @@ export class RCDEClient {
       const queryParams = new URLSearchParams({ contractId: String(contractId) });
       fullUrl = `${url}?${queryParams}`;
     }
-    const res = await this.fetchImpl(fullUrl, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { presignedURL?: string; url?: string };
+    const data = await requestRcdeJson<{ presignedURL?: string; url?: string }>(
+      this.fetchImpl,
+      fullUrl,
+      this.headers()
+    );
     const presignedURL = data.presignedURL ?? data.url ?? "";
     return { url: presignedURL, presignedURL };
   }
@@ -215,32 +242,25 @@ export class RCDEClient {
   // Construction関連のAPI
   async getConstructionList(): Promise<{ constructions: Construction[] }> {
     const url = this.getApiPath("/construction");
-    const res = await this.fetchImpl(url, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { constructions: Construction[]; total?: number };
+    const data = await requestRcdeJson<{ constructions: Construction[]; total?: number }>(
+      this.fetchImpl,
+      url,
+      this.headers()
+    );
     return { constructions: data.constructions ?? [] };
   }
 
   async getConstruction(constructionId: number): Promise<Construction> {
     const url = this.getApiPath(`/construction/${constructionId}`);
-    const res = await this.fetchImpl(url, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as Construction;
+    return requestRcdeJson<Construction>(this.fetchImpl, url, this.headers());
   }
 
   async createConstruction(params: CreateConstructionParams): Promise<Json> {
     const url = this.getApiPath("/construction");
-    const res = await this.fetchImpl(url, {
+    return requestRcdeJson<Json>(this.fetchImpl, url, this.headers(), {
       method: "POST",
-      headers: this.headers(),
       body: JSON.stringify(params),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as Json;
   }
 
   // Contract関連のAPI
@@ -252,11 +272,11 @@ export class RCDEClient {
       queryParams.append("constructionId", String(constructionId));
     }
     const fullUrl = queryParams.toString() ? `${url}?${queryParams}` : url;
-    const res = await this.fetchImpl(fullUrl, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { contracts: Contract[]; total?: number };
+    const data = await requestRcdeJson<{ contracts: Contract[]; total?: number }>(
+      this.fetchImpl,
+      fullUrl,
+      this.headers()
+    );
     return { contracts: data.contracts ?? [] };
   }
 
@@ -283,13 +303,10 @@ export class RCDEClient {
       contractedAt,
       constructionId,
     };
-    const res = await this.fetchImpl(url, {
+    return requestRcdeJson<Json>(this.fetchImpl, url, this.headers(), {
       method: "POST",
-      headers: this.headers(),
       body: JSON.stringify(requestBody),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as Json;
   }
 }
 
