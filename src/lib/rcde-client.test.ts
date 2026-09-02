@@ -14,15 +14,12 @@ type RawListPayload = {
   }[];
 };
 
+/**
+ * 決まったレスポンスを返すだけのクライアント。送信内容を見ないテスト向け。
+ * fetch の偽物が 2 通りに分かれないよう、下の控えるクライアントへ委譲する
+ */
 function createClient(payload: RawListPayload) {
-  const fetchImpl = (async () =>
-    ({
-      ok: true,
-      status: 200,
-      json: async () => payload,
-    }) as Response) as typeof fetch;
-
-  return new RCDEClient({ baseUrl: "https://example.com", fetchImpl });
+  return createRequestCapturingClient({ responsePayload: payload }).client;
 }
 
 /** fetchImpl が受け取った 1 回分のリクエスト。URL は問い合わせ文字列まで含めた完全な形で控える */
