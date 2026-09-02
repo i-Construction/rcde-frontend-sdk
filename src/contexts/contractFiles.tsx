@@ -1,5 +1,6 @@
 import { RCDEClient } from "../lib/rcde-client";
 import { createContext, FC, ReactNode, useCallback, useContext, useState } from "react";
+import { createContainers, mergeContainersPreservingVisibility } from "./contractFileContainers";
 
 export type ContractFiles = NonNullable<
   Awaited<ReturnType<RCDEClient["getContractFileList"]>>["contractFiles"]
@@ -24,25 +25,11 @@ export const ContractFilesProvider: FC<{ children: ReactNode }> = ({ children })
   const [containers, setContainers] = useState<ContractFileContainer[]>([]);
 
   const load = useCallback((files: ContractFiles, visibleIds?: number[]) => {
-    setContainers(
-      files.map((file) => ({
-        file,
-        visible:
-          visibleIds === undefined ? true : file.id !== undefined && visibleIds.includes(file.id),
-      }))
-    );
+    setContainers(createContainers(files, visibleIds));
   }, []);
 
   const updateFiles = useCallback((files: ContractFiles) => {
-    setContainers((prev) => {
-      const prevVisibleById = new Map(
-        prev.map((container) => [container.file.id, container.visible])
-      );
-      return files.map((file) => ({
-        file,
-        visible: prevVisibleById.get(file.id) ?? true,
-      }));
-    });
+    setContainers((prev) => mergeContainersPreservingVisibility(prev, files));
   }, []);
 
   const toggleVisibility = useCallback((container: ContractFileContainer) => {
