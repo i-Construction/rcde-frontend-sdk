@@ -4,19 +4,17 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import { Box, MenuItem, Select, type SelectChangeEvent } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import {
+  describeConstructionsApiError,
+  fetchConstructions,
+  fetchContracts,
+  type Construction,
+  type Contract,
+} from "@/lib/constructions-browser-api";
 
 const HEADER_HEIGHT = 56;
 const HEADER_BG = "#166534";
-
-type Construction = {
-  id: number;
-  name: string;
-};
-
-type Contract = {
-  id: number;
-  name: string;
-};
+const HEADER_ERROR_COLOR = "#fecaca";
 
 type ViewerHeaderProps = {
   accessToken: string;
@@ -71,37 +69,24 @@ export function ViewerHeader({
   const router = useRouter();
   const [constructions, setConstructions] = useState<Construction[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
+  // 現場一覧と契約一覧は別々の取得なので、エラーも別に持つ。
+  // 1 つの state を共有すると、片方の成功が他方の失敗文言を消してしまう。
+  const [constructionsError, setConstructionsError] = useState("");
+  const [contractsError, setContractsError] = useState("");
 
   const constructionLabel = resolveConstructionLabel(constructionId, constructionName);
   const contractLabel = resolveContractLabel(contractId, contractName);
 
-  const fetchContracts = useCallback(
-    async (targetConstructionId: number): Promise<Contract[]> => {
-      try {
-        const res = await fetch(`/api/constructions?constructionId=${targetConstructionId}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!res.ok) return [];
-        const contractListResponse = await res.json();
-        return contractListResponse.contracts ?? [];
-      } catch {
-        return [];
-      }
-    },
-    [accessToken]
-  );
-
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/constructions", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-      .then((res) => (res.ok ? res.json() : { constructions: [] }))
-      .then((constructionListResponse) => {
-        if (!cancelled) setConstructions(constructionListResponse.constructions ?? []);
+    fetchConstructions(accessToken)
+      .then((constructionList) => {
+        if (cancelled) return;
+        setConstructions(constructionList);
+        setConstructionsError("");
       })
-      .catch(() => {
-        if (!cancelled) setConstructions([]);
+      .catch((caught: unknown) => {
+        if (!cancelled) setConstructionsError(describeConstructionsApiError(caught));
       });
     return () => {
       cancelled = true;
@@ -109,22 +94,39 @@ export function ViewerHeader({
   }, [accessToken]);
 
   useEffect(() => {
-    let cancelled = false;
     if (constructionId <= 0) return;
-    fetchContracts(constructionId).then((nextContracts) => {
-      if (!cancelled) setContracts(nextContracts);
-    });
+    let cancelled = false;
+    fetchContracts(accessToken, constructionId)
+      .then((contractList) => {
+        if (cancelled) return;
+        setContracts(contractList);
+        setContractsError("");
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) setContractsError(describeConstructionsApiError(caught));
+      });
     return () => {
       cancelled = true;
     };
-  }, [constructionId, fetchContracts]);
+  }, [accessToken, constructionId]);
 
   const handleChangeConstruction = useCallback(
     async (event: SelectChangeEvent<number>) => {
       const nextConstructionId = Number(event.target.value);
       const next = constructions.find((c) => c.id === nextConstructionId);
-      const nextContracts = await fetchContracts(nextConstructionId);
+
+      let nextContracts: Contract[];
+      try {
+        nextContracts = await fetchContracts(accessToken, nextConstructionId);
+      } catch (caught) {
+        // 契約が引けないまま遷移すると契約 ID 0 のビューアーになり原因が分からないため、
+        // 遷移せずヘッダー上にエラーを出す。
+        setContractsError(describeConstructionsApiError(caught));
+        return;
+      }
+
       setContracts(nextContracts);
+      setContractsError("");
       const firstContract = nextContracts[0];
       navigateToViewer(router, {
         constructionId: nextConstructionId,
@@ -133,7 +135,7 @@ export function ViewerHeader({
         contractName: firstContract?.name,
       });
     },
-    [constructions, fetchContracts, router]
+    [accessToken, constructions, router]
   );
 
   const handleChangeContract = useCallback(
@@ -149,6 +151,11 @@ export function ViewerHeader({
     },
     [constructionId, constructionName, contracts, router]
   );
+
+  // どちらか一方でも失敗していれば表示する。両方失敗していれば両方並べる。
+  const headerErrorText = [constructionsError, contractsError]
+    .filter((message) => message !== "")
+    .join(" / ");
 
   const selectSx = {
     color: "common.white",
@@ -214,6 +221,24 @@ export function ViewerHeader({
             </MenuItem>
           ))}
         </Select>
+        {headerErrorText !== "" && (
+          <Box
+            role="alert"
+            title={headerErrorText}
+            sx={{
+              fontSize: 12,
+              color: HEADER_ERROR_COLOR,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              // flex item の既定 min-width: auto では nowrap テキストが
+              // min-content 未満に縮まず、長い文言でヘッダーが横に溢れる。
+              minWidth: 0,
+            }}
+          >
+            {headerErrorText}
+          </Box>
+        )}
       </Box>
     </Box>
   );
