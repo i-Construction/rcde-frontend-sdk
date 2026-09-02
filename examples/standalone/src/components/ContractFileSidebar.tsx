@@ -3,7 +3,9 @@
 import {
   useContractFileActions,
   type ContractFile,
+  type PclodStatusLabel,
   type PendingUploads,
+  type UploadStatusLabel,
 } from "@i-con/frontend-sdk";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import CenterFocusStrongIcon from "@mui/icons-material/CenterFocusStrong";
@@ -47,11 +49,14 @@ type StatusRowKind = "uploading" | "waiting" | "processing" | "completed" | "unk
 type HoveredFileStatus = {
   rowKey: string;
   anchorEl: HTMLElement;
-  uploadLabel: string;
-  pclodLabel: string;
+  uploadLabel: UploadStatusLabel;
+  pclodLabel: PclodStatusLabel;
 };
 
-function resolveRowStatusKind(uploadLabel: string, pclodLabel: string): StatusRowKind {
+function resolveRowStatusKind(
+  uploadLabel: UploadStatusLabel,
+  pclodLabel: PclodStatusLabel
+): StatusRowKind {
   if (uploadLabel === "アップロード中") return "uploading";
   if (pclodLabel === "処理中") return "processing";
   if (pclodLabel === "待機中") return "waiting";
@@ -210,8 +215,8 @@ function FileStatusHoverPopper({ hovered }: FileStatusHoverPopperProps) {
 type FileRowProps = {
   rowKey: string;
   filename: string;
-  uploadLabel: string;
-  pclodLabel: string;
+  uploadLabel: UploadStatusLabel;
+  pclodLabel: PclodStatusLabel;
   isPclodDone: boolean;
   isVisible: boolean;
   isHighlighted: boolean;
