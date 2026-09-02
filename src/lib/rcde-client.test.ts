@@ -269,9 +269,12 @@ const USER_AUTHENTICATED = "https://example.com/ext/v2/userAuthenticated";
 
 const contractFileId = 10;
 
+// この describe はクライアント既定の 2legged だけを基準に「どのパスへ送るか・省略した引数の既定値」
+// を見せる。認証方式で契約 ID が付くかどうかは下の「2legged のときだけ〜」へ一本化してあるので、
+// ここで 3legged と対にしない（同じ呼び出し・同じ断言のテストが 2 つに増えて検出力が上がらないため）
 describe("リクエスト送信先の組み立て（RCDEClient）", () => {
   describe("正常系", () => {
-    it("2legged のクライアントで契約ファイル一覧を取得するとき、認証済みの契約ファイル一覧へ契約 ID 付きで問い合わせる", async () => {
+    it("契約ファイル一覧を取得するとき、契約ファイル一覧の取得先へ契約 ID 付きで問い合わせる", async () => {
       const request = await captureRequest({}, (client) =>
         client.getContractFileList({ contractId })
       );
@@ -279,58 +282,24 @@ describe("リクエスト送信先の組み立て（RCDEClient）", () => {
       expect(request.url).toBe(`${AUTHENTICATED}/contractFile?contractId=1`);
     });
 
-    it("3legged のクライアントで契約ファイル一覧を取得するとき、ユーザー認証済みの契約ファイル一覧へ問い合わせる", async () => {
-      const request = await captureRequest({ authType: "3legged" }, (client) =>
-        client.getContractFileList({ contractId })
-      );
-
-      expect(request.url).toBe(`${USER_AUTHENTICATED}/contractFile?contractId=1`);
-    });
-
-    it("点群のメタデータを取得するとき、PCLOD メタデータの取得先へ契約ファイル ID を渡す", async () => {
-      const request = await captureRequest({ authType: "3legged" }, (client) =>
-        client.getContractFileMetadata({ contractId, contractFileId })
-      );
-
-      expect(request.url).toBe(`${USER_AUTHENTICATED}/pclod/meta?contractFileId=10`);
-    });
-
-    it("階層と区画を省いて位置画像を取得するとき、階層 0・区画 0-0-0 を既定として問い合わせる", async () => {
-      const request = await captureRequest({ authType: "3legged" }, (client) =>
-        client.getContractFileImagePosition({ contractId, contractFileId })
-      );
-
-      expect(request.url).toBe(
-        `${USER_AUTHENTICATED}/pclod/imagePosition?contractFileId=10&level=0&addr=0-0-0`
-      );
-    });
-
-    it("階層と区画を省いて色画像を取得するとき、位置画像と同じ既定で色画像の取得先へ問い合わせる", async () => {
-      const request = await captureRequest({ authType: "3legged" }, (client) =>
-        client.getContractFileImageColor({ contractId, contractFileId })
-      );
-
-      expect(request.url).toBe(
-        `${USER_AUTHENTICATED}/pclod/imageColor?contractFileId=10&level=0&addr=0-0-0`
-      );
-    });
-
     it("階層と区画を指定して位置画像を取得するとき、指定した値がそのまま問い合わせに載る", async () => {
-      const request = await captureRequest({ authType: "3legged" }, (client) =>
+      const request = await captureRequest({}, (client) =>
         client.getContractFileImagePosition({ contractId, contractFileId, level: 2, addr: "1-2-3" })
       );
 
       expect(request.url).toBe(
-        `${USER_AUTHENTICATED}/pclod/imagePosition?contractFileId=10&level=2&addr=1-2-3`
+        `${AUTHENTICATED}/pclod/imagePosition?contractFileId=10&level=2&addr=1-2-3&contractId=1`
       );
     });
 
-    it("ダウンロード URL を取得するとき、契約ファイル ID をパスの末尾に含めて問い合わせる", async () => {
-      const request = await captureRequest({ authType: "3legged" }, (client) =>
-        client.getContractFileDownloadUrl(contractId, contractFileId)
+    it("階層と区画を指定して色画像を取得するとき、位置画像と同じ並びで指定した値が載る", async () => {
+      const request = await captureRequest({}, (client) =>
+        client.getContractFileImageColor({ contractId, contractFileId, level: 2, addr: "1-2-3" })
       );
 
-      expect(request.url).toBe(`${USER_AUTHENTICATED}/contractFile/downloadURL/10`);
+      expect(request.url).toBe(
+        `${AUTHENTICATED}/pclod/imageColor?contractFileId=10&level=2&addr=1-2-3&contractId=1`
+      );
     });
 
     it("現場一覧を取得するとき、問い合わせ文字列を付けずに現場の取得先へ問い合わせる", async () => {
@@ -365,6 +334,50 @@ describe("リクエスト送信先の組み立て（RCDEClient）", () => {
       );
 
       expect(request.url).toBe(`${AUTHENTICATED}/contract`);
+      expect(request.method).toBe("POST");
+    });
+  });
+});
+
+// 現場・契約の 4 メソッドは認証方式で問い合わせ文字列が変わらず、パスの接頭辞だけが変わる。
+// 既存のテストがすべて 2legged だったため、接頭辞を直書きへ戻す変更を誰も検出できなかった
+describe("認証方式で切り替わるパスの接頭辞（RCDEClient）", () => {
+  describe("正常系", () => {
+    it("3legged で現場一覧を取得するとき、ユーザー認証済みの現場の取得先へ問い合わせる", async () => {
+      const request = await captureRequest({ authType: "3legged" }, (client) =>
+        client.getConstructionList()
+      );
+
+      expect(request.url).toBe(`${USER_AUTHENTICATED}/construction`);
+    });
+
+    it("3legged で現場を 1 件取得するとき、ユーザー認証済みの取得先へ現場 ID を付けて問い合わせる", async () => {
+      const request = await captureRequest({ authType: "3legged" }, (client) =>
+        client.getConstruction(5)
+      );
+
+      expect(request.url).toBe(`${USER_AUTHENTICATED}/construction/5`);
+    });
+
+    it("3legged で現場を作成するとき、ユーザー認証済みの現場の取得先へ送る", async () => {
+      const request = await captureRequest({ authType: "3legged" }, (client) =>
+        client.createConstruction({ name: "現場A", address: "東京都" })
+      );
+
+      expect(request.url).toBe(`${USER_AUTHENTICATED}/construction`);
+      expect(request.method).toBe("POST");
+    });
+
+    it("3legged で契約を作成するとき、ユーザー認証済みの契約の取得先へ送る", async () => {
+      const request = await captureRequest({ authType: "3legged" }, (client) =>
+        client.createContract({
+          constructionId: 1,
+          name: "契約A",
+          contractedAt: "2024-11-19T06:56:31Z",
+        })
+      );
+
+      expect(request.url).toBe(`${USER_AUTHENTICATED}/contract`);
       expect(request.method).toBe("POST");
     });
   });
@@ -415,6 +428,8 @@ describe("応答本文の読み取り方（RCDEClient）", () => {
   });
 });
 
+// 認証方式で契約 ID が付くかどうかはこの describe に一本化する。
+// 階層と区画を省いたときの既定値（level=0 / addr=0-0-0）もここの URL で固定している
 describe("2legged のときだけ契約 ID を問い合わせに付ける挙動", () => {
   describe("正常系", () => {
     it("2legged で点群のメタデータを取得するとき、契約ファイル ID の後ろに契約 ID を付ける", async () => {
