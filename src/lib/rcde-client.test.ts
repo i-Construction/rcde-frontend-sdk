@@ -263,7 +263,11 @@ describe("取り込んだステータスからポーリング継続判断まで�
 });
 
 // ここから下は「いま R-CDE へどんなリクエストを送っているか」を写し取って固定するテスト。
-// HTTP 定型をヘルパーへ集約するリファクタで送信先が変わったら落ちるようにしておく
+// HTTP 定型をヘルパーへ集約するリファクタで送信先が変わったら落ちるようにしておく。
+//
+// describe「現状維持（仕様未判断）」は、望ましい形かどうかを判断せずいまの挙動を写しただけのもの。
+// 正常系とは扱いが違い、あるべき形が決まった時点で意図的に書き換える対象になる。
+// 区別をコメントだけに頼ると剥がれるので、describe で分けておく
 const AUTHENTICATED = "https://example.com/ext/v2/authenticated";
 const USER_AUTHENTICATED = "https://example.com/ext/v2/userAuthenticated";
 
@@ -395,7 +399,11 @@ describe("接続先の組み立て（baseUrl）", () => {
 
       expect(requests[0].url).toBe("/ext/v2/authenticated/construction");
     });
+  });
 
+  describe("現状維持（仕様未判断）", () => {
+    // 接続先と接頭辞を素朴に連結するだけなので、末尾に / を付けると区切りが重なる。
+    // 望ましい URL ではないが、正規化を入れるかは決めていないのでいまの形を写しておく
     it("接続先の末尾に / を付けてクライアントを作ったとき、区切りが重なった URL をそのまま送る", async () => {
       const request = await captureRequest({ baseUrl: "https://example.com/" }, (client) =>
         client.getConstructionList()
@@ -503,8 +511,12 @@ describe("2legged のときだけ契約 ID を問い合わせに付ける挙動"
 
       expect(request.url).toBe(`${USER_AUTHENTICATED}/contractFile/downloadURL/10`);
     });
+  });
 
-    // 契約ファイル一覧だけは authType を見ずに常に契約 ID を付ける。他メソッドと条件が違うので固定しておく
+  describe("現状維持（仕様未判断）", () => {
+    // 契約ファイル一覧だけは authType を見ずに常に契約 ID を付ける。この describe の他 8 件が
+    // 「2legged のときだけ付ける」なのに対し、ここだけ条件が違う。どちらへ揃えるべきかは
+    // R-CDE 側の 3legged ハンドラを見ないと決まらないので、是非を判断せず現状を写しておく
     it("3legged で契約ファイル一覧を取得するときも、契約 ID は認証方式によらず問い合わせに付く", async () => {
       const request = await captureRequest({ authType: "3legged" }, (client) =>
         client.getContractFileList({ contractId })
@@ -540,9 +552,11 @@ describe("契約一覧の現場 ID 付与（getContractList）", () => {
 
       expect(request.url).toBe(`${AUTHENTICATED}/contract?constructionId=0`);
     });
+  });
 
+  describe("現状維持（仕様未判断）", () => {
     // 付与条件が `authType === "2legged" || constructionId` なので、3legged では 0 が falsy になり
-    // 現場 ID が丸ごと落ちる。他メソッドの「2legged のときだけ付ける」とも違う唯一の形なので現状を写しておく。
+    // 現場 ID が丸ごと落ちる。他メソッドの「2legged のときだけ付ける」とも違う唯一の形。
     // 落ちると絞り込みごと消えるため、エラーでも空配列でもなく「そのユーザーの全契約」が返る。
     // 呼び出し側のバグが別現場の契約データとして UI に出る形なので、扱いを決めるときはこの帰結が一番重い
     it("3legged で現場 ID に 0 を指定して契約一覧を取得するとき、現場 ID が落ちて問い合わせ自体が付かない", async () => {
