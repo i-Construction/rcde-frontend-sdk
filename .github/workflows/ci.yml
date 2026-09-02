@@ -27,10 +27,10 @@ jobs:
 
   # examples はルートの lint / prettier / workflow の対象外だったため、
   # SDK の変更で壊れても検知できなかった。
-  # ci と同じ job に並べるとルートの lint が落ちた時点でまるごと skip されるので、
-  # 別 job に分けて「SDK は通ったがサンプルが壊れた」を切り分けられるようにする。
   examples:
-    needs: ci
+    # needs: ci を付けると ci が落ちた時点で skip され、
+    # 「SDK は通ったがサンプルが壊れた」を切り分けたいという目的が達成できない。
+    # 独立した job にして並列に回す。
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
