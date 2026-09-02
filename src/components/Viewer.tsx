@@ -456,6 +456,8 @@ const Viewer: FC<ViewerProps> = (props) => {
     pointSize: 2,
     opacity: 100,
   });
+  // コマンドリスナーは購読し直さずに最新の外観を読む必要があるため ref に持つ。
+  // 書き手は下のコマンドハンドラだけで、初期値はここで state から取る。
   const appearanceRef = useRef(appearance);
   const isMemoryMonitoringEnabled = memoryMonitoring?.enabled === true;
   const memorySampleIntervalMs = Math.max(memoryMonitoring?.sampleIntervalMs ?? 15000, 1000);
@@ -967,11 +969,6 @@ const Viewer: FC<ViewerProps> = (props) => {
 
     emitMemorySampleRef.current();
   }, [isMemoryMonitoringEnabled, fileMemoryEstimates, visibleFileIdsKey]);
-
-  // ビューアコマンドのリスナーは購読し直さずに最新の外観を読む必要があるため、ref へ写す。
-  useEffect(() => {
-    appearanceRef.current = appearance;
-  }, [appearance]);
 
   useEffect(() => {
     return ViewerBridge.addListener((cmd) => {
