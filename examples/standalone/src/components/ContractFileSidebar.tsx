@@ -241,7 +241,8 @@ type FileRowProps = {
   onHoverStart: (hovered: HoveredFileStatus) => void;
   onHoverEnd: (rowKey: string) => void;
   onVisibilityToggle?: () => void;
-  onFocus?: () => void;
+  /** ビューアのカメラを合わせる。DOM の onFocus と区別するため名前を分ける */
+  onFocusFile?: () => void;
   onMenuOpen?: (el: HTMLElement) => void;
 };
 
@@ -256,7 +257,7 @@ function FileRow({
   onHoverStart,
   onHoverEnd,
   onVisibilityToggle,
-  onFocus,
+  onFocusFile,
   onMenuOpen,
 }: FileRowProps) {
   const statusKind = resolveRowStatusKind(uploadLabel, pclodLabel);
@@ -265,21 +266,27 @@ function FileRow({
   // アンマウント時に自分の hover 状態を解除して Popper が取り残されないようにする
   useEffect(() => () => onHoverEnd(rowKey), [rowKey, onHoverEnd]);
 
-  const handleMouseEnter = (event: React.MouseEvent<HTMLElement>) => {
+  const statusText = `アップロード: ${uploadLabel} / PCLOD: ${pclodLabel}`;
+
+  const handleHoverStart = (event: React.SyntheticEvent<HTMLElement>) => {
     onHoverStart({
       rowKey,
       anchorEl: event.currentTarget,
     });
   };
 
-  const handleMouseLeave = () => {
+  const handleHoverEnd = () => {
     onHoverEnd(rowKey);
   };
 
   return (
     <Box
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      // マウスに加えてキーボードでも状態を開けるようにする
+      tabIndex={0}
+      onMouseEnter={handleHoverStart}
+      onMouseLeave={handleHoverEnd}
+      onFocus={handleHoverStart}
+      onBlur={handleHoverEnd}
       sx={{
         display: "flex",
         alignItems: "center",
@@ -300,7 +307,12 @@ function FileRow({
           gap: 0.75,
         }}
       >
-        {rowStatusIcon(statusKind)}
+        {/* ホバーしない経路（キーボード・支援技術）でも状態を読めるようにする */}
+        <Tooltip title={statusText} disableInteractive>
+          <Box component="span" sx={{ display: "inline-flex" }} aria-label={statusText}>
+            {rowStatusIcon(statusKind)}
+          </Box>
+        </Tooltip>
         <Typography
           variant="body2"
           title={filename}
@@ -338,7 +350,7 @@ function FileRow({
               size="small"
               sx={ICON_BUTTON_SX}
               disabled={disabled || !isPclodDone || !isVisible}
-              onClick={onFocus}
+              onClick={onFocusFile}
             >
               <CenterFocusStrongIcon sx={{ fontSize: 16 }} />
             </IconButton>
@@ -480,7 +492,7 @@ export function ContractFileSidebar({ pendingUploads, headerActions }: ContractF
                 onHoverStart={handleHoverStart}
                 onHoverEnd={handleHoverEnd}
                 onVisibilityToggle={() => toggleVisibility(row.container)}
-                onFocus={() => void focusFile(file)}
+                onFocusFile={() => void focusFile(file)}
                 onMenuOpen={(el) => {
                   setMenuAnchor(el);
                   setMenuFile(file);
