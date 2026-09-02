@@ -1,6 +1,6 @@
-# RCDE Frontend SDK Example
+# RCDE Frontend SDK Example（スタンドアロン型）
 
-`@i-con/frontend-sdk` の動作確認用 Next.js サンプルアプリです。
+`@i-con/frontend-sdk` をブラウザから直接使う Next.js サンプルアプリです。
 3D 点群ビューア、ヘッダーからの現場・契約切り替え、ファイルアップロード、左サイドバーのファイル一覧・表示切り替え、
 ファイルステータスツールチップ（PCLOD / アップロード状況）、基準点ギズモの追従確認ができます。
 
@@ -18,9 +18,9 @@
 
 ### 2. SDK のビルド
 
-本サンプルはローカル SDK（`link:../`）をシンボリックリンク参照します。
-開発時は `next.config.js` の webpack alias により SDK は `../src`、点群ローダーは example の `@i-con/pcd-viewer@0.0.27`（React 19 対応）を直接参照します。
-認証は example 内の `src/lib/rcde-client-2-legged.ts` で 2-legged OAuth を実装しており、SDK の `api-server` サブパスは使用しません。
+本サンプルはローカル SDK（`link:../../`）をシンボリックリンク参照します。
+開発時は `next.config.js` の webpack alias により SDK は `../../src`、点群ローダーはサンプル側の `@i-con/pcd-viewer@0.0.27`（React 19 対応）を直接参照します。
+認証はサンプル内の `src/lib/rcde-client-2-legged.ts` で 2-legged OAuth を実装しており、SDK の `api-server` サブパスは使用しません。
 
 ```bash
 # リポジトリルート（rcde-frontend-sdk/）で実行
@@ -28,10 +28,10 @@ yarn install
 yarn build
 ```
 
-### 3. example のセットアップ
+### 3. サンプルのセットアップ
 
 ```bash
-cd example
+cd examples/standalone
 yarn install
 cp .env.example .env
 ```
@@ -88,7 +88,7 @@ yarn dev
 
 最新のステータスを確認したい場合は、アップロード完了時に `contractFilesRefetchKey` を更新して再取得してください（`handleUploaded` で実施済み）。
 
-## 基準点ギズモ・基準点ツールバー（example のみ）
+## 基準点ギズモ・基準点ツールバー（本サンプルのみ）
 
 `Viewer` はデフォルトで基準点（シフト後ワールド原点）に X/Y/Z 軸ギズモを表示します。
 
@@ -110,4 +110,3 @@ yarn dev
 ## 補足
 
 - `node_modules/`、`.next/`、`.env` は git 管理外です（ルート `.gitignore` 参照）。
-- 詳細な設計ドキュメントは [docs/](docs/README.md) を参照してください。
