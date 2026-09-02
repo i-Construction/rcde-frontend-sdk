@@ -36,8 +36,6 @@ const nextConfig = {
       "@i-con/pcd-viewer": path.join(exampleNodeModules, "@i-con/pcd-viewer"),
       "@react-three/fiber": path.join(exampleNodeModules, "@react-three/fiber"),
       "@react-three/drei": path.join(exampleNodeModules, "@react-three/drei"),
-      xstate: path.join(exampleNodeModules, "xstate"),
-      "@xstate/react": path.join(exampleNodeModules, "@xstate/react"),
     };
     return config;
   },

@@ -40,13 +40,11 @@
     "@mui/icons-material": "^6.2.0",
     "@mui/material": "^6.1.10",
     "@mui/x-date-pickers": "^7.23.1",
-    "@xstate/react": "^5.0.0",
     "chroma-js": "^3.1.2",
     "date-fns": "^2.30.0",
     "js-quadtree": "^3.3.6",
     "pngjs": "^7.0.0",
     "react-hook-form": "^7.54.0",
-    "xstate": "^5.19.0",
     "zod": "^3.24.1"
   },
   "peerDependencies": {
