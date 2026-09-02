@@ -5,27 +5,43 @@
 RCDEの機能をフロントエンドアプリケーションで利用するためのSDKです。
 
 本SDKは、RCDE連携型モニタリングアプリのフロントエンド共通機能を提供します。  
-Next.js（App Router構成）および React Three Fiber をベースとし、点群ビューア、認証、契約項目管理、ファイルアップロードなどを統合します。
+React Three Fiber をベースとし、点群ビューア、契約ファイル管理、ファイルアップロードなどを統合します。
 
 このSDKはReact環境(バージョン18以上)で使用することを前提としています。
+アクセストークンの発行は SDK の役割ではなく、利用側が発行したトークンを受け取ります。
 
 ---
 
 ## 開発環境要件
 
-| 項目       | バージョン      | 備考                                        |
-| ---------- | --------------- | ------------------------------------------- |
-| Node.js    | **24.x**        | LTS推奨（24.18.0）                          |
-| React      | **18.3.1 固定** | Three.js互換のため他バージョン不可          |
-| Next.js    | **16.2.9 固定** | Three.js／React Three Fiber間の依存制約あり |
-| Vite       | ^6.x            | ライブラリビルド用                          |
-| TypeScript | ^5.x            | 型定義完全対応                              |
-| Three.js   | ^0.171.0        | `@react-three/fiber` 依存                   |
+peerDependencies は次のとおりです。いずれも利用側のアプリが用意します。
 
-> ⚠️ **React/Nextバージョンは厳密固定です。**
+| パッケージ           | バージョン範囲 | 備考                                     |
+| -------------------- | -------------- | ---------------------------------------- |
+| `react`              | `^18.3.1`      | React 19 でも動作を確認しています        |
+| `react-dom`          | `^18.3.1`      | `react` と同じメジャーバージョンに揃える |
+| `three`              | `^0.171.0`     | 3D 描画本体                              |
+| `@react-three/fiber` | `^8.17.10`     | React 19 では 9 系を使います             |
+| `@react-three/drei`  | `^9.120.4`     | `@react-three/fiber` の系列に揃える      |
+
+SDK 自体のビルド・開発に使うバージョンは次のとおりです。
+
+| 項目       | バージョン | 備考                           |
+| ---------- | ---------- | ------------------------------ |
+| Node.js    | 24.18.0    | `package.json` の `volta.node` |
+| TypeScript | `~5.6.2`   | 型定義の生成に使用             |
+| Vite       | `^6.0.1`   | ライブラリビルド用             |
+
+> **バージョンの組み合わせについて**
 >
-> Three.js と React 18.3.1 / Next.js 16.2.9 の組み合わせでのみビルドが安定します。  
-> これ以外のバージョンでは、`react-reconciler` や `r3f` 関連でコンパイルエラーが発生します。
+> peerDependencies の宣言は React 18 系ですが、`examples/standalone` は
+> React 19 / Next.js 16.2.9 / `@react-three/fiber` 9 系 / `@react-three/drei` 10 系で動作しています。
+> React 18 に固定する必要はありません。  
+> 揃えるべきなのは React と React DOM、および `@react-three/fiber` と `@react-three/drei` の
+> 対応関係です（React 18 なら fiber 8 系、React 19 なら fiber 9 系）。
+> ここがずれると `react-reconciler` 関連の型エラーや実行時エラーが発生します。
+>
+> SDK は Next.js に依存していません。Next.js 以外の React アプリでも利用できます。
 
 ---
 
@@ -677,20 +693,30 @@ function FileList({ pendingUploads }) {
 
 ## Three.js／R3F統合に関する注意
 
-- Three.js オブジェクトは React Reconciler 18.3.1 に依存します。
-- `three` は Vite の `optimizeDeps.include` に追加しておく必要があります。
-- ViewerBridge は直接 three.js のカメラ・シーン・マテリアルを制御します。
-- `react-three-fiber` と `three` のバージョン不一致によりビルドエラーが出る場合は、
-  `node_modules` を削除して再インストールしてください。
+- `three` / `@react-three/fiber` / `@react-three/drei` / `react` / `react-dom` は
+  ライブラリのバンドルから external にしています。利用側アプリの依存が 1 つだけ解決されるようにしてください。
+  同じパッケージが二重に読み込まれると R3F のコンテキストが分かれて描画されません。
+- `@react-three/fiber` と `@react-three/drei` は対応する系列同士で使ってください
+  （React 18 なら fiber 8 系 + drei 9 系、React 19 なら fiber 9 系 + drei 10 系）。
+- `ViewerBridge` は Three.js を直接制御しません。`window.postMessage` でコマンドを送り、
+  `Viewer` の内部 state を経由して描画へ反映されます。
+- バージョン不一致でビルドエラーが出る場合は、`node_modules` を削除して再インストールしてください。
 
 ---
 
 ## 開発時の注意事項
 
-- Next.js App Router 構成に準拠しています（`src/app/` 配下に各画面を配置）。
-- クライアント側コンポーネントには `"use client"` 指定を付与してください。
-- RCDEトークンはセッション内で管理され、クライアントでの永続保存は禁止されています。
-- 大容量ファイルのアップロードには分割処理とリトライ機構を実装済みです。
+- SDK は Next.js の構成に依存しません。`src/app/` のような画面ディレクトリは持たず、
+  公開するのはコンポーネントとフックだけです。App Router を使った画面の組み方は
+  `examples/standalone` を参照してください。
+- SDK のコンポーネントはすべてブラウザで動きます。Next.js App Router から使う場合は、
+  それらを描画するコンポーネントに `"use client"` を付与してください。
+- アクセストークンは `RCDEClient` のインスタンスがメモリ上に保持するだけで、
+  SDK は Cookie や localStorage へ保存しません。トークンの取得・保管・失効時の再取得は
+  利用側アプリの責務です。
+- 大容量ファイルは `uploadContractFileMultipart` で分割送信できます。
+  失敗したパートの自動リトライは行いません。失敗時はアップロード全体を破棄して
+  エラーを throw するため、再試行は利用側で行ってください。
 
 ---
 
