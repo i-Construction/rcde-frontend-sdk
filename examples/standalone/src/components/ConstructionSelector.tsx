@@ -131,8 +131,25 @@ export function ConstructionSelector({ accessToken }: Props) {
             現場・契約選択
           </Typography>
 
+          {/* 現場一覧の失敗は一覧そのものが出ないため、再取得の導線をエラー表示に添える。
+              契約一覧の表示中は「現場一覧に戻る」があるので添えない。 */}
           {error && (
-            <Alert severity="error" sx={{ mt: 1, mb: 1 }}>
+            <Alert
+              severity="error"
+              sx={{ mt: 1, mb: 1 }}
+              action={
+                selectedConstruction ? undefined : (
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={() => void loadConstructions()}
+                    disabled={loading}
+                  >
+                    再読み込み
+                  </Button>
+                )
+              }
+            >
               {error}
             </Alert>
           )}
