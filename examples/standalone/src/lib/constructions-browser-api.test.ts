@@ -91,6 +91,21 @@ describe("fetchConstructions", () => {
     });
   });
 
+  it("現場一覧 API が成功応答で JSON ではない本文を返すとき、既定の文言で失敗し元の例外を cause として残す", async () => {
+    stubFetch(
+      async () =>
+        new Response("<html><body>OK</body></html>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        })
+    );
+
+    await expect(fetchConstructions(ACCESS_TOKEN)).rejects.toMatchObject({
+      message: "現場一覧の取得に失敗しました",
+      cause: expect.any(Error),
+    });
+  });
+
   it("現場一覧 API が constructions に配列以外を返すとき、既定の文言で失敗する", async () => {
     stubFetch(async () => jsonResponse({ constructions: { id: 1, name: "第一現場" } }));
 
