@@ -3,6 +3,8 @@
 import {
   useContractFileActions,
   type ContractFile,
+  type ContractFileRow,
+  type FileStatusLabels,
   type PclodStatusLabel,
   type PendingUploads,
   type UploadStatusLabel,
@@ -28,7 +30,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 export const CONTRACT_FILE_SIDEBAR_WIDTH = 320;
 const SIDEBAR_WIDTH = CONTRACT_FILE_SIDEBAR_WIDTH;
@@ -55,12 +57,33 @@ const ICON_BUTTON_SX = {
 
 type StatusRowKind = "uploading" | "waiting" | "processing" | "completed" | "unknown" | "idle";
 
+/** ラベルは描画時に rows から引き直すため、state にはキーとアンカーだけ持つ */
 type HoveredFileStatus = {
   rowKey: string;
   anchorEl: HTMLElement;
-  uploadLabel: UploadStatusLabel;
-  pclodLabel: PclodStatusLabel;
 };
+
+function rowKeyOf(row: ContractFileRow): string {
+  return row.type === "pending" ? `pending-${row.contractFileId}` : String(row.container.file.id);
+}
+
+function findRowStatus(
+  rows: ContractFileRow[],
+  rowKey: string,
+  getFileStatus: (file: ContractFile) => FileStatusLabels
+): FileStatusLabels | null {
+  const row = rows.find((candidate) => rowKeyOf(candidate) === rowKey);
+
+  if (row === undefined) {
+    return null;
+  }
+
+  if (row.type === "pending") {
+    return { upload: "アップロード中", pclod: "-" };
+  }
+
+  return getFileStatus(row.container.file);
+}
 
 function resolvePclodKind(pclodLabel: PclodStatusLabel): StatusRowKind {
   switch (pclodLabel) {
@@ -152,15 +175,16 @@ function rowStatusIcon(kind: StatusRowKind) {
 }
 
 type FileStatusHoverPopperProps = {
-  hovered: HoveredFileStatus | null;
+  anchorEl: HTMLElement;
+  uploadLabel: UploadStatusLabel;
+  pclodLabel: PclodStatusLabel;
 };
 
-function FileStatusHoverPopper({ hovered }: FileStatusHoverPopperProps) {
-  if (hovered === null) {
-    return null;
-  }
-
-  const { anchorEl, uploadLabel, pclodLabel } = hovered;
+function FileStatusHoverPopper({
+  anchorEl,
+  uploadLabel,
+  pclodLabel,
+}: FileStatusHoverPopperProps) {
   const uploadIconKind = uploadLabel === "アップロード中" ? "uploading" : "upload-done";
   const pclodIconKind = resolvePclodKind(pclodLabel);
 
@@ -239,12 +263,14 @@ function FileRow({
 }: FileRowProps) {
   const statusKind = resolveRowStatusKind(uploadLabel, pclodLabel);
 
+  // アップロード完了などで行が消えると mouseleave が発火しないため、
+  // アンマウント時に自分の hover 状態を解除して Popper が取り残されないようにする
+  useEffect(() => () => onHoverEnd(rowKey), [rowKey, onHoverEnd]);
+
   const handleMouseEnter = (event: React.MouseEvent<HTMLElement>) => {
     onHoverStart({
       rowKey,
       anchorEl: event.currentTarget,
-      uploadLabel,
-      pclodLabel,
     });
   };
 
@@ -375,6 +401,10 @@ export function ContractFileSidebar({ pendingUploads, headerActions }: ContractF
     setHoveredStatus((prev) => (prev?.rowKey === rowKey ? null : prev));
   }, []);
 
+  // ホバー開始時点の値を固定せず、再取得のたびに最新のラベルを引き直す
+  const hoveredRowStatus =
+    hoveredStatus === null ? null : findRowStatus(rows, hoveredStatus.rowKey, getFileStatus);
+
   return (
     <Box
       sx={{
@@ -417,8 +447,9 @@ export function ContractFileSidebar({ pendingUploads, headerActions }: ContractF
           </Typography>
         ) : (
           rows.map((row) => {
+            const rowKey = rowKeyOf(row);
+
             if (row.type === "pending") {
-              const rowKey = `pending-${row.contractFileId}`;
               return (
                 <FileRow
                   key={rowKey}
@@ -439,7 +470,6 @@ export function ContractFileSidebar({ pendingUploads, headerActions }: ContractF
             const { file, visible } = row.container;
             const status = getFileStatus(file);
             const pclodDone = isPclodCompleted(file);
-            const rowKey = String(file.id);
 
             return (
               <FileRow
@@ -465,7 +495,13 @@ export function ContractFileSidebar({ pendingUploads, headerActions }: ContractF
         )}
       </Box>
 
-      <FileStatusHoverPopper hovered={hoveredStatus} />
+      {hoveredStatus !== null && hoveredRowStatus !== null && (
+        <FileStatusHoverPopper
+          anchorEl={hoveredStatus.anchorEl}
+          uploadLabel={hoveredRowStatus.upload}
+          pclodLabel={hoveredRowStatus.pclod}
+        />
+      )}
 
       <Menu anchorEl={menuAnchor} open={menuAnchor !== null} onClose={handleMenuClose}>
         <MenuItem onClick={handleDownload}>ダウンロード</MenuItem>
