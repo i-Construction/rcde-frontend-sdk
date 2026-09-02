@@ -23,6 +23,9 @@ jobs:
       - run: yarn lint
       - run: yarn format:check
       - run: yarn build
+      # build（tsc -b）はテストを型検査しない（tsconfig.json の exclude）。
+      # vitest も型を落として実行するため、テスト内の型エラーはここでしか落ちない。
+      - run: yarn typecheck
       - run: yarn test
 
   # examples はルートの lint / prettier / workflow の対象外だったため、
