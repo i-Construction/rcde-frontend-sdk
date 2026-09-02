@@ -24,6 +24,7 @@
   ],
   "scripts": {
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
