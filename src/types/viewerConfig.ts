@@ -1,3 +1,5 @@
+import type { AuthType } from "./rcdeApiTypes";
+
 /**
  * R-CDE API へ接続するためのアプリケーション設定。
  *
@@ -8,5 +10,5 @@
 export type RCDEAppConfig = {
   token: string;
   baseUrl?: string;
-  authType?: "2legged" | "3legged";
+  authType?: AuthType;
 };
