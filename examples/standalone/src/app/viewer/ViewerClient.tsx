@@ -201,114 +201,106 @@ export function ViewerClient({
         <Box
           sx={{
             position: "absolute",
-            top: 12,
-            left: 12,
-            zIndex: 10,
-            width: 320,
-            px: 1.5,
-            py: 1,
-            borderRadius: 1,
-            bgcolor: "rgba(0, 0, 0, 0.65)",
-            color: "common.white",
-            backdropFilter: "blur(6px)",
-            pointerEvents: "none",
-          }}
-        >
-          <Typography variant="caption" component="div">
-            Viewer 推定メモリ: {formatMiB(memorySample?.estimatedViewerBytes)}
-          </Typography>
-          <Typography variant="caption" component="div">
-            ページメモリ: {formatMiB(memorySample?.pageBytes ?? memorySample?.jsHeapBytes)}
-          </Typography>
-          <Typography variant="caption" component="div">
-            タイル数: {memorySample?.loadedTileCount ?? 0} / ソース: {memorySample?.source ?? "-"}
-          </Typography>
-        </Box>
-        <Box
-          sx={{
-            position: "absolute",
             bottom: 12,
             right: 12,
             zIndex: 10,
             width: 320,
-            px: 1.5,
-            py: 1,
-            borderRadius: 1,
-            bgcolor: "rgba(0, 0, 0, 0.65)",
-            color: "common.white",
-            backdropFilter: "blur(6px)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
             pointerEvents: "none",
           }}
         >
-          <Typography variant="caption" component="div" sx={{ fontWeight: "bold", mb: 0.5 }}>
-            クリック
-          </Typography>
-          {lastClickEvent ? (
-            lastClickEvent.hit ? (
-              <>
-                <Typography variant="caption" component="div">
-                  ファイル: {lastClickEvent.file.name ?? `ID: ${lastClickEvent.file.id}`}
-                </Typography>
-                <Typography variant="caption" component="div">
-                  交差点: ({lastClickEvent.intersectionPoint.x.toFixed(2)},{" "}
-                  {lastClickEvent.intersectionPoint.y.toFixed(2)},{" "}
-                  {lastClickEvent.intersectionPoint.z.toFixed(2)})
-                </Typography>
-                <Typography variant="caption" component="div">
-                  ローカル: ({lastClickEvent.localIntersectionPoint.x.toFixed(2)},{" "}
-                  {lastClickEvent.localIntersectionPoint.y.toFixed(2)},{" "}
-                  {lastClickEvent.localIntersectionPoint.z.toFixed(2)})
-                </Typography>
-                <Typography variant="caption" component="div">
-                  画面座標: ({lastClickEvent.screenPosition.x}, {lastClickEvent.screenPosition.y})
-                </Typography>
-              </>
-            ) : (
-              <Typography variant="caption" component="div" sx={{ color: "grey.400" }}>
-                空白クリック ({lastClickEvent.screenPosition.x}, {lastClickEvent.screenPosition.y})
-              </Typography>
-            )
-          ) : (
-            <Typography variant="caption" component="div" sx={{ color: "grey.500" }}>
-              未クリック
-            </Typography>
-          )}
-          <Divider sx={{ my: 0.5, borderColor: "rgba(255,255,255,0.2)" }} />
-          <Typography variant="caption" component="div" sx={{ fontWeight: "bold", mb: 0.5 }}>
-            ホバー
-          </Typography>
-          {hoverEvent ? (
-            hoverEvent.hit ? (
-              <Typography variant="caption" component="div">
-                ファイル: {hoverEvent.file.name ?? `ID: ${hoverEvent.file.id}`}
-              </Typography>
-            ) : (
-              <Typography variant="caption" component="div" sx={{ color: "grey.500" }}>
-                対象なし
-              </Typography>
-            )
-          ) : (
-            <Typography variant="caption" component="div" sx={{ color: "grey.500" }}>
-              未ホバー
-            </Typography>
-          )}
-        </Box>
-        {memoryAlert && (
-          <Box
-            sx={{
-              position: "absolute",
-              top: 96,
-              left: 12,
-              zIndex: 11,
-              width: 360,
-            }}
-          >
+          {memoryAlert && (
             <Alert severity={memoryAlert.level === "critical" ? "error" : "warning"}>
               3D 表示のメモリ使用量が閾値を超えました。現在値:{" "}
               {formatMiB(memoryAlert.observedBytes)} / 閾値: {formatMiB(memoryAlert.thresholdBytes)}
             </Alert>
+          )}
+          <Box
+            sx={{
+              px: 1.5,
+              py: 1,
+              borderRadius: 1,
+              bgcolor: "rgba(0, 0, 0, 0.65)",
+              color: "common.white",
+              backdropFilter: "blur(6px)",
+            }}
+          >
+            <Typography variant="caption" component="div">
+              Viewer 推定メモリ: {formatMiB(memorySample?.estimatedViewerBytes)}
+            </Typography>
+            <Typography variant="caption" component="div">
+              ページメモリ: {formatMiB(memorySample?.pageBytes ?? memorySample?.jsHeapBytes)}
+            </Typography>
+            <Typography variant="caption" component="div">
+              タイル数: {memorySample?.loadedTileCount ?? 0} / ソース: {memorySample?.source ?? "-"}
+            </Typography>
           </Box>
-        )}
+          <Box
+            sx={{
+              px: 1.5,
+              py: 1,
+              borderRadius: 1,
+              bgcolor: "rgba(0, 0, 0, 0.65)",
+              color: "common.white",
+              backdropFilter: "blur(6px)",
+            }}
+          >
+            <Typography variant="caption" component="div" sx={{ fontWeight: "bold", mb: 0.5 }}>
+              クリック
+            </Typography>
+            {lastClickEvent ? (
+              lastClickEvent.hit ? (
+                <>
+                  <Typography variant="caption" component="div">
+                    ファイル: {lastClickEvent.file.name ?? `ID: ${lastClickEvent.file.id}`}
+                  </Typography>
+                  <Typography variant="caption" component="div">
+                    交差点: ({lastClickEvent.intersectionPoint.x.toFixed(2)},{" "}
+                    {lastClickEvent.intersectionPoint.y.toFixed(2)},{" "}
+                    {lastClickEvent.intersectionPoint.z.toFixed(2)})
+                  </Typography>
+                  <Typography variant="caption" component="div">
+                    ローカル: ({lastClickEvent.localIntersectionPoint.x.toFixed(2)},{" "}
+                    {lastClickEvent.localIntersectionPoint.y.toFixed(2)},{" "}
+                    {lastClickEvent.localIntersectionPoint.z.toFixed(2)})
+                  </Typography>
+                  <Typography variant="caption" component="div">
+                    画面座標: ({lastClickEvent.screenPosition.x}, {lastClickEvent.screenPosition.y})
+                  </Typography>
+                </>
+              ) : (
+                <Typography variant="caption" component="div" sx={{ color: "grey.400" }}>
+                  空白クリック ({lastClickEvent.screenPosition.x}, {lastClickEvent.screenPosition.y})
+                </Typography>
+              )
+            ) : (
+              <Typography variant="caption" component="div" sx={{ color: "grey.500" }}>
+                未クリック
+              </Typography>
+            )}
+            <Divider sx={{ my: 0.5, borderColor: "rgba(255,255,255,0.2)" }} />
+            <Typography variant="caption" component="div" sx={{ fontWeight: "bold", mb: 0.5 }}>
+              ホバー
+            </Typography>
+            {hoverEvent ? (
+              hoverEvent.hit ? (
+                <Typography variant="caption" component="div">
+                  ファイル: {hoverEvent.file.name ?? `ID: ${hoverEvent.file.id}`}
+                </Typography>
+              ) : (
+                <Typography variant="caption" component="div" sx={{ color: "grey.500" }}>
+                  対象なし
+                </Typography>
+              )
+            ) : (
+              <Typography variant="caption" component="div" sx={{ color: "grey.500" }}>
+                未ホバー
+              </Typography>
+            )}
+          </Box>
+        </Box>
         <Box
           sx={{
             position: "absolute",
