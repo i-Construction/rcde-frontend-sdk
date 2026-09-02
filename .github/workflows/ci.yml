@@ -16,11 +16,9 @@ jobs:
           node-version: "24.18.0"
           cache: yarn
           # setup-node はワークスペース直下の yarn.lock しか探さないため、
-          # examples の lockfile もキャッシュキーに含める
-          cache-dependency-path: |
-            yarn.lock
-            examples/standalone/yarn.lock
-            examples/webhook-receiver/yarn.lock
+          # examples の lockfile もキャッシュキーに含める。
+          # 個別に列挙するとサンプルを消した時点で解決できず step ごと落ちるので glob にする
+          cache-dependency-path: "**/yarn.lock"
       - run: yarn install --frozen-lockfile
       - run: yarn lint
       - run: yarn format:check
