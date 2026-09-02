@@ -526,6 +526,12 @@ const Viewer: FC<ViewerProps> = (props) => {
   // 初回ロードが済んだ契約 ID。contractFilesRefetchKey は「初回は undefined で渡す」使い方と
   // 「最初から数値を渡す」使い方の両方があり得るため、キーの値からは初回かどうかを判定できない。
   // 実際に load したかどうかを契約 ID で覚えて判定する。
+  //
+  // 更新するのは応答が成功した時点なので、契約 A → B と切り替えて B のロードが終わる前に A へ戻すと、
+  // ref は A のままで A が初回ロード扱いにならず、contractFileIds が再適用されない。
+  // ただし B の一覧は一度も入っていないので A の表示状態が続くだけで破綻はしない。
+  // contractId の変化で ref を undefined へ戻す手もあるが、切り替えの最中に一覧が空へ落ちる。
+  // そのため、この食い違いは直さずに許容する。
   const loadedContractIdRef = useRef<number | undefined>(undefined);
 
   // 一覧取得は世代番号で新しい要求だけを採用する。isInitialLoad は await の前に決まる一方
@@ -538,13 +544,17 @@ const Viewer: FC<ViewerProps> = (props) => {
     if (!client || !contractId) return;
 
     const isInitialLoad = loadedContractIdRef.current !== contractId;
+    // 可視ポリシーも要求を出した時点の値で固定する。await の後に ref を読むと、応答を待つ間に
+    // 呼び出し側が prop を差し替えたときに完了時点の値が初回ロードへ適用され、
+    // ViewerProps.contractFileIds の「初回ロード時のみ効く」という説明と食い違う。
+    const visibleIds = contractFileIdsRef.current;
     const generation = ++contractFilesRequestGenerationRef.current;
     try {
       const res = await client.getContractFileList({ contractId });
       if (generation !== contractFilesRequestGenerationRef.current) return;
       const contractFiles = res?.contractFiles ?? [];
       if (isInitialLoad) {
-        load(contractFiles, contractFileIdsRef.current);
+        load(contractFiles, visibleIds);
         loadedContractIdRef.current = contractId;
       } else {
         // 再取得では contractFileIds から作り直さず、ユーザーが切り替えた表示状態を引き継ぐ
@@ -557,7 +567,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       // 初回だけは空にする。別の契約へ切り替えた直後に失敗したとき、
       // 前の契約のファイルを出し続けてしまうため。
       if (isInitialLoad) {
-        load([], contractFileIdsRef.current);
+        load([], visibleIds);
       }
     }
   }, [client, contractId, load, updateFiles]);
