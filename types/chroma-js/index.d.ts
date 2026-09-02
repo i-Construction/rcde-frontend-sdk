@@ -20,7 +20,8 @@ declare module "chroma-js" {
   }
 
   interface ChromaInstance {
-    rgb(includeAlpha?: boolean): [number, number, number] | [number, number, number, number];
+    /** chroma-js 本来の引数は丸めの有無（既定 true）。アルファ込みは rgba()。 */
+    rgb(round?: boolean): [number, number, number];
     hex(mode?: string): string;
     hsl(): [number, number, number];
     alpha(): number;
