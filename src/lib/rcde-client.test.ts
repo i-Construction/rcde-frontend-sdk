@@ -33,24 +33,42 @@ type CapturedRequest = {
   body: unknown;
 };
 
-type CapturingClientOptions = {
+type CaptureResponseOptions = {
   responsePayload?: unknown;
-  authType?: AuthType;
-  accessToken?: string;
   ok?: boolean;
   status?: number;
 };
 
-/** fetchImpl を差し替えて、送信された URL・メソッド・ヘッダ・ボディを控えるクライアント */
-function createRequestCapturingClient(options: CapturingClientOptions = {}) {
-  const { responsePayload = {}, authType, accessToken, ok = true, status = 200 } = options;
+type CapturingClientOptions = CaptureResponseOptions & {
+  baseUrl?: string;
+  authType?: AuthType;
+  accessToken?: string;
+};
+
+/**
+ * 送信本文の控え方。JSON 文字列は構造で比較できるよう解釈し、点群本体の ArrayBuffer や
+ * ブロックチェーン送信の FormData はそのまま控える（String 化して JSON.parse すると落ちるため）
+ */
+function captureRequestBody(body: RequestInit["body"]): unknown {
+  if (body === undefined || body === null) return undefined;
+  if (typeof body !== "string") return body;
+  try {
+    return JSON.parse(body);
+  } catch {
+    return body;
+  }
+}
+
+/** 送信された URL・メソッド・ヘッダ・ボディを控える fetchImpl */
+function createRequestCapture(options: CaptureResponseOptions = {}) {
+  const { responsePayload = {}, ok = true, status = 200 } = options;
   const requests: CapturedRequest[] = [];
   const fetchImpl = (async (url: string, init?: RequestInit) => {
     requests.push({
       url: String(url),
       method: init?.method,
       headers: { ...(init?.headers as Record<string, string> | undefined) },
-      body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
+      body: captureRequestBody(init?.body),
     });
     return {
       ok,
@@ -60,19 +78,35 @@ function createRequestCapturingClient(options: CapturingClientOptions = {}) {
     } as Response;
   }) as unknown as typeof fetch;
 
+  return { fetchImpl, requests };
+}
+
+/** fetchImpl を差し替えて、送信された URL・メソッド・ヘッダ・ボディを控えるクライアント */
+function createRequestCapturingClient(options: CapturingClientOptions = {}) {
+  const { baseUrl = "https://example.com", authType, accessToken, ...responseOptions } = options;
+  const { fetchImpl, requests } = createRequestCapture(responseOptions);
+
   return {
-    client: new RCDEClient({ baseUrl: "https://example.com", fetchImpl, authType, accessToken }),
+    client: new RCDEClient({ baseUrl, fetchImpl, authType, accessToken }),
     requests,
   };
 }
 
-/** 1 メソッドを呼んで、そのとき送信されたリクエストを返す */
+/**
+ * 1 メソッドを呼んで、そのとき送信されたリクエストを返す。
+ *
+ * 応答の解釈で失敗しても捨てる。送信内容を写すテストが、送信と無関係な理由
+ * （レスポンス変換のフォールバックが消えた等）で落ちると安全網としてノイズになるため。
+ * リクエストが飛ばなければ件数の断言で落ちるので検出力は下がらない。
+ * 併せて「1 メソッドの呼び出しで 1 回だけ送る」ことも固定する（二重送信の検出）。
+ */
 async function captureRequest(
   options: CapturingClientOptions,
   callMethod: (client: RCDEClient) => Promise<unknown>
 ): Promise<CapturedRequest> {
   const { client, requests } = createRequestCapturingClient(options);
-  await callMethod(client);
+  await callMethod(client).catch(() => undefined);
+  expect(requests).toHaveLength(1);
   return requests[0];
 }
 
