@@ -43,7 +43,8 @@ function post(cmd: Command) {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  // 配列も typeof === "object" かつ非 null なので、Array.isArray で先に落とす。
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**

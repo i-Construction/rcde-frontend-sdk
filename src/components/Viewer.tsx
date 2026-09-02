@@ -40,7 +40,11 @@ import {
   type ViewerMemorySource,
 } from "../lib/viewerMemory";
 import { raycastViews } from "../lib/viewerRaycast";
-import { ViewerBridge, type CoordinateSystemType } from "../bridge/viewerBridge";
+import {
+  ViewerBridge,
+  type CoordinateSystemType,
+  type ViewerAppearance,
+} from "../bridge/viewerBridge";
 import type { RCDEAppConfig } from "../types/viewerConfig";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { ReferencePointAxis } from "./ReferencePointAxis";
@@ -154,7 +158,7 @@ const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(mi
  * 1 箇所にまとめる。使うときは複製する（state に同じ参照を入れると React が更新を
  * 打ち切り、RESET でシーンへの再適用が走らなくなるため）。
  */
-const DEFAULT_APPEARANCE: { pointSize: number; opacity: number } = {
+const DEFAULT_APPEARANCE: Pick<ViewerAppearance, "pointSize" | "opacity"> = {
   pointSize: 2,
   opacity: 100,
 };
@@ -462,7 +466,7 @@ const Viewer: FC<ViewerProps> = (props) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
-  const [appearance, setAppearance] = useState<{ pointSize: number; opacity: number }>({
+  const [appearance, setAppearance] = useState<typeof DEFAULT_APPEARANCE>({
     ...DEFAULT_APPEARANCE,
   });
   // コマンドリスナーは購読し直さずに最新の外観を読む必要があるため ref に持つ。
