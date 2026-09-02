@@ -1,3 +1,14 @@
+/**
+ * chroma-js の型宣言。
+ *
+ * tsconfig.json の `typeRoots: ["types"]` は `node_modules/@types` の自動読み込みを
+ * 無効化するため、この宣言が chroma-js の唯一の型定義になる。
+ * `@types/chroma-js` は依存に入っておらず、このファイルを削除するとビルドが壊れる。
+ *
+ * 実際に使っているのは src/components/ContractFileView.tsx の `chroma.scale()` と
+ * その戻り値の `rgb()` だけなので、宣言は SDK が使う範囲に絞っている。
+ * chroma-js の他の API を使うときはここへ追記する。
+ */
 declare module "chroma-js" {
   interface ChromaScale {
     (value: number): ChromaInstance;
