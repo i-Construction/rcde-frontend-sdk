@@ -36,6 +36,15 @@ const STATUS_ICON_SIZE = 16;
 const POPOVER_BG = "#111827";
 const LABEL_CHIP_BG = "#808000";
 
+/** 進行中アイコンの回転。keyframes を 1 つに保つためアイコン間で共有する */
+const SPIN_SX = {
+  animation: "sidebarStatusSpin 1s linear infinite",
+  "@keyframes sidebarStatusSpin": {
+    from: { transform: "rotate(0deg)" },
+    to: { transform: "rotate(360deg)" },
+  },
+};
+
 const ICON_BUTTON_SX = {
   width: 28,
   height: 28,
@@ -100,19 +109,10 @@ function StatusLabelChip({ label }: { label: string }) {
 }
 
 function popoverStatusIcon(kind: StatusRowKind | "upload-done") {
-  const spinSx = {
-    fontSize: STATUS_ICON_SIZE,
-    animation: "sidebarStatusSpin 1s linear infinite",
-    "@keyframes sidebarStatusSpin": {
-      from: { transform: "rotate(0deg)" },
-      to: { transform: "rotate(360deg)" },
-    },
-  };
-
   switch (kind) {
     case "uploading":
     case "processing":
-      return <AutorenewIcon sx={{ ...spinSx, color: "info.light" }} />;
+      return <AutorenewIcon sx={{ fontSize: STATUS_ICON_SIZE, ...SPIN_SX, color: "info.light" }} />;
     case "waiting":
       return <ScheduleIcon sx={{ fontSize: STATUS_ICON_SIZE, color: "warning.light" }} />;
     case "completed":
@@ -135,12 +135,8 @@ function rowStatusIcon(kind: StatusRowKind) {
         <AutorenewIcon
           sx={{
             ...sx,
+            ...SPIN_SX,
             color: kind === "uploading" ? "text.secondary" : "info.main",
-            animation: "sidebarStatusSpin 1s linear infinite",
-            "@keyframes sidebarStatusSpin": {
-              from: { transform: "rotate(0deg)" },
-              to: { transform: "rotate(360deg)" },
-            },
           }}
         />
       );
