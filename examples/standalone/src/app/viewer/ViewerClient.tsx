@@ -208,11 +208,17 @@ export function ViewerClient({
             display: "flex",
             flexDirection: "column",
             gap: 1,
+            // 下端起点で上へ伸びるため、ビューポート上端を突き抜けないよう上限を置く
+            maxHeight: "calc(100% - 24px)",
+            minHeight: 0,
             pointerEvents: "none",
           }}
         >
           {memoryAlert && (
-            <Alert severity={memoryAlert.level === "critical" ? "error" : "warning"}>
+            <Alert
+              severity={memoryAlert.level === "critical" ? "error" : "warning"}
+              sx={{ pointerEvents: "auto" }}
+            >
               3D 表示のメモリ使用量が閾値を超えました。現在値:{" "}
               {formatMiB(memoryAlert.observedBytes)} / 閾値: {formatMiB(memoryAlert.thresholdBytes)}
             </Alert>
@@ -225,6 +231,7 @@ export function ViewerClient({
               bgcolor: "rgba(0, 0, 0, 0.65)",
               color: "common.white",
               backdropFilter: "blur(6px)",
+              flexShrink: 0,
             }}
           >
             <Typography variant="caption" component="div">
@@ -245,6 +252,10 @@ export function ViewerClient({
               bgcolor: "rgba(0, 0, 0, 0.65)",
               color: "common.white",
               backdropFilter: "blur(6px)",
+              // 内容が伸びたときはこのパネル内でスクロールさせる（スクロールには pointerEvents が要る）
+              minHeight: 0,
+              overflow: "auto",
+              pointerEvents: "auto",
             }}
           >
             <Typography variant="caption" component="div" sx={{ fontWeight: "bold", mb: 0.5 }}>
