@@ -4,15 +4,16 @@ import {
   useContractFileActions,
   type ContractFile,
   type ContractFileRow,
-  type FileStatusLabels,
-  type PclodStatusLabel,
+  type FileStatus,
+  type PclodStatus,
   type PendingUploads,
-  type UploadStatusLabel,
+  type UploadStatus,
 } from "@i-con/frontend-sdk";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import CenterFocusStrongIcon from "@mui/icons-material/CenterFocusStrong";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloudDoneIcon from "@mui/icons-material/CloudDone";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -37,6 +38,22 @@ const STATUS_ICON_SIZE = 16;
 const POPOVER_BG = "#111827";
 const LABEL_CHIP_BG = "#808000";
 
+// SDK が返すのは状態値なので、日本語の文言は利用側で決める。網羅した Record にしておくと
+// R-CDE 側でステータスが増えて SDK の状態値が増えたとき、ここが型エラーで落ちる
+const UPLOAD_STATUS_LABELS: Record<UploadStatus, string> = {
+  uploading: "アップロード中",
+  uploaded: "完了",
+};
+
+const PCLOD_STATUS_LABELS: Record<PclodStatus, string> = {
+  none: "-",
+  waiting: "待機中",
+  processing: "処理中",
+  completed: "完了",
+  failed: "失敗",
+  unknown: "不明",
+};
+
 /** 進行中アイコンの回転。keyframes を 1 つに保つためアイコン間で共有する */
 const SPIN_SX = {
   animation: "sidebarStatusSpin 1s linear infinite",
@@ -57,9 +74,16 @@ const ICON_BUTTON_SX = {
   "&.Mui-disabled": { opacity: 0.3 },
 };
 
-type StatusRowKind = "uploading" | "waiting" | "processing" | "completed" | "unknown" | "idle";
+type StatusRowKind =
+  | "uploading"
+  | "waiting"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "unknown"
+  | "idle";
 
-/** ラベルは描画時に rows から引き直すため、state にはキーとアンカーだけ持つ */
+/** 状態は描画時に rows から引き直すため、state にはキーとアンカーだけ持つ */
 type HoveredFileStatus = {
   rowKey: string;
   anchorEl: HTMLElement;
@@ -72,8 +96,8 @@ function rowKeyOf(row: ContractFileRow): string {
 function findRowStatus(
   rows: ContractFileRow[],
   rowKey: string,
-  getFileStatus: (file: ContractFile) => FileStatusLabels
-): FileStatusLabels | null {
+  getFileStatus: (file: ContractFile) => FileStatus
+): FileStatus | null {
   const row = rows.find((candidate) => rowKeyOf(candidate) === rowKey);
 
   if (row === undefined) {
@@ -81,33 +105,35 @@ function findRowStatus(
   }
 
   if (row.type === "pending") {
-    return { upload: "アップロード中", pclod: "-" };
+    return { upload: "uploading", pclod: "none" };
   }
 
   return getFileStatus(row.container.file);
 }
 
-function resolvePclodKind(pclodLabel: PclodStatusLabel): StatusRowKind {
-  switch (pclodLabel) {
-    case "処理中":
+function resolvePclodKind(pclodStatus: PclodStatus): StatusRowKind {
+  switch (pclodStatus) {
+    case "processing":
       return "processing";
-    case "待機中":
+    case "waiting":
       return "waiting";
-    case "完了":
+    case "completed":
       return "completed";
-    case "不明":
+    case "failed":
+      return "failed";
+    case "unknown":
       return "unknown";
-    case "-":
+    case "none":
       return "idle";
   }
 }
 
 function resolveRowStatusKind(
-  uploadLabel: UploadStatusLabel,
-  pclodLabel: PclodStatusLabel
+  uploadStatus: UploadStatus,
+  pclodStatus: PclodStatus
 ): StatusRowKind {
-  if (uploadLabel === "アップロード中") return "uploading";
-  return resolvePclodKind(pclodLabel);
+  if (uploadStatus === "uploading") return "uploading";
+  return resolvePclodKind(pclodStatus);
 }
 
 function StatusLabelChip({ label }: { label: string }) {
@@ -143,6 +169,8 @@ function popoverStatusIcon(kind: StatusRowKind | "upload-done") {
     case "completed":
     case "upload-done":
       return <CloudDoneIcon sx={{ fontSize: STATUS_ICON_SIZE, color: "success.light" }} />;
+    case "failed":
+      return <ErrorOutlineIcon sx={{ fontSize: STATUS_ICON_SIZE, color: "error.light" }} />;
     case "unknown":
       return <HelpOutlineIcon sx={{ fontSize: STATUS_ICON_SIZE, color: "grey.400" }} />;
     case "idle":
@@ -169,6 +197,8 @@ function rowStatusIcon(kind: StatusRowKind) {
       return <ScheduleIcon sx={{ ...sx, color: "warning.main" }} />;
     case "completed":
       return <CheckCircleIcon sx={{ ...sx, color: "success.main" }} />;
+    case "failed":
+      return <ErrorOutlineIcon sx={{ ...sx, color: "error.main" }} />;
     case "unknown":
       return <HelpOutlineIcon sx={{ ...sx, color: "text.disabled" }} />;
     case "idle":
@@ -178,17 +208,17 @@ function rowStatusIcon(kind: StatusRowKind) {
 
 type FileStatusHoverPopperProps = {
   anchorEl: HTMLElement;
-  uploadLabel: UploadStatusLabel;
-  pclodLabel: PclodStatusLabel;
+  uploadStatus: UploadStatus;
+  pclodStatus: PclodStatus;
 };
 
 function FileStatusHoverPopper({
   anchorEl,
-  uploadLabel,
-  pclodLabel,
+  uploadStatus,
+  pclodStatus,
 }: FileStatusHoverPopperProps) {
-  const uploadIconKind = uploadLabel === "アップロード中" ? "uploading" : "upload-done";
-  const pclodIconKind = resolvePclodKind(pclodLabel);
+  const uploadIconKind = uploadStatus === "uploading" ? "uploading" : "upload-done";
+  const pclodIconKind = resolvePclodKind(pclodStatus);
 
   return (
     <Popper
@@ -213,7 +243,7 @@ function FileStatusHoverPopper({
             <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
               {popoverStatusIcon(uploadIconKind)}
               <Typography variant="caption" sx={{ color: "common.white", fontSize: 12 }}>
-                {uploadLabel}
+                {UPLOAD_STATUS_LABELS[uploadStatus]}
               </Typography>
             </Box>
           </Box>
@@ -222,7 +252,7 @@ function FileStatusHoverPopper({
             <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
               {popoverStatusIcon(pclodIconKind)}
               <Typography variant="caption" sx={{ color: "common.white", fontSize: 12 }}>
-                {pclodLabel}
+                {PCLOD_STATUS_LABELS[pclodStatus]}
               </Typography>
             </Box>
           </Box>
@@ -235,8 +265,8 @@ function FileStatusHoverPopper({
 type FileRowProps = {
   rowKey: string;
   filename: string;
-  uploadLabel: UploadStatusLabel;
-  pclodLabel: PclodStatusLabel;
+  uploadStatus: UploadStatus;
+  pclodStatus: PclodStatus;
   isPclodDone: boolean;
   isVisible: boolean;
   disabled?: boolean;
@@ -251,8 +281,8 @@ type FileRowProps = {
 function FileRow({
   rowKey,
   filename,
-  uploadLabel,
-  pclodLabel,
+  uploadStatus,
+  pclodStatus,
   isPclodDone,
   isVisible,
   disabled = false,
@@ -262,13 +292,13 @@ function FileRow({
   onFocusFile,
   onMenuOpen,
 }: FileRowProps) {
-  const statusKind = resolveRowStatusKind(uploadLabel, pclodLabel);
+  const statusKind = resolveRowStatusKind(uploadStatus, pclodStatus);
 
   // アップロード完了などで行が消えると mouseleave が発火しないため、
   // アンマウント時に自分の hover 状態を解除して Popper が取り残されないようにする
   useEffect(() => () => onHoverEnd(rowKey), [rowKey, onHoverEnd]);
 
-  const statusText = `アップロード: ${uploadLabel} / PCLOD: ${pclodLabel}`;
+  const statusText = `アップロード: ${UPLOAD_STATUS_LABELS[uploadStatus]} / PCLOD: ${PCLOD_STATUS_LABELS[pclodStatus]}`;
 
   const handleHoverStart = (event: React.SyntheticEvent<HTMLElement>) => {
     onHoverStart({
@@ -467,8 +497,8 @@ export function ContractFileSidebar({ pendingUploads, headerActions }: ContractF
                   key={rowKey}
                   rowKey={rowKey}
                   filename={row.name}
-                  uploadLabel="アップロード中"
-                  pclodLabel="-"
+                  uploadStatus="uploading"
+                  pclodStatus="none"
                   isPclodDone={false}
                   isVisible={false}
                   disabled
@@ -487,8 +517,8 @@ export function ContractFileSidebar({ pendingUploads, headerActions }: ContractF
                 key={file.id}
                 rowKey={rowKey}
                 filename={file.name}
-                uploadLabel={status.upload}
-                pclodLabel={status.pclod}
+                uploadStatus={status.upload}
+                pclodStatus={status.pclod}
                 isPclodDone={pclodDone}
                 isVisible={visible}
                 onHoverStart={handleHoverStart}
@@ -508,8 +538,8 @@ export function ContractFileSidebar({ pendingUploads, headerActions }: ContractF
       {hoveredStatus !== null && hoveredRowStatus !== null && (
         <FileStatusHoverPopper
           anchorEl={hoveredStatus.anchorEl}
-          uploadLabel={hoveredRowStatus.upload}
-          pclodLabel={hoveredRowStatus.pclod}
+          uploadStatus={hoveredRowStatus.upload}
+          pclodStatus={hoveredRowStatus.pclod}
         />
       )}
 

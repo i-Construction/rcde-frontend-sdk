@@ -419,8 +419,8 @@ function FileList({ pendingUploads }) {
     <ul>
       {rows.map((row) => {
         if (row.type === "pending") {
-          // pending 行も getFileStatus に通せば登録済み行と同じラベル体系で表示できる
-          // （pending 行の id は必ず pendingUploads に存在するため upload:"アップロード中" / pclod:"-"）
+          // pending 行も getFileStatus に通せば登録済み行と同じ状態値で扱える
+          // （pending 行の id は必ず pendingUploads に存在するため upload:"uploading" / pclod:"none"）
           const pending = getFileStatus({ id: row.contractFileId, name: row.name });
           return (
             <li key={`pending-${row.contractFileId}`}>
@@ -451,14 +451,32 @@ function FileList({ pendingUploads }) {
 
 戻り値の各メソッド:
 
-| 名前               | 概要                                                                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------- |
-| `rows`             | 登録済みファイルとアップロード中ファイルをマージした一覧行                                          |
-| `toggleVisibility` | 表示/非表示の切り替え                                                                               |
-| `focusFile`        | 対象ファイルの Bounding Box 中心へ基準点を移動しフォーカス（成功可否を `boolean` で返す）           |
-| `downloadFile`     | 署名付き URL を取得し別タブで開く（`noopener,noreferrer` 付与、成功可否を `boolean` で返す）        |
-| `getFileStatus`    | アップロード/PCLOD のステータスラベルを導出（アップロード中判定は `pendingUploads` から内部で行う） |
-| `isPclodCompleted` | PCLOD 処理が完了しているか                                                                          |
+| 名前               | 概要                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| `rows`             | 登録済みファイルとアップロード中ファイルをマージした一覧行                                   |
+| `toggleVisibility` | 表示/非表示の切り替え                                                                        |
+| `focusFile`        | 対象ファイルの Bounding Box 中心へ基準点を移動しフォーカス（成功可否を `boolean` で返す）    |
+| `downloadFile`     | 署名付き URL を取得し別タブで開く（`noopener,noreferrer` 付与、成功可否を `boolean` で返す） |
+| `getFileStatus`    | アップロード/PCLOD の状態値を導出（アップロード中判定は `pendingUploads` から内部で行う）    |
+| `isPclodCompleted` | PCLOD 処理が完了しているか                                                                   |
+
+`getFileStatus` が返す `FileStatus` は表示用の文言ではなく状態値です。文言・アイコン・色はアプリ側で決めてください。
+
+| `upload`    | 意味                                                       |
+| ----------- | ---------------------------------------------------------- |
+| `uploading` | アップロード中（クライアント追跡中またはサーバー側未完了） |
+| `uploaded`  | アップロード完了                                           |
+
+| `pclod`      | 意味                                                            |
+| ------------ | --------------------------------------------------------------- |
+| `none`       | アップロード追跡中の行で、まだ PCLOD の対象になっていない       |
+| `waiting`    | PCLOD 未着手                                                    |
+| `processing` | PCLOD 処理中（R-CDE のバッチステータス 1: 開始 / 2: 進行中）    |
+| `completed`  | PCLOD 完了（同 3）。この状態でのみ点群を表示できる              |
+| `failed`     | PCLOD 失敗（同 4）。再アップロードが必要                        |
+| `unknown`    | R-CDE が SDK の知らないステータスを返した。SDK の更新漏れを示す |
+
+`isFileStatusActive(status)` はポーリングを続けるべきかを返します。`failed` / `unknown` は確定状態として `false` になるため、失敗したファイルを永久にポーリングし続けることはありません。
 
 ### 移行手順（サイドバー UI 廃止）
 

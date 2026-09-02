@@ -1,15 +1,25 @@
 export * from "./components/RCDE";
 export * from "./bridge/viewerBridge";
-export { RCDEClient, type AuthType, type RCDEClientOptions } from "./lib/rcde-client";
 export {
-  deriveFileStatusLabels,
+  RCDEClient,
+  type AuthType,
+  type RCDEClientOptions,
+  type BatchProcessingResult,
+} from "./lib/rcde-client";
+export {
+  BATCH_PROCESSING_STATUS,
+  isBatchProcessingStatus,
+  type BatchProcessingStatus,
+} from "./lib/batchProcessingStatus";
+export {
+  deriveFileStatus,
   isPclodCompleted,
   isFileStatusActive,
   type PendingUploads,
   type PendingUpload,
-  type FileStatusLabels,
-  type UploadStatusLabel,
-  type PclodStatusLabel,
+  type FileStatus,
+  type UploadStatus,
+  type PclodStatus,
 } from "./lib/contractFileStatus";
 export {
   useContractFileActions,

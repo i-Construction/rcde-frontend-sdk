@@ -79,12 +79,22 @@ yarn dev
 
 ## ファイルステータス Popper の確認
 
-左サイドバーのファイル行にマウスホバーすると、右側に Popper が表示されます。
+左サイドバーのファイル行にマウスホバー（または Tab キーでフォーカス）すると、右側に Popper が表示されます。
 
-| 行           | 内容                               |
-| ------------ | ---------------------------------- |
-| PCLOD処理    | 待機中 / 処理中 / 完了 / 不明 / - |
-| アップロード | アップロード中 / 完了              |
+SDK の `getFileStatus` は日本語の文言ではなく状態値を返します。example では `ContractFileSidebar.tsx` の `UPLOAD_STATUS_LABELS` / `PCLOD_STATUS_LABELS` で文言に写像しています。
+
+| Popper の行  | 状態値       | 表示           |
+| ------------ | ------------ | -------------- |
+| アップロード | `uploading`  | アップロード中 |
+| アップロード | `uploaded`   | 完了           |
+| PCLOD処理    | `none`       | -              |
+| PCLOD処理    | `waiting`    | 待機中         |
+| PCLOD処理    | `processing` | 処理中         |
+| PCLOD処理    | `completed`  | 完了           |
+| PCLOD処理    | `failed`     | 失敗           |
+| PCLOD処理    | `unknown`    | 不明           |
+
+`failed` は R-CDE 側で PCLOD バッチが失敗した状態です。確定状態なので待機中には戻らず、再アップロードが必要になります。`unknown` は R-CDE が SDK の知らないステータスを返したときにだけ出るので、出た場合は SDK の更新漏れを疑ってください。
 
 最新のステータスを確認したい場合は、アップロード完了時に `contractFilesRefetchKey` を更新して再取得してください（`handleUploaded` で実施済み）。
 
