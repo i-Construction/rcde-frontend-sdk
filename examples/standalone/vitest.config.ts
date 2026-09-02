@@ -12,7 +12,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
     // テストがまだ無い状態でも CI を落とさない（ルートの vitest.config.ts と揃える）
     passWithNoTests: true,
     setupFiles: ["./vitest.setup.ts"],
