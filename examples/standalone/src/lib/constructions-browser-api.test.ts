@@ -79,6 +79,29 @@ describe("fetchConstructions", () => {
 
     await expect(fetchConstructions(ACCESS_TOKEN)).rejects.toThrow("現場一覧の取得に失敗しました");
   });
+
+  it("現場一覧 API への通信自体が失敗したとき、元の例外を cause として残す", async () => {
+    const networkFailure = new TypeError("Failed to fetch");
+    stubFetch(async () => {
+      throw networkFailure;
+    });
+
+    await expect(fetchConstructions(ACCESS_TOKEN)).rejects.toMatchObject({
+      cause: networkFailure,
+    });
+  });
+
+  it("現場一覧 API が constructions に配列以外を返すとき、既定の文言で失敗する", async () => {
+    stubFetch(async () => jsonResponse({ constructions: { id: 1, name: "第一現場" } }));
+
+    await expect(fetchConstructions(ACCESS_TOKEN)).rejects.toThrow("現場一覧の取得に失敗しました");
+  });
+
+  it("現場一覧 API が JSON のオブジェクト以外を返すとき、既定の文言で失敗する", async () => {
+    stubFetch(async () => jsonResponse("現場一覧"));
+
+    await expect(fetchConstructions(ACCESS_TOKEN)).rejects.toThrow("現場一覧の取得に失敗しました");
+  });
 });
 
 describe("fetchContracts", () => {
@@ -108,6 +131,12 @@ describe("fetchContracts", () => {
 
   it("契約一覧 API のエラー応答が JSON でないとき、既定の文言で失敗する", async () => {
     stubFetch(async () => htmlResponse(500));
+
+    await expect(fetchContracts(ACCESS_TOKEN, 42)).rejects.toThrow("契約一覧の取得に失敗しました");
+  });
+
+  it("契約一覧 API が contracts に配列以外を返すとき、既定の文言で失敗する", async () => {
+    stubFetch(async () => jsonResponse({ contracts: "第一契約" }));
 
     await expect(fetchContracts(ACCESS_TOKEN, 42)).rejects.toThrow("契約一覧の取得に失敗しました");
   });

@@ -24,14 +24,6 @@ export type Contract = {
   name: string;
 };
 
-type ConstructionListResponse = {
-  constructions?: Construction[];
-};
-
-type ContractListResponse = {
-  contracts?: Contract[];
-};
-
 /**
  * エラー応答の本文から `{ error: string }` を取り出す。
  * 本文が JSON でない場合（プロキシの HTML エラーページ等）は既定文言へ落とす。
@@ -54,19 +46,22 @@ async function readErrorMessage(response: Response, fallbackMessage: string): Pr
 /**
  * `res.ok` を `res.json()` より先に見る。
  * 非 JSON のエラー応答でも json パースの例外ではなく、意味のある Error を投げる。
+ *
+ * 応答本文の形は呼び出し側が検査するため `unknown` のまま返す。
+ * 握り潰した例外は `cause` に残し、表示は変えずに切り分けを助ける。
  */
-async function requestConstructionsApi<T>(
+async function requestConstructionsApi(
   path: string,
   accessToken: string,
   fallbackMessage: string
-): Promise<T> {
+): Promise<unknown> {
   let response: Response;
   try {
     response = await fetch(path, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-  } catch {
-    throw new Error(fallbackMessage);
+  } catch (caught) {
+    throw new Error(fallbackMessage, { cause: caught });
   }
 
   if (!response.ok) {
@@ -74,31 +69,54 @@ async function requestConstructionsApi<T>(
   }
 
   try {
-    return (await response.json()) as T;
-  } catch {
-    throw new Error(fallbackMessage);
+    return await response.json();
+  } catch (caught) {
+    throw new Error(fallbackMessage, { cause: caught });
   }
 }
 
+/**
+ * 応答本文から一覧のフィールドを取り出す。
+ * フィールドが無ければ 0 件として扱い、配列でなければ `Promise<T[]>` の約束を
+ * 満たせないためエラーとして扱う。
+ */
+function readListField<T>(body: unknown, fieldName: string, fallbackMessage: string): T[] {
+  if (typeof body !== "object" || body === null) {
+    throw new Error(fallbackMessage);
+  }
+  const listValue = (body as Record<string, unknown>)[fieldName];
+  if (listValue === undefined || listValue === null) {
+    return [];
+  }
+  if (!Array.isArray(listValue)) {
+    throw new Error(fallbackMessage);
+  }
+  return listValue as T[];
+}
+
 export async function fetchConstructions(accessToken: string): Promise<Construction[]> {
-  const constructionListResponse = await requestConstructionsApi<ConstructionListResponse>(
+  const constructionListResponse = await requestConstructionsApi(
     CONSTRUCTIONS_ENDPOINT,
     accessToken,
     CONSTRUCTION_LIST_ERROR_MESSAGE
   );
-  return constructionListResponse.constructions ?? [];
+  return readListField<Construction>(
+    constructionListResponse,
+    "constructions",
+    CONSTRUCTION_LIST_ERROR_MESSAGE
+  );
 }
 
 export async function fetchContracts(
   accessToken: string,
   constructionId: number
 ): Promise<Contract[]> {
-  const contractListResponse = await requestConstructionsApi<ContractListResponse>(
+  const contractListResponse = await requestConstructionsApi(
     `${CONSTRUCTIONS_ENDPOINT}?constructionId=${constructionId}`,
     accessToken,
     CONTRACT_LIST_ERROR_MESSAGE
   );
-  return contractListResponse.contracts ?? [];
+  return readListField<Contract>(contractListResponse, "contracts", CONTRACT_LIST_ERROR_MESSAGE);
 }
 
 /**
