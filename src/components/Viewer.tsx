@@ -134,6 +134,13 @@ export type ViewerProps = {
   app: RCDEAppConfig;
   constructionId: number;
   contractId: number;
+  /**
+   * 初回ロード時に表示するファイルの ID。省略すると全ファイルを表示する。
+   *
+   * 適用されるのは初回ロード時（contractId を切り替えた直後のロードを含む）のみで、
+   * 以降にこの prop を差し替えても表示状態は変わらない。ロード後の表示・非表示は
+   * ユーザーの切り替え操作を優先し、contractFilesRefetchKey による再取得でも保たれる。
+   */
   contractFileIds?: number[];
   r3f?: R3FProps;
   children?: ReactNode;
@@ -393,7 +400,7 @@ function summarizeMemoryEstimates(
 }
 
 const Viewer: FC<ViewerProps> = (props) => {
-  const { load, containers } = useContractFiles();
+  const { load, updateFiles, containers } = useContractFiles();
   const {
     app,
     constructionId,
@@ -499,11 +506,14 @@ const Viewer: FC<ViewerProps> = (props) => {
     >
   >({});
 
-  // Memoize contractFileIds to prevent unnecessary re-renders
-  // Use JSON.stringify to compare array contents rather than reference
-  const contractFileIdsKey = contractFileIds ? JSON.stringify(contractFileIds) : undefined;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const memoizedContractFileIds = useMemo(() => contractFileIds, [contractFileIdsKey]);
+  // contractFileIds は初回ロードのときだけ使う。fetchContractFiles の deps に載せると、
+  // 呼び出し側が prop を差し替えるたびに identity が変わって再取得が走る一方、
+  // 初回ロード済みの契約では新しい ID 一覧が捨てられ、リクエストだけが無駄に飛ぶ。
+  // そのため deps には載せず、最新値を ref 経由で読む。
+  const contractFileIdsRef = useRef(contractFileIds);
+  useLayoutEffect(() => {
+    contractFileIdsRef.current = contractFileIds;
+  });
 
   useEffect(() => {
     initialize(app);
@@ -513,31 +523,61 @@ const Viewer: FC<ViewerProps> = (props) => {
     setProject({ constructionId, contractId });
   }, [constructionId, contractId, setProject]);
 
+  // 初回ロードが済んだ契約 ID。contractFilesRefetchKey は「初回は undefined で渡す」使い方と
+  // 「最初から数値を渡す」使い方の両方があり得るため、キーの値からは初回かどうかを判定できない。
+  // 実際に load したかどうかを契約 ID で覚えて判定する。
+  //
+  // 更新するのは応答が成功した時点なので、契約 A → B と切り替えて B のロードが終わる前に A へ戻すと、
+  // ref は A のままで A が初回ロード扱いにならず、contractFileIds が再適用されない。
+  // ただし B の一覧は一度も入っていないので A の表示状態が続くだけで破綻はしない。
+  // contractId の変化で ref を undefined へ戻す手もあるが、切り替えの最中に一覧が空へ落ちる。
+  // そのため、この食い違いは直さずに許容する。
+  const loadedContractIdRef = useRef<number | undefined>(undefined);
+
+  // 一覧取得は世代番号で新しい要求だけを採用する。isInitialLoad は await の前に決まる一方
+  // loadedContractIdRef の更新は await の後なので、先の要求が飛んでいる最中に次の要求が
+  // 始まると両方が初回ロード扱いになり、後着した古い応答がユーザーの表示切り替えを巻き戻す。
+  // 契約を切り替えた直後に前の契約の応答が後着する場合も同じ経路で防ぐ。
+  const contractFilesRequestGenerationRef = useRef(0);
+
   const fetchContractFiles = useCallback(async () => {
     if (!client || !contractId) return;
 
+    const isInitialLoad = loadedContractIdRef.current !== contractId;
+    // 可視ポリシーも要求を出した時点の値で固定する。await の後に ref を読むと、応答を待つ間に
+    // 呼び出し側が prop を差し替えたときに完了時点の値が初回ロードへ適用され、
+    // ViewerProps.contractFileIds の「初回ロード時のみ効く」という説明と食い違う。
+    const visibleIds = contractFileIdsRef.current;
+    const generation = ++contractFilesRequestGenerationRef.current;
     try {
       const res = await client.getContractFileList({ contractId });
+      if (generation !== contractFilesRequestGenerationRef.current) return;
       const contractFiles = res?.contractFiles ?? [];
-      load(contractFiles, memoizedContractFileIds);
+      if (isInitialLoad) {
+        load(contractFiles, visibleIds);
+        loadedContractIdRef.current = contractId;
+      } else {
+        // 再取得では contractFileIds から作り直さず、ユーザーが切り替えた表示状態を引き継ぐ
+        updateFiles(contractFiles);
+      }
     } catch (err) {
+      if (generation !== contractFilesRequestGenerationRef.current) return;
       console.warn("[Viewer] getContractFileList threw:", err);
-      load([], memoizedContractFileIds);
+      // 取得失敗と 0 件は区別できないので、再取得の失敗では既存の表示を壊さず前回の一覧を残す。
+      // 初回だけは空にする。別の契約へ切り替えた直後に失敗したとき、
+      // 前の契約のファイルを出し続けてしまうため。
+      if (isInitialLoad) {
+        load([], visibleIds);
+      }
     }
-  }, [client, contractId, memoizedContractFileIds, load]);
+  }, [client, contractId, load, updateFiles]);
 
+  // 初回と contractFilesRefetchKey 由来の再取得を 1 本の effect にまとめる。
+  // 分けていたときは、呼び出し側が最初から数値のキーを渡すとマウント時に 2 本とも発火していた。
+  // client / contractId の未設定は fetchContractFiles 側で早期 return する。
   useEffect(() => {
-    if (client && contractId) {
-      fetchContractFiles();
-    }
-  }, [client, contractId, fetchContractFiles]);
-
-  useEffect(() => {
-    if (contractFilesRefetchKey === undefined) {
-      return;
-    }
     fetchContractFiles();
-  }, [contractFilesRefetchKey, fetchContractFiles]);
+  }, [fetchContractFiles, contractFilesRefetchKey]);
 
   const camera = useMemo(
     () => ({
