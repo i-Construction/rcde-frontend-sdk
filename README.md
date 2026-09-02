@@ -352,6 +352,128 @@ export function ViewerToolbar({ fileId }: { fileId: number }) {
 
 ---
 
+## RCDEClientの使い方
+
+`RCDEClient` は R-CDE API を叩くクライアントです。
+契約ファイルの一覧取得、点群メタデータの取得、ファイルのアップロード、
+現場・契約の一覧取得などを提供します。
+
+`RCDE` を使っている場合、`app` の内容から生成済みのインスタンスを
+`useClient()` で取り出せます。こちらが通常の使い方です。
+
+```tsx
+"use client";
+
+import { useClient } from "@i-con/frontend-sdk";
+
+function ContractFileCount({ contractId }: { contractId: number }) {
+  const { client } = useClient();
+
+  const load = async () => {
+    // Provider のマウント直後は client が undefined になりうる
+    if (!client) return;
+    const { contractFiles } = await client.getContractFileList({ contractId });
+    console.log(contractFiles.length);
+  };
+
+  return <button onClick={load}>件数を数える</button>;
+}
+```
+
+ビューアを描画せず API だけを使う場合は、直接生成することもできます。
+
+```ts
+import { RCDEClient } from "@i-con/frontend-sdk";
+
+const client = new RCDEClient({
+  accessToken,
+  baseUrl: "/api/rcde",
+  authType: "2legged",
+});
+```
+
+### コンストラクタのオプション（`RCDEClientOptions`）
+
+すべて任意です。
+
+| オプション    | 既定値             | 内容                                                                                              |
+| ------------- | ------------------ | ------------------------------------------------------------------------------------------------- |
+| `accessToken` | なし               | 指定すると `Authorization: Bearer <token>` を全リクエストに付与する                               |
+| `baseUrl`     | `""`               | API のベース URL。省略時は同一オリジンの相対パスになる                                            |
+| `authType`    | `"2legged"`        | `"2legged"` は `/ext/v2/authenticated`、`"3legged"` は `/ext/v2/userAuthenticated` を接頭辞に使う |
+| `fetchImpl`   | グローバル `fetch` | 差し替え用の fetch 実装。テストやプロキシ層の差し込みに使う                                       |
+
+`RCDEAppConfig` の `token` がここでは `accessToken` という名前になる点に注意してください。
+
+### 主なメソッド
+
+| メソッド                                                            | 戻り値                  | 内容                                               |
+| ------------------------------------------------------------------- | ----------------------- | -------------------------------------------------- |
+| `getContractFileList({ contractId })`                               | `{ contractFiles }`     | 契約ファイル一覧。PCLOD のバッチ処理状態を含む     |
+| `getContractFileMetadata({ contractId, contractFileId })`           | メタデータ JSON         | 点群の LOD メタデータ                              |
+| `getContractFileImagePosition({ contractId, contractFileId, ... })` | `ArrayBuffer`           | 点群タイルの位置バッファ                           |
+| `getContractFileImageColor({ contractId, contractFileId, ... })`    | `ArrayBuffer`           | 点群タイルの色バッファ                             |
+| `getContractFileDownloadUrl(contractId, fileId)`                    | `{ url, presignedURL }` | ダウンロード用の署名付き URL                       |
+| `uploadContractFile(params)`                                        | レスポンス JSON         | 一括アップロード。ファイル全体を 1 回の PUT で送る |
+| `uploadContractFileMultipart(params)`                               | `{ contractFileId }`    | 分割アップロード。大容量ファイル向け               |
+| `getConstructionList()`                                             | `{ constructions }`     | 現場一覧                                           |
+| `getConstruction(constructionId)`                                   | `Construction`          | 現場 1 件                                          |
+| `createConstruction(params)`                                        | レスポンス JSON         | 現場を作成する                                     |
+| `getContractList({ constructionId })`                               | `{ contracts }`         | 契約一覧                                           |
+| `createContract({ constructionId, name, contractedAt })`            | レスポンス JSON         | 契約を作成する                                     |
+
+いずれも 2xx 以外のレスポンスを受けた時点で `Error` を throw します（戻り値で失敗を返しません）。
+
+> `createContract` は R-CDE が必須にしている項目をまだ送っていないため、現時点では 400 で失敗します。
+
+### 大容量ファイルの分割アップロード（`uploadContractFileMultipart`）
+
+`uploadContractFile` はファイル全体を 1 回の PUT で送るため、大きな点群ファイルでは
+タイムアウトしやすくなります。`uploadContractFileMultipart` はファイルをチャンクへ分割し、
+パートごとに署名付き URL へ送信します。
+
+```ts
+import type { RCDEClient } from "@i-con/frontend-sdk";
+
+const MEBIBYTE = 1024 * 1024;
+
+async function upload(client: RCDEClient, contractId: number, file: File) {
+  const buffer = await file.arrayBuffer();
+
+  const { contractFileId } = await client.uploadContractFileMultipart({
+    contractId,
+    name: file.name,
+    buffer,
+    // 1 パートのサイズ。省略時は 100 MiB
+    chunkSize: 50 * MEBIBYTE,
+    // 契約ファイルが採番された直後に呼ばれる。アップロード中の行を一覧へ出すのに使う
+    onContractFileCreated: (createdId) => {
+      console.log("registered", createdId);
+    },
+    onUploadProgress: (completedParts, totalParts) => {
+      console.log(`${completedParts}/${totalParts}`);
+    },
+  });
+
+  return contractFileId;
+}
+```
+
+`params` は `uploadContractFile` と共通の
+`{ contractId, name, buffer, pointCloudAttribute?, onContractFileCreated? }` に、
+`chunkSize?` と `onUploadProgress?` を加えたものです。
+`buffer` は `ArrayBuffer` なので、`File` からは `await file.arrayBuffer()` で取得します。
+パートは並行して送信されるため、`onUploadProgress` の第 1 引数は完了したパート数であり、
+何番目のパートが完了したかは示しません。
+途中で失敗した場合は開始済みのマルチパートアップロードを破棄してから元のエラーを throw します。
+
+アップロード完了後、R-CDE 側で PCLOD 変換が非同期に走ります。
+表示できるようになったかどうかは `getContractFileList` の
+`batchProcessingResult` か、[`useContractFileActions`](#ファイル一覧の操作usecontractfileactions) の
+`getFileStatus` / `isPclodCompleted` で判定してください。
+
+---
+
 ## React three fiberとの組み合わせ
 
 RCDEではthree.jsのReact向けライブラリであるreact three fiberを利用して、WebGLでの3次元オブジェクトの描画を行っています。
