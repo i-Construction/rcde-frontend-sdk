@@ -40,9 +40,8 @@ import {
   type ViewerMemorySource,
 } from "../lib/viewerMemory";
 import { raycastViews } from "../lib/viewerRaycast";
-import type { Command, CoordinateSystemType } from "../bridge/viewerBridge";
+import { ViewerBridge, type CoordinateSystemType } from "../bridge/viewerBridge";
 import type { RCDEAppConfig } from "../types/viewerConfig";
-import { CHANNEL } from "../bridge/viewerChannel";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { ReferencePointAxis } from "./ReferencePointAxis";
 import { ReferencePointView } from "./ReferencePointView";
@@ -457,6 +456,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     pointSize: 2,
     opacity: 100,
   });
+  const appearanceRef = useRef(appearance);
   const isMemoryMonitoringEnabled = memoryMonitoring?.enabled === true;
   const memorySampleIntervalMs = Math.max(memoryMonitoring?.sampleIntervalMs ?? 15000, 1000);
 
@@ -968,11 +968,13 @@ const Viewer: FC<ViewerProps> = (props) => {
     emitMemorySampleRef.current();
   }, [isMemoryMonitoringEnabled, fileMemoryEstimates, visibleFileIdsKey]);
 
+  // ビューアコマンドのリスナーは購読し直さずに最新の外観を読む必要があるため、ref へ写す。
   useEffect(() => {
-    const listener = (e: MessageEvent) => {
-      if (!e?.data || e.data.channel !== CHANNEL) return;
-      const cmd = e.data.cmd as Command;
+    appearanceRef.current = appearance;
+  }, [appearance]);
 
+  useEffect(() => {
+    return ViewerBridge.addListener((cmd) => {
       if (cmd.type === "SET_TRANSFORM") {
         const { fileId, translation, rotation } = cmd.payload;
         // Store file-specific transform (translation + rotation)
@@ -986,8 +988,8 @@ const Viewer: FC<ViewerProps> = (props) => {
       } else if (cmd.type === "SET_APPEARANCE") {
         const up = cmd.payload.upAxis;
         const cs = cmd.payload.coordinateSystem;
-        const nextPointSize = clamp(cmd.payload.pointSize ?? appearance.pointSize, 0, 5);
-        const nextOpacity = clamp(cmd.payload.opacity ?? appearance.opacity, 0, 100);
+        const nextPointSize = clamp(cmd.payload.pointSize ?? appearanceRef.current.pointSize, 0, 5);
+        const nextOpacity = clamp(cmd.payload.opacity ?? appearanceRef.current.opacity, 0, 100);
 
         // fileId が指定されている場合はファイル単位で保存
         const fileId = cmd.payload.fileId;
@@ -1032,10 +1034,8 @@ const Viewer: FC<ViewerProps> = (props) => {
         }
         controlsRef.current?.update?.();
       }
-    };
-    window.addEventListener("message", listener);
-    return () => window.removeEventListener("message", listener);
-  }, [appearance.pointSize, appearance.opacity]);
+    });
+  }, []);
 
   return (
     <Box width={1} height={1} display="flex">
