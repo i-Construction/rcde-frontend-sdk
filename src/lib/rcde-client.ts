@@ -1,3 +1,4 @@
+import type { AuthType } from "../types/rcdeApiTypes";
 import { isBatchProcessingStatus, type BatchProcessingStatus } from "./batchProcessingStatus";
 import {
   uploadPointCloudFile,
@@ -6,7 +7,7 @@ import {
   type PointCloudUploadParams,
 } from "./pointCloudUpload";
 
-export type AuthType = "2legged" | "3legged";
+export type { AuthType };
 
 export type RCDEClientOptions = {
   baseUrl?: string;
