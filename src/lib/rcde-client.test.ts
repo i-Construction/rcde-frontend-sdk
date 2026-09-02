@@ -487,6 +487,70 @@ describe("契約一覧の現場 ID 付与（getContractList）", () => {
   });
 });
 
+// RCDEClient は点群アップロードの HTTP を pointCloudUpload へ委譲し、getApiPath / fetchImpl /
+// getAuthHeaders の 3 つだけを渡す。pointCloudUpload.test.ts はこの 3 つをハードコードした偽物で
+// 検証しているので、受け渡しが壊れても向こうでは落ちない。ここで実クライアント経由の送信を写しておく
+const presignedURL = "https://storage.example.com/upload/abc123";
+const uploadedContractFileId = 77;
+
+/** 点群アップロードで送られたリクエストを、開始・本体送信・完了通知の順に控える */
+async function captureUploadRequests(options: CapturingClientOptions = {}) {
+  const { client, requests } = createRequestCapturingClient({
+    ...options,
+    responsePayload: { presignedURL, contractFileId: uploadedContractFileId },
+  });
+
+  await client
+    .uploadContractFile({ contractId, name: "sample.las", buffer: new ArrayBuffer(8) })
+    .catch(() => undefined);
+
+  return requests;
+}
+
+describe("点群アップロードへの受け渡し（uploadContractFile）", () => {
+  describe("正常系", () => {
+    it("2legged で点群をアップロードするとき、認証済みのアップロード開始へ認証ヘッダ付きで送る", async () => {
+      const requests = await captureUploadRequests({ accessToken: "token-123" });
+
+      expect(requests[0].url).toBe(`${AUTHENTICATED}/contractFile/pointCloud`);
+      expect(requests[0].method).toBe("POST");
+      expect(requests[0].headers).toEqual({
+        "Content-Type": "application/json",
+        Authorization: "Bearer token-123",
+      });
+    });
+
+    it("3legged で点群をアップロードするとき、ユーザー認証済みのアップロード開始と完了通知へ送る", async () => {
+      const requests = await captureUploadRequests({ authType: "3legged" });
+
+      expect(requests[0].url).toBe(`${USER_AUTHENTICATED}/contractFile/pointCloud`);
+      expect(requests[2].url).toBe(
+        `${USER_AUTHENTICATED}/contractFile/uploaded/${uploadedContractFileId}`
+      );
+    });
+
+    // プリサインド URL は R-CDE ではなくオブジェクトストレージ宛で、Authorization を付けると
+    // 署名と食い違って弾かれる。全リクエストへ一律にヘッダを足す形へ寄せたときに落ちるようにしておく
+    it("点群の本体をプリサインド URL へ送るとき、認証ヘッダを付けない", async () => {
+      const requests = await captureUploadRequests({ accessToken: "token-123" });
+
+      expect(requests[1].url).toBe(presignedURL);
+      expect(requests[1].method).toBe("PUT");
+      expect(requests[1].headers).toEqual({});
+    });
+
+    it("点群をアップロードするとき、開始・本体送信・完了通知の 3 回だけ送る", async () => {
+      const requests = await captureUploadRequests();
+
+      expect(requests.map((request) => request.url)).toEqual([
+        `${AUTHENTICATED}/contractFile/pointCloud`,
+        presignedURL,
+        `${AUTHENTICATED}/contractFile/uploaded/${uploadedContractFileId}`,
+      ]);
+    });
+  });
+});
+
 describe("リクエストヘッダの組み立て（RCDEClient）", () => {
   describe("正常系", () => {
     it("アクセストークンを渡したクライアントで取得するとき、認証ヘッダにそのトークンを載せる", async () => {
