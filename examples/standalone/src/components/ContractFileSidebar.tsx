@@ -47,6 +47,9 @@ const SPIN_SX = {
   },
 };
 
+/** レンダーごとに新しい配列を渡すと Popper.js がモディファイアを組み直すため定数にする */
+const POPPER_MODIFIERS = [{ name: "offset", options: { offset: [0, 8] } }];
+
 const ICON_BUTTON_SX = {
   width: 28,
   height: 28,
@@ -193,8 +196,8 @@ function FileStatusHoverPopper({
       open
       anchorEl={anchorEl}
       placement="right"
-      modifiers={[{ name: "offset", options: { offset: [0, 8] } }]}
-      sx={{ zIndex: 1300, pointerEvents: "none" }}
+      modifiers={POPPER_MODIFIERS}
+      sx={{ zIndex: (theme) => theme.zIndex.tooltip, pointerEvents: "none" }}
     >
       <Paper
         elevation={4}
