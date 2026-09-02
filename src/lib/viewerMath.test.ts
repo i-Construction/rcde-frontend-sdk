@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clamp } from "./viewerMath";
+import { clamp, toNormalizedDeviceCoordinates } from "./viewerMath";
 
 describe("clamp", () => {
   it("下限と上限の間にある値は、そのまま返す", () => {
@@ -20,5 +20,34 @@ describe("clamp", () => {
 
   it("上限ちょうどの値は、そのまま返す", () => {
     expect(clamp(5, 0, 5)).toBe(5);
+  });
+});
+
+describe("toNormalizedDeviceCoordinates", () => {
+  // 幅と高さを別の値にして、両者を取り違えた変換を検出できるようにする
+  const size = { width: 800, height: 400 };
+
+  it("要素の左上を指したとき、NDC は (-1, 1) になる", () => {
+    const ndc = toNormalizedDeviceCoordinates({ x: 0, y: 0 }, size);
+    expect(ndc.x).toBeCloseTo(-1);
+    expect(ndc.y).toBeCloseTo(1);
+  });
+
+  it("要素の中央を指したとき、NDC は (0, 0) になる", () => {
+    const ndc = toNormalizedDeviceCoordinates({ x: 400, y: 200 }, size);
+    expect(ndc.x).toBeCloseTo(0);
+    expect(ndc.y).toBeCloseTo(0);
+  });
+
+  it("要素の右下を指したとき、NDC は (1, -1) になる", () => {
+    const ndc = toNormalizedDeviceCoordinates({ x: 800, y: 400 }, size);
+    expect(ndc.x).toBeCloseTo(1);
+    expect(ndc.y).toBeCloseTo(-1);
+  });
+
+  it("要素の左上と中央の中間を指したとき、NDC は (-0.5, 0.5) になる", () => {
+    const ndc = toNormalizedDeviceCoordinates({ x: 200, y: 100 }, size);
+    expect(ndc.x).toBeCloseTo(-0.5);
+    expect(ndc.y).toBeCloseTo(0.5);
   });
 });

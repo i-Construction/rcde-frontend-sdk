@@ -17,7 +17,6 @@ import {
   Color,
   DoubleSide,
   Quaternion,
-  Vector2,
   Vector3,
   Group,
   PerspectiveCamera,
@@ -40,7 +39,7 @@ import {
   type ViewerMemorySource,
 } from "../lib/viewerMemory";
 import { raycastViews } from "../lib/viewerRaycast";
-import { clamp } from "../lib/viewerMath";
+import { clamp, toNormalizedDeviceCoordinates } from "../lib/viewerMath";
 import {
   ViewerBridge,
   type CoordinateSystemType,
@@ -197,11 +196,13 @@ const ClickHandler: FC<{
       if (!onContractFileClickRef.current && !onObjectClickRef.current) return;
 
       const rect = gl.domElement.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const pointer = toNormalizedDeviceCoordinates(
+        { x: event.clientX - rect.left, y: event.clientY - rect.top },
+        rect
+      );
 
       const hit = raycastViews(
-        new Vector2(x, y),
+        pointer,
         cameraRef.current,
         raycaster,
         viewsRef.current,
@@ -267,11 +268,13 @@ const HoverHandler: FC<{
   const processEvent = useCallback(
     (event: MouseEvent) => {
       const rect = gl.domElement.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const pointer = toNormalizedDeviceCoordinates(
+        { x: event.clientX - rect.left, y: event.clientY - rect.top },
+        rect
+      );
 
       const hit = raycastViews(
-        new Vector2(x, y),
+        pointer,
         cameraRef.current,
         raycaster,
         viewsRef.current,
