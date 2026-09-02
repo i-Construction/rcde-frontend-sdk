@@ -247,7 +247,7 @@ export function ViewerClient({
             lastClickEvent.hit ? (
               <>
                 <Typography variant="caption" component="div">
-                  ファイル: {lastClickEvent.file.fileName ?? `ID: ${lastClickEvent.file.id}`}
+                  ファイル: {lastClickEvent.file.name ?? `ID: ${lastClickEvent.file.id}`}
                 </Typography>
                 <Typography variant="caption" component="div">
                   交差点: ({lastClickEvent.intersectionPoint.x.toFixed(2)},{" "}
@@ -280,7 +280,7 @@ export function ViewerClient({
           {hoverEvent ? (
             hoverEvent.hit ? (
               <Typography variant="caption" component="div">
-                ファイル: {hoverEvent.file.fileName ?? `ID: ${hoverEvent.file.id}`}
+                ファイル: {hoverEvent.file.name ?? `ID: ${hoverEvent.file.id}`}
               </Typography>
             ) : (
               <Typography variant="caption" component="div" sx={{ color: "grey.500" }}>
