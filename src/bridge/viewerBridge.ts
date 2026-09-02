@@ -1,3 +1,5 @@
+import { CHANNEL } from "./viewerChannel";
+
 export type UpAxis = "Y" | "Z";
 
 // 座標系の定義
@@ -25,8 +27,6 @@ export type ViewerAppearance = {
   coordinateSystem?: CoordinateSystemType; // ファイル単位の座標系
   fileId?: number; // R-CDEのデータベースに登録されているファイルID
 };
-
-const CHANNEL = "RCDE_VIEWER_CMD";
 
 type Command =
   | { type: "SET_TRANSFORM"; payload: ViewerTransform }

@@ -40,37 +40,11 @@ import {
   type ViewerMemorySource,
 } from "../lib/viewerMemory";
 import { raycastViews } from "../lib/viewerRaycast";
+import type { Command, CoordinateSystemType } from "../bridge/viewerBridge";
+import { CHANNEL } from "../bridge/viewerChannel";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { ReferencePointAxis } from "./ReferencePointAxis";
 import { ReferencePointView } from "./ReferencePointView";
-
-type UpAxis = "Y" | "Z";
-
-type CoordinateSystemType =
-  | "RIGHT_HANDED_X_UP"
-  | "LEFT_HANDED_X_UP"
-  | "RIGHT_HANDED_Y_UP"
-  | "LEFT_HANDED_Y_UP"
-  | "RIGHT_HANDED_Z_UP"
-  | "LEFT_HANDED_Z_UP";
-
-type ViewerTransform = {
-  translation: { x: number; y: number; z: number };
-  rotation: { x: number; y: number; z: number }; // degree
-  fileId: number; // RCDE DB ID
-};
-type ViewerAppearance = {
-  pointSize: number; // 0..5
-  opacity: number; // 0..100
-  upAxis?: UpAxis; // カメラUp
-  coordinateSystem?: CoordinateSystemType; // ファイル単位の座標系
-  fileId?: number; // R-CDEのデータベースに登録されているファイルID
-};
-type Command =
-  | { type: "SET_TRANSFORM"; payload: ViewerTransform }
-  | { type: "SET_APPEARANCE"; payload: ViewerAppearance }
-  | { type: "RESET" };
-const CHANNEL = "RCDE_VIEWER_CMD";
 
 /**
  * 3D ビューア上のクリックイベント。
