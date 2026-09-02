@@ -5,9 +5,10 @@
  * 無効化するため、この宣言が chroma-js の唯一の型定義になる。
  * `@types/chroma-js` は依存に入っておらず、このファイルを削除するとビルドが壊れる。
  *
- * 実際に使っているのは src/components/ContractFileView.tsx の `chroma.scale()` と
- * その戻り値の `rgb()` だけなので、宣言は SDK が使う範囲に絞っている。
- * chroma-js の他の API を使うときはここへ追記する。
+ * SDK が実際に使うのは src/components/ContractFileView.tsx の `chroma.scale()`、
+ * その戻り値を関数として呼ぶシグネチャ、さらにその戻り値の `rgb()` の 3 つだけ。
+ * 残りは upstream の API を先回りして宣言してあるので、ここに無い API を
+ * 使うときは追記する。
  */
 declare module "chroma-js" {
   interface ChromaScale {
