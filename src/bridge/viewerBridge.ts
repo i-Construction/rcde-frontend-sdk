@@ -100,7 +100,8 @@ function isOmittedOrFiniteVec3(value: unknown): boolean {
  * 捨てられ、`{ fileId: 12, translation: 5, rotation: { x: 0, y: 0, z: 90 } }` は
  * 正当な `rotation` ごと捨てられる。不正な値を含むコマンドを部分適用すると、
  * どこまで反映されたかが呼び出し側から見えなくなるため、境界ではこちらを取る。
- * warn を見た人が「もう片方のフィールドは効いたはず」と読まないよう注意する。
+ * この性質はコードでは下の `return` の `&&` から読めるが、コンソールの warn だけを
+ * 見る人には読めないため、`addListener` の warn 文言側にも同じことを書いてある。
  *
  * `src/index.ts` が `export * from "./bridge/viewerBridge"` しているため、
  * export するとパッケージの公開 API が増える。モジュール内に閉じる。
@@ -176,7 +177,13 @@ export const ViewerBridge = {
       if (!isViewerCommand(e.data.cmd)) {
         // ここまで来たのは同一ウィンドウの、チャンネル名も合っているコマンド。
         // 利用側の実装ミスの可能性が高いので、握り潰さず気づけるようにする。
-        console.warn("[ViewerBridge] 未知の形式のコマンドを無視しました:", e.data.cmd);
+        // 形（type / payload）だけでなく値（NaN・null・非有限の Vec3 など）でも落ちる。
+        // 1 フィールドでも不正ならコマンド全体を落とすため、ログには一見正しく
+        // 見えるコマンドが丸ごと出る。
+        console.warn(
+          "[ViewerBridge] 形式または値が不正なコマンドを無視しました（不正なフィールドが 1 つでもあるとコマンド全体を破棄します）:",
+          e.data.cmd
+        );
         return;
       }
       handler(e.data.cmd);
