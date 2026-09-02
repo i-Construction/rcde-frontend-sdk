@@ -8,6 +8,7 @@ import {
   SetStateAction,
   useCallback,
   useContext,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -51,11 +52,12 @@ export const ClientProvider: FC<{ children: ReactNode }> = ({ children }) => {
     setClient(client);
   }, []);
 
-  return (
-    <ClientContext.Provider value={{ client, initialize, project, setProject }}>
-      {children}
-    </ClientContext.Provider>
+  const value = useMemo<ClientContextType>(
+    () => ({ client, initialize, project, setProject }),
+    [client, initialize, project, setProject]
   );
+
+  return <ClientContext.Provider value={value}>{children}</ClientContext.Provider>;
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
