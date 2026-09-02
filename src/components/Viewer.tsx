@@ -526,18 +526,12 @@ const Viewer: FC<ViewerProps> = (props) => {
     }
   }, [client, contractId, memoizedContractFileIds, load]);
 
+  // 初回と contractFilesRefetchKey 由来の再取得を 1 本の effect にまとめる。
+  // 分けていたときは、呼び出し側が最初から数値のキーを渡すとマウント時に 2 本とも発火していた。
+  // client / contractId の未設定は fetchContractFiles 側で早期 return する。
   useEffect(() => {
-    if (client && contractId) {
-      fetchContractFiles();
-    }
-  }, [client, contractId, fetchContractFiles]);
-
-  useEffect(() => {
-    if (contractFilesRefetchKey === undefined) {
-      return;
-    }
     fetchContractFiles();
-  }, [contractFilesRefetchKey, fetchContractFiles]);
+  }, [fetchContractFiles, contractFilesRefetchKey]);
 
   const camera = useMemo(
     () => ({
