@@ -237,7 +237,6 @@ type FileRowProps = {
   pclodLabel: PclodStatusLabel;
   isPclodDone: boolean;
   isVisible: boolean;
-  isHighlighted: boolean;
   disabled?: boolean;
   onHoverStart: (hovered: HoveredFileStatus) => void;
   onHoverEnd: (rowKey: string) => void;
@@ -253,7 +252,6 @@ function FileRow({
   pclodLabel,
   isPclodDone,
   isVisible,
-  isHighlighted,
   disabled = false,
   onHoverStart,
   onHoverEnd,
@@ -290,7 +288,7 @@ function FileRow({
         px: 0.5,
         borderRadius: 1,
         opacity: isVisible ? 1 : 0.6,
-        bgcolor: isHighlighted ? "action.hover" : "transparent",
+        "&:hover": { bgcolor: "action.hover" },
       }}
     >
       <Box
@@ -459,7 +457,6 @@ export function ContractFileSidebar({ pendingUploads, headerActions }: ContractF
                   pclodLabel="-"
                   isPclodDone={false}
                   isVisible={false}
-                  isHighlighted={hoveredStatus?.rowKey === rowKey}
                   disabled
                   onHoverStart={handleHoverStart}
                   onHoverEnd={handleHoverEnd}
@@ -480,7 +477,6 @@ export function ContractFileSidebar({ pendingUploads, headerActions }: ContractF
                 pclodLabel={status.pclod}
                 isPclodDone={pclodDone}
                 isVisible={visible}
-                isHighlighted={hoveredStatus?.rowKey === rowKey}
                 onHoverStart={handleHoverStart}
                 onHoverEnd={handleHoverEnd}
                 onVisibilityToggle={() => toggleVisibility(row.container)}
