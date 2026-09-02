@@ -521,7 +521,9 @@ describe("契約一覧の現場 ID 付与（getContractList）", () => {
     });
 
     // 付与条件が `authType === "2legged" || constructionId` なので、3legged では 0 が falsy になり
-    // 現場 ID が丸ごと落ちる。他メソッドの「2legged のときだけ付ける」とも違う唯一の形なので現状を写しておく
+    // 現場 ID が丸ごと落ちる。他メソッドの「2legged のときだけ付ける」とも違う唯一の形なので現状を写しておく。
+    // 落ちると絞り込みごと消えるため、エラーでも空配列でもなく「そのユーザーの全契約」が返る。
+    // 呼び出し側のバグが別現場の契約データとして UI に出る形なので、扱いを決めるときはこの帰結が一番重い
     it("3legged で現場 ID に 0 を指定して契約一覧を取得するとき、現場 ID が落ちて問い合わせ自体が付かない", async () => {
       const request = await captureRequest({ authType: "3legged" }, (client) =>
         client.getContractList({ constructionId: 0 })
