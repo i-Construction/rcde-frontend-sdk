@@ -14,11 +14,15 @@ type VisibilityContainer<TFile> = {
 
 /**
  * 可視ポリシー（visibleIds）を 1 つのファイルへ当てはめる。
- * visibleIds が undefined のときは全件を表示にする。ID を持たないファイルは
+ * ポリシーが undefined のときは全件を表示にする。ID を持たないファイルは
  * visibleIds と照合できないため非表示にする。
  */
-const isVisibleByPolicy = (file: FileWithId, visibleIds: number[] | undefined): boolean =>
-  visibleIds === undefined ? true : file.id !== undefined && visibleIds.includes(file.id);
+const isVisibleByPolicy = (file: FileWithId, visibleIdSet: ReadonlySet<number> | undefined) =>
+  visibleIdSet === undefined ? true : file.id !== undefined && visibleIdSet.has(file.id);
+
+/** ファイルごとの照合を定数時間にするため、可視ポリシーを一度だけ Set へ移す。 */
+const toVisibleIdSet = (visibleIds: readonly number[] | undefined) =>
+  visibleIds === undefined ? undefined : new Set(visibleIds);
 
 /**
  * 初回ロード用。visibleIds を渡したときは、その ID を持つファイルだけを表示にする。
@@ -26,12 +30,14 @@ const isVisibleByPolicy = (file: FileWithId, visibleIds: number[] | undefined): 
  */
 export const createContainers = <TFile extends FileWithId>(
   files: readonly TFile[],
-  visibleIds?: number[]
-): VisibilityContainer<TFile>[] =>
-  files.map((file) => ({
+  visibleIds?: readonly number[]
+): VisibilityContainer<TFile>[] => {
+  const visibleIdSet = toVisibleIdSet(visibleIds);
+  return files.map((file) => ({
     file,
-    visible: isVisibleByPolicy(file, visibleIds),
+    visible: isVisibleByPolicy(file, visibleIdSet),
   }));
+};
 
 /**
  * 再取得用。ファイルの中身は最新へ差し替えつつ、表示・非表示は ID で前回から引き継ぐ。
@@ -42,24 +48,26 @@ export const createContainers = <TFile extends FileWithId>(
  * 勝手に読み込まれてしまうため。
  *
  * ID を持たないファイルは前回の表示状態と結び付けられないので、可視ポリシーだけで決める。
+ * つまり利用者が非表示へ切り替えても、再取得のたびにポリシーどおりの値へ戻る。
  * ID を Map のキーにすると、ID を持たないファイルが複数あったときに 1 エントリへ潰れ、
  * 無関係なファイルの表示状態を引き継いでしまう。
  */
 export const mergeContainersPreservingVisibility = <TFile extends FileWithId>(
   previousContainers: readonly VisibilityContainer<TFile>[],
   files: readonly TFile[],
-  visibleIds?: number[]
+  visibleIds?: readonly number[]
 ): VisibilityContainer<TFile>[] => {
   const visibleByFileId = new Map<number, boolean>();
   for (const container of previousContainers) {
     if (container.file.id === undefined) continue;
     visibleByFileId.set(container.file.id, container.visible);
   }
+  const visibleIdSet = toVisibleIdSet(visibleIds);
   return files.map((file) => {
     const previousVisible = file.id === undefined ? undefined : visibleByFileId.get(file.id);
     return {
       file,
-      visible: previousVisible ?? isVisibleByPolicy(file, visibleIds),
+      visible: previousVisible ?? isVisibleByPolicy(file, visibleIdSet),
     };
   });
 };
