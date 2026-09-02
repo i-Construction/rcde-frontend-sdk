@@ -249,71 +249,100 @@ const App = () => {
 
 ## ViewerBridgeの使い方
 
-ViewerBridge は、Three.jsベースの3DビューワーとReactコンポーネント間のブリッジとして動作します。
-ReactからThree.jsのシーン制御・カメラ操作・モデルロードを直接行うための統一インターフェースです。
+`ViewerBridge` は、すでに描画されている `RCDE` / `Viewer` に対して、
+ビューア外の UI（ツールバー、ダイアログ、サイドバーなど）から表示指示を送るためのモジュールです。
+
+Three.js のシーンやカメラを直接触るオブジェクトではありません。
+実体は `window.postMessage` の薄いラッパーで、`RCDE_VIEWER_CMD` というチャンネル名を付けた
+コマンドを送るだけです。`Viewer` が同じチャンネルの `message` イベントを購読しており、
+受け取ったコマンドに応じて内部の state を更新します。
+このため React のツリーをまたいでいても、Provider の外からでも呼び出せます。
+
+`Viewer` を描画していない状態で呼んでも例外にはならず、受け手がいないため何も起こりません。
+サーバーサイドレンダリング時（`window` が無い環境）も同様に無視されます。
 
 ### 基本構成
 
 ```tsx
 "use client";
-import { useEffect, useRef } from "react";
-import { ViewerBridge } from "@i-con/frontend-sdk";
 
-export default function ViewerPanel() {
-  const viewerRef = useRef<HTMLDivElement>(null);
+import { useEffect } from "react";
+import {
+  CoordinateSystem,
+  ViewerBridge,
+  type ViewerAppearance,
+  type ViewerTransform,
+} from "@i-con/frontend-sdk";
 
+export function ViewerToolbar({ fileId }: { fileId: number }) {
+  // Viewer が送るコマンドを購読する（戻り値は購読解除関数）
   useEffect(() => {
-    if (!viewerRef.current) return;
-
-    // 初期化
-    ViewerBridge.init(viewerRef.current, {
-      backgroundColor: "#000",
-      gridVisible: true,
+    return ViewerBridge.addListener((cmd) => {
+      console.log(cmd.type);
     });
-
-    // モデルロード例
-    ViewerBridge.loadPointCloud({
-      url: "/example-data/sample.las",
-      color: "#00ff00",
-    });
-
-    // カメラ操作例
-    ViewerBridge.setCamera({
-      position: [5, 10, 15],
-      target: [0, 0, 0],
-    });
-
-    // 回転アニメーション例
-    ViewerBridge.animate((time) => {
-      ViewerBridge.setRotation({ x: 0, y: time * 0.001, z: 0 });
-    });
-
-    return () => {
-      ViewerBridge.dispose();
-    };
   }, []);
 
-  return <div ref={viewerRef} style={{ width: "100%", height: "600px", background: "#111" }} />;
+  const moveFile = () => {
+    const transform: ViewerTransform = {
+      // 対象ファイルは fileId で指定する（省略できない）
+      fileId,
+      translation: { x: 10, y: 0, z: 0 },
+      // 単位は度（degree）
+      rotation: { x: 0, y: 0, z: 90 },
+    };
+    ViewerBridge.setTransform(transform);
+  };
+
+  const changeAppearance = () => {
+    const appearance: ViewerAppearance = {
+      pointSize: 3,
+      opacity: 80,
+      upAxis: "Z",
+      coordinateSystem: CoordinateSystem.RightHandedZUp,
+      // fileId を省略するとビューア全体（後方互換）の見た目に適用される
+      fileId,
+    };
+    ViewerBridge.setAppearance(appearance);
+  };
+
+  return (
+    <div>
+      <button onClick={moveFile}>移動・回転</button>
+      <button onClick={changeAppearance}>見た目を変更</button>
+      <button onClick={() => ViewerBridge.reset()}>初期状態に戻す</button>
+    </div>
+  );
 }
 ```
 
 ### 主なAPI一覧
 
-| メソッド                                                | 機能概要                                 |
-| ------------------------------------------------------- | ---------------------------------------- |
-| `init(container: HTMLElement, options?: ViewerOptions)` | ビューワー初期化                         |
-| `loadPointCloud({ url, color })`                        | 点群データをロード                       |
-| `setTransform({ translation, rotation, scale })`        | オブジェクトの位置・回転・拡縮設定       |
-| `setCamera({ position, target })`                       | カメラ位置と注視点を設定                 |
-| `resetCamera()`                                         | カメラを初期位置に戻す                   |
-| `animate(callback: (time: number) => void)`             | 毎フレーム呼ばれるアニメーション関数登録 |
-| `dispose()`                                             | ビューワー破棄とメモリ解放               |
+| メソッド                                       | 機能概要                                                             |
+| ---------------------------------------------- | -------------------------------------------------------------------- |
+| `setTransform(tx: ViewerTransform)`            | `tx.fileId` のファイルに平行移動と回転を適用する                     |
+| `setAppearance(app: ViewerAppearance)`         | 点サイズ・不透明度・カメラの上方向・座標系を設定する                 |
+| `reset()`                                      | 位置・回転・見た目・カメラの上方向を初期値へ戻す                     |
+| `addListener(handler: (cmd: Command) => void)` | 同チャンネルのコマンドを購読する。戻り値の関数を呼ぶと購読を解除する |
+
+`ViewerTransform` は `{ translation, rotation, fileId }` です。
+`fileId` は R-CDE に登録されている契約ファイルの ID で、**必須**です。
+`translation` / `rotation` は `{ x, y, z }` の数値で、`rotation` の単位は度です。
+拡縮（`scale`）は扱いません。
+
+`ViewerAppearance` は `{ pointSize, opacity, upAxis?, coordinateSystem?, fileId? }` です。
+`pointSize` は 0〜5、`opacity` は 0〜100 に丸められます。
+`fileId` を指定するとそのファイルだけに、省略するとビューア全体に適用されます。
+`upAxis` は `"Y"` / `"Z"` で、カメラの上方向にのみ効きます。
+`coordinateSystem` には `CoordinateSystem` 定数（`RightHandedZUp` など 6 種）を渡します。
+
+`reset()` は点サイズ 2・不透明度 100・カメラ上方向 Z にリセットし、
+`setTransform` / `setAppearance` でファイル単位に積んだ設定をすべて破棄します。
 
 ### 補足
 
-ViewerBridge は React Three Fiber 経由で Three.js にアクセスしており、
-React 18.3.1 固定で動作します。
-それ以外のバージョンでは Reconciler の内部構造が異なるため動作しません。
+`setTransform` で移動・回転したファイルは、`onContractFileClick` / `onObjectClick` /
+`onObjectHover` の当たり判定に反映されません。判定には移動前のバウンディングボックスが
+使われます。
 
 ---
 
