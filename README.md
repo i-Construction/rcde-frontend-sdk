@@ -106,30 +106,53 @@ RCDEのサイトでアプリケーションを作成します。
 ## 基本的な使用方法
 
 RCDEコンポーネントを配置することでビューワを表示することができます。
-RCDEコンポーネントには[事前準備](#事前準備)で作成したアプリケーションの情報と、
+RCDEコンポーネントには R-CDE API のアクセストークンを含む `app` 設定と、
 表示したい現場のIDと契約IDを渡します。
 
-```typescript
-import { RCDE, RCDEProps } from "@i-con/frontend-sdk";
+```tsx
+"use client";
 
-const App = () => {
-  // 事前準備で作成したアプリケーションの情報 (clientId, clientSecret)
-  const app = useMemo(() => {
-    return {
-      clientId: "client id",
-      clientSecret: "client secret",
-    };
-  }, []);
+import { useMemo } from "react";
+import { RCDE, type RCDEAppConfig } from "@i-con/frontend-sdk";
 
-  return (
-    <RCDE
-      constructionId={constructionId}
-      contractId={contractId}
-      app={app}
-    />
+const App = ({
+  accessToken,
+  constructionId,
+  contractId,
+}: {
+  accessToken: string;
+  constructionId: number;
+  contractId: number;
+}) => {
+  // app の参照が変わるたびに内部の RCDEClient が作り直され、
+  // ファイル一覧の再取得と表示状態のリセットが起きるためメモ化する
+  const app = useMemo<RCDEAppConfig>(
+    () => ({
+      token: accessToken,
+      baseUrl: "/api/rcde",
+      authType: "2legged",
+    }),
+    [accessToken]
   );
+
+  return <RCDE constructionId={constructionId} contractId={contractId} app={app} />;
 };
 ```
+
+`app` に渡す `RCDEAppConfig` のフィールドは次の 3 つです。
+
+| フィールド | 必須 | 内容                                                                                          |
+| ---------- | ---- | --------------------------------------------------------------------------------------------- |
+| `token`    | 必須 | R-CDE API のアクセストークン。`Authorization: Bearer <token>` として送信されます              |
+| `baseUrl`  | 任意 | API のベース URL。省略時は空文字（同一オリジンの相対パス）です                                |
+| `authType` | 任意 | `"2legged"`（既定）または `"3legged"`。API パスの接頭辞と一部クエリパラメータが切り替わります |
+
+[事前準備](#事前準備)で作成したアプリケーションの `clientId` / `clientSecret` は、
+**SDK には渡しません**。ブラウザに秘匿情報を置かないため、サーバー側でこれらを使って
+アクセストークンを発行し、そのトークンだけを `app.token` に渡します。
+`examples/standalone` では Next.js の Route Handler がトークン発行と API プロキシを担い、
+`baseUrl` にそのプロキシのパス（`/api/rcde`）を指定しています。
+ブラウザから R-CDE API を直接呼ぶと CORS で失敗するため、プロキシ経由の構成を推奨します。
 
 ### `memoryMonitoring` の使い方
 
@@ -344,34 +367,40 @@ const { point } = useReferencePoint();
 例えば、基準点位置の変化に合わせて配置したいオブジェクトがある場合、
 そのオブジェクトの座標に対して`point`を加算することで、基準点位置と同期して配置することができます。
 
-```typescript
-import { RCDE, RCDEProps, useReferencePoint } from "@i-con/frontend-sdk";
+```tsx
+"use client";
+
+import { FC, useMemo } from "react";
+import { RCDE, type RCDEAppConfig, useReferencePoint } from "@i-con/frontend-sdk";
 
 const Example: FC = () => {
   const { point } = useReferencePoint();
-  return <group position={point}>
-    <mesh>
-      <boxGeometry />
-      <meshBasicMaterial color="red" />
-    </mesh>
-  </group>;
+  return (
+    <group position={point}>
+      <mesh>
+        <boxGeometry />
+        <meshBasicMaterial color="red" />
+      </mesh>
+    </group>
+  );
 };
 
-const App = () => {
-  // 事前準備で作成したアプリケーションの情報 (clientId, clientSecret)
-  const app = useMemo(() => {
-    return {
-      clientId: "client id",
-      clientSecret: "client secret",
-    };
-  }, []);
+const App = ({
+  accessToken,
+  constructionId,
+  contractId,
+}: {
+  accessToken: string;
+  constructionId: number;
+  contractId: number;
+}) => {
+  const app = useMemo<RCDEAppConfig>(
+    () => ({ token: accessToken, baseUrl: "/api/rcde", authType: "2legged" }),
+    [accessToken]
+  );
 
   return (
-    <RCDE
-      constructionId={constructionId}
-      contractId={contractId}
-      app={app}
-    >
+    <RCDE constructionId={constructionId} contractId={contractId} app={app}>
       <Example />
     </RCDE>
   );
