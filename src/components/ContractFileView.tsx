@@ -15,7 +15,7 @@ import { ContractFile } from "../contexts/contractFiles";
 import { parsePngBuffer } from "../lib/pngParse";
 import { loadTile } from "../lib/tileLoader";
 import type { ViewerFileMemoryEstimate } from "../lib/viewerMemory";
-import type { CoordinateSystemType } from "../bridge/viewerBridge";
+import { CoordinateSystem, type CoordinateSystemType } from "../bridge/viewerBridge";
 
 // 座標系ごとの変換定義
 const COORDINATE_SYSTEM_TRANSFORMS: Record<
@@ -26,17 +26,17 @@ const COORDINATE_SYSTEM_TRANSFORMS: Record<
   }
 > = {
   // 右手系 Z Up → 変換不要
-  RIGHT_HANDED_Z_UP: { rotation: [0, 0, 0], scale: [1, 1, 1] },
+  [CoordinateSystem.RightHandedZUp]: { rotation: [0, 0, 0], scale: [1, 1, 1] },
   // 右手系 Y Up → X軸周りに +90° 回転して Y→Z へ
-  RIGHT_HANDED_Y_UP: { rotation: [Math.PI / 2, 0, 0], scale: [1, 1, 1] },
+  [CoordinateSystem.RightHandedYUp]: { rotation: [Math.PI / 2, 0, 0], scale: [1, 1, 1] },
   // 右手系 X Up → Y軸周りに -90° 回転して X→Z へ
-  RIGHT_HANDED_X_UP: { rotation: [0, -Math.PI / 2, 0], scale: [1, 1, 1] },
+  [CoordinateSystem.RightHandedXUp]: { rotation: [0, -Math.PI / 2, 0], scale: [1, 1, 1] },
   // 左手系 Z Up → X軸ミラーで右手系に変換
-  LEFT_HANDED_Z_UP: { rotation: [0, 0, 0], scale: [-1, 1, 1] },
+  [CoordinateSystem.LeftHandedZUp]: { rotation: [0, 0, 0], scale: [-1, 1, 1] },
   // 左手系 Y Up → X軸周りに +90° 回転 + X軸ミラー
-  LEFT_HANDED_Y_UP: { rotation: [Math.PI / 2, 0, 0], scale: [-1, 1, 1] },
+  [CoordinateSystem.LeftHandedYUp]: { rotation: [Math.PI / 2, 0, 0], scale: [-1, 1, 1] },
   // 左手系 X Up → Y軸周りに -90° 回転 + X軸ミラー
-  LEFT_HANDED_X_UP: { rotation: [0, -Math.PI / 2, 0], scale: [-1, 1, 1] },
+  [CoordinateSystem.LeftHandedXUp]: { rotation: [0, -Math.PI / 2, 0], scale: [-1, 1, 1] },
 };
 
 export type ContractFileProps = {
