@@ -15,8 +15,49 @@ jobs:
         with:
           node-version: "24.18.0"
           cache: yarn
+          # setup-node はワークスペース直下の yarn.lock しか探さないため、
+          # examples の lockfile もキャッシュキーに含める。
+          # 個別に列挙するとサンプルを消した時点で解決できず step ごと落ちるので glob にする
+          cache-dependency-path: "**/yarn.lock"
       - run: yarn install --frozen-lockfile
       - run: yarn lint
       - run: yarn format:check
       - run: yarn build
       - run: yarn test
+
+  # examples はルートの lint / prettier / workflow の対象外だったため、
+  # SDK の変更で壊れても検知できなかった。
+  examples:
+    # needs: ci を付けると ci が落ちた時点で skip され、
+    # 「SDK は通ったがサンプルが壊れた」を切り分けたいという目的が達成できない。
+    # 独立した job にして並列に回す。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: yarn
+          cache-dependency-path: "**/yarn.lock"
+      # standalone の package.json が @i-con/frontend-sdk を link:../../ で参照するため、
+      # ルート側の install が要る。ただし next.config.js の alias が SDK を ../../src へ
+      # 向けているので dist は参照されず、ルートの build は不要。
+      # つまりこの job が検証するのはソースレベルの破損で、dist / exports / .d.ts は見ていない。
+      - run: yarn install --frozen-lockfile
+      - name: Install examples/standalone
+        working-directory: examples/standalone
+        run: yarn install --frozen-lockfile
+      # next build は TypeScript の検査を含むので、別途 tsc は走らせない
+      - name: Build examples/standalone
+        working-directory: examples/standalone
+        run: yarn build
+      - name: Test examples/standalone
+        working-directory: examples/standalone
+        run: yarn test
+
+      - name: Install examples/webhook-receiver
+        working-directory: examples/webhook-receiver
+        run: yarn install --frozen-lockfile
+      - name: Lint examples/webhook-receiver
+        working-directory: examples/webhook-receiver
+        run: yarn lint
