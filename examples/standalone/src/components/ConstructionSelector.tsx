@@ -155,7 +155,9 @@ export function ConstructionSelector({ accessToken }: Props) {
                 </Box>
               )}
 
-              {!loading && constructions.length === 0 && (
+              {/* 取得に失敗したときの constructions は [] のままなので、
+                  エラー中は 0 件表示とテストデータ作成を出さない。 */}
+              {!loading && !error && constructions.length === 0 && (
                 <Box>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     現場が見つかりませんでした
