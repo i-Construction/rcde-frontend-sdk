@@ -53,31 +53,37 @@ yarn build
 
 ## 構成概要
 
+公開エントリポイントは `src/index.ts` の 1 つだけです。
+利用側は常に `@i-con/frontend-sdk` から import します（サブパス import は提供していません）。
+
+```text
+src/
+├── bridge/       # ViewerBridge（Viewer へのコマンド送信）
+├── components/   # RCDE / Viewer / ContractFileView / ReferencePointAxis など
+├── contexts/     # ClientProvider / ContractFilesProvider / ReferencePointProvider など
+├── hooks/        # useContractFileActions などのカスタムフック
+├── lib/          # RCDEClient と R-CDE API 連携・点群読み込みのロジック
+├── services/     # ピッキング処理
+├── types/        # R-CDE API の共通型定義
+└── index.ts      # 公開 API のエントリポイント
 ```
-packages/
-└── @i-con/frontend-sdk/
-    ├── src/
-    │   ├── components/       # 汎用コンポーネント（FileUploadModal, ViewerPanel等）
-    │   ├── contexts/         # グローバルステート管理
-    │   ├── hooks/            # カスタムフック（useViewer, useAuth等）
-    │   ├── lib/              # RCDE API連携ロジック
-    │   └── types/            # 共通型定義
-    ├── dist/                 # ビルド成果物
-    ├── package.json
-    └── tsconfig.json
-```
+
+ビルド成果物は `dist/` に出力され、npm パッケージには `dist/` と `types/` だけが含まれます。
 
 ---
 
 ## 主な機能
 
-| モジュール      | 概要                                      |
-| --------------- | ----------------------------------------- |
-| ViewerBridge    | Three.jsビューワーとReact間のブリッジ処理 |
-| useViewer       | 点群・基準面の表示制御用フック            |
-| useAuth         | RCDE OAuth 3-legged認証対応               |
-| FileUploadModal | S3/RCDE両対応のアップロードモーダル       |
-| contractFiles   | 契約項目別ファイル管理用コンテキスト      |
+| モジュール                    | 概要                                                                       |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `RCDE`                        | Provider 一式と `Viewer` をまとめたルートコンポーネント                    |
+| `Viewer`                      | 点群を描画する 3D ビューア本体。Provider を自前構成する場合に使う          |
+| `ViewerBridge`                | ビューア外の UI から表示位置・見た目の変更を指示するコマンド送信モジュール |
+| `RCDEClient`                  | R-CDE API クライアント（ファイル一覧・メタデータ・アップロードなど）       |
+| `useContractFileActions`      | 契約ファイル一覧の行データ生成と表示・フォーカス・ダウンロード操作         |
+| `useReferencePoint`           | 基準点座標の取得と更新                                                     |
+| `ContractFilesProvider`       | 契約ファイル一覧の保持と表示状態の管理                                     |
+| `deriveFileStatus` ほか状態値 | アップロード / PCLOD の状態判定ユーティリティ                              |
 
 ---
 
