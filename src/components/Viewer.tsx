@@ -134,6 +134,13 @@ export type ViewerProps = {
   app: RCDEAppConfig;
   constructionId: number;
   contractId: number;
+  /**
+   * 初回ロード時に表示するファイルの ID。省略すると全ファイルを表示する。
+   *
+   * 適用されるのは初回ロード時（contractId を切り替えた直後のロードを含む）のみで、
+   * 以降にこの prop を差し替えても表示状態は変わらない。ロード後の表示・非表示は
+   * ユーザーの切り替え操作を優先し、contractFilesRefetchKey による再取得でも保たれる。
+   */
   contractFileIds?: number[];
   r3f?: R3FProps;
   children?: ReactNode;
@@ -499,11 +506,14 @@ const Viewer: FC<ViewerProps> = (props) => {
     >
   >({});
 
-  // Memoize contractFileIds to prevent unnecessary re-renders
-  // Use JSON.stringify to compare array contents rather than reference
-  const contractFileIdsKey = contractFileIds ? JSON.stringify(contractFileIds) : undefined;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const memoizedContractFileIds = useMemo(() => contractFileIds, [contractFileIdsKey]);
+  // contractFileIds は初回ロードのときだけ使う。fetchContractFiles の deps に載せると、
+  // 呼び出し側が prop を差し替えるたびに identity が変わって再取得が走る一方、
+  // 初回ロード済みの契約では新しい ID 一覧が捨てられ、リクエストだけが無駄に飛ぶ。
+  // そのため deps には載せず、最新値を ref 経由で読む。
+  const contractFileIdsRef = useRef(contractFileIds);
+  useLayoutEffect(() => {
+    contractFileIdsRef.current = contractFileIds;
+  });
 
   useEffect(() => {
     initialize(app);
@@ -526,7 +536,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       const res = await client.getContractFileList({ contractId });
       const contractFiles = res?.contractFiles ?? [];
       if (isInitialLoad) {
-        load(contractFiles, memoizedContractFileIds);
+        load(contractFiles, contractFileIdsRef.current);
         loadedContractIdRef.current = contractId;
       } else {
         // 再取得では contractFileIds から作り直さず、ユーザーが切り替えた表示状態を引き継ぐ
@@ -538,10 +548,10 @@ const Viewer: FC<ViewerProps> = (props) => {
       // 初回だけは空にする。別の契約へ切り替えた直後に失敗したとき、
       // 前の契約のファイルを出し続けてしまうため。
       if (isInitialLoad) {
-        load([], memoizedContractFileIds);
+        load([], contractFileIdsRef.current);
       }
     }
-  }, [client, contractId, memoizedContractFileIds, load, updateFiles]);
+  }, [client, contractId, load, updateFiles]);
 
   // 初回と contractFilesRefetchKey 由来の再取得を 1 本の effect にまとめる。
   // 分けていたときは、呼び出し側が最初から数値のキーを渡すとマウント時に 2 本とも発火していた。
