@@ -35,7 +35,108 @@ type Command =
 
 function post(cmd: Command) {
   if (typeof window === "undefined") return;
+  // targetOrigin は "*" のまま。宛先が同一ウィンドウ自身なので、配送先のリスナーは
+  // 常に同一オリジンのスクリプトに限られ、"*" でも他オリジンへは渡らない。
+  // sandbox iframe ではオリジンが "null" になり window.location.origin を渡すと
+  // 一致しなくなるため、"*" の方が壊れにくい。
   window.postMessage({ channel: CHANNEL, cmd }, "*");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  // 配列も typeof === "object" かつ非 null なので、Array.isArray で先に落とす。
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * 省略されている（`undefined`）か、有限数のときだけ true。
+ *
+ * `SET_APPEARANCE` の数値フィールドは受信側が `?? 既存値` でフォールバックするため
+ * 省略は正当な使い方であり、必須にすると現行の呼び出しを壊す。一方 `NaN` は
+ * `??` を素通りするので、`pointSize: NaN` は `clamp` の戻り値ごと `NaN` になって
+ * three.js の `material.size` に入り、点群が描画されなくなる。`fileId: NaN` は
+ * `fileAppearances` のキーを `"NaN"` に潰す。`SET_TRANSFORM` の `fileId` に
+ * `Number.isFinite` を入れたのと同じクラスの壊れ方なので、同じ粒度で弾く。
+ *
+ * `null` は通さない。受信側の `fileId !== undefined` を満たしてしまい、
+ * `fileAppearances` にキー `"null"` のエントリを作るため。
+ */
+function isOmittedOrFiniteNumber(value: unknown): boolean {
+  return value === undefined || Number.isFinite(value);
+}
+
+/**
+ * 省略されている（`undefined`）か、`x` / `y` / `z` がすべて有限数のオブジェクトのときだけ true。
+ *
+ * `SET_TRANSFORM` の `translation` / `rotation` は型では required だが、受信側は
+ * `?? { x: 0, y: 0, z: 0 }` でフォールバックするため省略しても動く。実際
+ * `{ fileId, translation }` だけを送って「回転は既定のまま平行移動だけ」という
+ * 使い方が成立するので、ここで必須化すると動いている呼び出しを壊す。省略は通す。
+ *
+ * 一方「存在するが不正」は静かに壊れる。`translation: 5` は上記の `??` を素通りし、
+ * `ContractFileView` の `position={[translation.x, translation.y, translation.z]}` に
+ * `undefined` が 3 つ入って three.js の position が `NaN` になる。
+ * `{ x: NaN, y: 0, z: 0 }` なら直接 `NaN`。`rotation` も `rotation.x * (Math.PI / 180)`
+ * で同じ結果になる。`pointSize: NaN` が `clamp` を素通りするのと同じクラスなので、
+ * 同じ粒度で弾く。
+ *
+ * `null` は `isRecord` が落とす。`isOmittedOrFiniteNumber` と揃えて、省略
+ * （`undefined`）だけを許し `null` は通さない。
+ */
+function isOmittedOrFiniteVec3(value: unknown): boolean {
+  if (value === undefined) return true;
+  return (
+    isRecord(value) &&
+    Number.isFinite(value.x) &&
+    Number.isFinite(value.y) &&
+    Number.isFinite(value.z)
+  );
+}
+
+/**
+ * `postMessage` で届いた値を `Command` として扱ってよいか判定する。
+ *
+ * 判定は**コマンド単位**で、1 フィールドでも不正なら payload 全体を落とす。
+ * `{ pointSize: null, opacity: 50, fileId: 12 }` は正当な `opacity: 50` ごと
+ * 捨てられ、`{ fileId: 12, translation: 5, rotation: { x: 0, y: 0, z: 90 } }` は
+ * 正当な `rotation` ごと捨てられる。不正な値を含むコマンドを部分適用すると、
+ * どこまで反映されたかが呼び出し側から見えなくなるため、境界ではこちらを取る。
+ * この性質はコードでは下の `return` の `&&` から読めるが、コンソールの warn だけを
+ * 見る人には読めないため、`addListener` の warn 文言側にも同じことを書いてある。
+ *
+ * `src/index.ts` が `export * from "./bridge/viewerBridge"` しているため、
+ * export するとパッケージの公開 API が増える。モジュール内に閉じる。
+ */
+function isViewerCommand(value: unknown): value is Command {
+  if (!isRecord(value)) return false;
+
+  switch (value.type) {
+    case "RESET":
+      return true;
+    case "SET_APPEARANCE":
+      // 数値フィールドは「省略可、ただし存在するなら有限数」。
+      // upAxis / coordinateSystem は数値ではなく、受信側が真偽と既存値で
+      // 分岐するだけなので、ここでは見ない。
+      return (
+        isRecord(value.payload) &&
+        isOmittedOrFiniteNumber(value.payload.pointSize) &&
+        isOmittedOrFiniteNumber(value.payload.opacity) &&
+        isOmittedOrFiniteNumber(value.payload.fileId)
+      );
+    case "SET_TRANSFORM":
+      // fileId は fileTransforms のキーになる。欠けていると `undefined` キーの
+      // エントリが増えるだけで例外にならず、静かに壊れる。NaN も同じくキーが
+      // "NaN" に潰れるため、Number.isFinite で数値かつ有限であることまで見る。
+      // translation / rotation は「省略可、ただし存在するなら有限数の Vec3」。
+      // 欠落を必須化しないのは、片方だけ送る使い方が現に成立しているため。
+      return (
+        isRecord(value.payload) &&
+        Number.isFinite(value.payload.fileId) &&
+        isOmittedOrFiniteVec3(value.payload.translation) &&
+        isOmittedOrFiniteVec3(value.payload.rotation)
+      );
+    default:
+      return false;
+  }
 }
 
 export const ViewerBridge = {
@@ -52,7 +153,40 @@ export const ViewerBridge = {
     if (typeof window === "undefined") return () => {};
     const listener = (e: MessageEvent) => {
       if (!e?.data || e.data.channel !== CHANNEL) return;
-      handler(e.data.cmd as Command);
+      // 送信元が同一ウィンドウのものだけ受け付ける。埋め込み元ページや iframe から
+      // 投げられた message では source が相手の window になるため、ここで落ちる。
+      // e.origin は見ない。同一ウィンドウ宛の postMessage では origin は常に自分自身に
+      // なり、source の同一性判定より弱い条件にしかならないため。
+      // 外部由来はログにも出さない（敵対的なページに console を溢れさせないため）。
+      if (e.source !== window) {
+        if (e.source === null || e.source === undefined) {
+          // source が「相手の window」ではなく空のときは、攻撃ではなくテスト環境の
+          // 制約であることが多い。jsdom / happy-dom の postMessage は
+          // MessageEvent.source をセットしない（jsdom#2745）ため、これらの環境では
+          // 形の正しいコマンドまで無言で落ちて原因不明の無反応になる。ここだけ警告する。
+          // source を持つ外部 window からの message は従来どおり無言で落とす。
+          console.warn(
+            "[ViewerBridge] source を持たない message を無視しました。" +
+              "jsdom / happy-dom の postMessage は MessageEvent.source をセットしないため、" +
+              "これらのテスト環境ではビューアコマンドが届きません:",
+            e.data.cmd
+          );
+        }
+        return;
+      }
+      if (!isViewerCommand(e.data.cmd)) {
+        // ここまで来たのは同一ウィンドウの、チャンネル名も合っているコマンド。
+        // 利用側の実装ミスの可能性が高いので、握り潰さず気づけるようにする。
+        // 形（type / payload）だけでなく値（NaN・null・非有限の Vec3 など）でも落ちる。
+        // 1 フィールドでも不正ならコマンド全体を落とすため、ログには一見正しく
+        // 見えるコマンドが丸ごと出る。
+        console.warn(
+          "[ViewerBridge] 形式または値が不正なコマンドを無視しました（不正なフィールドが 1 つでもあるとコマンド全体を破棄します）:",
+          e.data.cmd
+        );
+        return;
+      }
+      handler(e.data.cmd);
     };
     window.addEventListener("message", listener);
     return () => window.removeEventListener("message", listener);
