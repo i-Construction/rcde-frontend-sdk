@@ -69,7 +69,10 @@ export function ViewerHeader({
   const router = useRouter();
   const [constructions, setConstructions] = useState<Construction[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
-  const [error, setError] = useState("");
+  // 現場一覧と契約一覧は別々の取得なので、エラーも別に持つ。
+  // 1 つの state を共有すると、片方の成功が他方の失敗文言を消してしまう。
+  const [constructionsError, setConstructionsError] = useState("");
+  const [contractsError, setContractsError] = useState("");
 
   const constructionLabel = resolveConstructionLabel(constructionId, constructionName);
   const contractLabel = resolveContractLabel(contractId, contractName);
@@ -80,10 +83,10 @@ export function ViewerHeader({
       .then((constructionList) => {
         if (cancelled) return;
         setConstructions(constructionList);
-        setError("");
+        setConstructionsError("");
       })
       .catch((caught: unknown) => {
-        if (!cancelled) setError(describeConstructionsApiError(caught));
+        if (!cancelled) setConstructionsError(describeConstructionsApiError(caught));
       });
     return () => {
       cancelled = true;
@@ -97,10 +100,10 @@ export function ViewerHeader({
       .then((contractList) => {
         if (cancelled) return;
         setContracts(contractList);
-        setError("");
+        setContractsError("");
       })
       .catch((caught: unknown) => {
-        if (!cancelled) setError(describeConstructionsApiError(caught));
+        if (!cancelled) setContractsError(describeConstructionsApiError(caught));
       });
     return () => {
       cancelled = true;
@@ -118,12 +121,12 @@ export function ViewerHeader({
       } catch (caught) {
         // 契約が引けないまま遷移すると契約 ID 0 のビューアーになり原因が分からないため、
         // 遷移せずヘッダー上にエラーを出す。
-        setError(describeConstructionsApiError(caught));
+        setContractsError(describeConstructionsApiError(caught));
         return;
       }
 
       setContracts(nextContracts);
-      setError("");
+      setContractsError("");
       const firstContract = nextContracts[0];
       navigateToViewer(router, {
         constructionId: nextConstructionId,
@@ -148,6 +151,11 @@ export function ViewerHeader({
     },
     [constructionId, constructionName, contracts, router]
   );
+
+  // どちらか一方でも失敗していれば表示する。両方失敗していれば両方並べる。
+  const headerErrorText = [constructionsError, contractsError]
+    .filter((message) => message !== "")
+    .join(" / ");
 
   const selectSx = {
     color: "common.white",
@@ -213,7 +221,7 @@ export function ViewerHeader({
             </MenuItem>
           ))}
         </Select>
-        {error !== "" && (
+        {headerErrorText !== "" && (
           <Box
             role="alert"
             sx={{
@@ -224,7 +232,7 @@ export function ViewerHeader({
               whiteSpace: "nowrap",
             }}
           >
-            {error}
+            {headerErrorText}
           </Box>
         )}
       </Box>
