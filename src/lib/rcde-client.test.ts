@@ -364,6 +364,51 @@ describe("リクエスト送信先の組み立て（RCDEClient）", () => {
   });
 });
 
+describe("接続先の組み立て（baseUrl）", () => {
+  describe("正常系", () => {
+    // 既定は空文字（rcde-client.ts の baseUrl ?? ""）で、URL は素朴な文字列連結で組み立てる。
+    // 組み立てを URL 型に寄せると、この相対パスは絶対 URL でないため作れなくなる
+    it("接続先を指定せずにクライアントを作ったとき、認証区分から始まる相対パスへ問い合わせる", async () => {
+      const { fetchImpl, requests } = createRequestCapture();
+      const client = new RCDEClient({ fetchImpl });
+
+      await client.getConstructionList();
+
+      expect(requests[0].url).toBe("/ext/v2/authenticated/construction");
+    });
+
+    it("接続先の末尾に / を付けてクライアントを作ったとき、区切りが重なった URL をそのまま送る", async () => {
+      const request = await captureRequest({ baseUrl: "https://example.com/" }, (client) =>
+        client.getConstructionList()
+      );
+
+      expect(request.url).toBe("https://example.com//ext/v2/authenticated/construction");
+    });
+  });
+});
+
+describe("応答本文の読み取り方（RCDEClient）", () => {
+  describe("正常系", () => {
+    // URL を固定するテストは URL しか見ず、失敗系のテストは本文を読む前に throw する。
+    // 読み取りを JSON へ変えても他が全部通るので、戻り値の型でここだけを固定しておく
+    it("位置画像を取得するとき、応答本文をバイナリのまま返す", async () => {
+      const { client } = createRequestCapturingClient();
+
+      const image = await client.getContractFileImagePosition({ contractId, contractFileId });
+
+      expect(image).toBeInstanceOf(ArrayBuffer);
+    });
+
+    it("色画像を取得するとき、応答本文をバイナリのまま返す", async () => {
+      const { client } = createRequestCapturingClient();
+
+      const image = await client.getContractFileImageColor({ contractId, contractFileId });
+
+      expect(image).toBeInstanceOf(ArrayBuffer);
+    });
+  });
+});
+
 describe("2legged のときだけ契約 ID を問い合わせに付ける挙動", () => {
   describe("正常系", () => {
     it("2legged で点群のメタデータを取得するとき、契約ファイル ID の後ろに契約 ID を付ける", async () => {
