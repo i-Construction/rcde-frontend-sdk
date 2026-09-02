@@ -47,6 +47,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * 省略されている（`undefined`）か、有限数のときだけ true。
+ *
+ * `SET_APPEARANCE` の数値フィールドは受信側が `?? 既存値` でフォールバックするため
+ * 省略は正当な使い方であり、必須にすると現行の呼び出しを壊す。一方 `NaN` は
+ * `??` を素通りするので、`pointSize: NaN` は `clamp` の戻り値ごと `NaN` になって
+ * three.js の `material.size` に入り、点群が描画されなくなる。`fileId: NaN` は
+ * `fileAppearances` のキーを `"NaN"` に潰す。`SET_TRANSFORM` の `fileId` に
+ * `Number.isFinite` を入れたのと同じクラスの壊れ方なので、同じ粒度で弾く。
+ *
+ * `null` は通さない。受信側の `fileId !== undefined` を満たしてしまい、
+ * `fileAppearances` にキー `"null"` のエントリを作るため。
+ */
+function isOmittedOrFiniteNumber(value: unknown): boolean {
+  return value === undefined || Number.isFinite(value);
+}
+
+/**
  * `postMessage` で届いた値を `Command` として扱ってよいか判定する。
  *
  * `src/index.ts` が `export * from "./bridge/viewerBridge"` しているため、
@@ -59,9 +76,15 @@ function isViewerCommand(value: unknown): value is Command {
     case "RESET":
       return true;
     case "SET_APPEARANCE":
-      // pointSize / opacity は受信側が既存値へフォールバックするため、
-      // payload がオブジェクトであることまでを必須にする。
-      return isRecord(value.payload);
+      // 数値フィールドは「省略可、ただし存在するなら有限数」。
+      // upAxis / coordinateSystem は数値ではなく、受信側が真偽と既存値で
+      // 分岐するだけなので、ここでは見ない。
+      return (
+        isRecord(value.payload) &&
+        isOmittedOrFiniteNumber(value.payload.pointSize) &&
+        isOmittedOrFiniteNumber(value.payload.opacity) &&
+        isOmittedOrFiniteNumber(value.payload.fileId)
+      );
     case "SET_TRANSFORM":
       // fileId は fileTransforms のキーになる。欠けていると `undefined` キーの
       // エントリが増えるだけで例外にならず、静かに壊れる。NaN も同じくキーが
