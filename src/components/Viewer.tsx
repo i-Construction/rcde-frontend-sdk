@@ -149,6 +149,16 @@ export type ViewerProps = {
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
+/**
+ * 点群の見た目の初期値。マウント時の state と RESET コマンドの復帰先が同じ値になるよう
+ * 1 箇所にまとめる。使うときは複製する（state に同じ参照を入れると React が更新を
+ * 打ち切り、RESET でシーンへの再適用が走らなくなるため）。
+ */
+const DEFAULT_APPEARANCE: { pointSize: number; opacity: number } = {
+  pointSize: 2,
+  opacity: 100,
+};
+
 const ClickHandler: FC<{
   views: (ContractFileProps & { boundingBox: Box3 })[];
   referencePoint: Vector3;
@@ -453,8 +463,7 @@ const Viewer: FC<ViewerProps> = (props) => {
   const controlsRef = useRef<any>(null);
 
   const [appearance, setAppearance] = useState<{ pointSize: number; opacity: number }>({
-    pointSize: 2,
-    opacity: 100,
+    ...DEFAULT_APPEARANCE,
   });
   // コマンドリスナーは購読し直さずに最新の外観を読む必要があるため ref に持つ。
   // 書き手は下のコマンドハンドラだけで、初期値はここで state から取る。
@@ -1024,7 +1033,7 @@ const Viewer: FC<ViewerProps> = (props) => {
           g.position.set(0, 0, 0);
           g.rotation.set(0, 0, 0, "XYZ");
         }
-        const resetAppearance = { pointSize: 2, opacity: 100 };
+        const resetAppearance = { ...DEFAULT_APPEARANCE };
         appearanceRef.current = resetAppearance;
         setAppearance(resetAppearance);
         setFileAppearances({});
