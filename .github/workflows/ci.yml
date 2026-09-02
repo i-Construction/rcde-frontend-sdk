@@ -15,8 +15,35 @@ jobs:
         with:
           node-version: "24.18.0"
           cache: yarn
+          # setup-node はワークスペース直下の yarn.lock しか探さないため、
+          # examples の lockfile もキャッシュキーに含める
+          cache-dependency-path: |
+            yarn.lock
+            examples/standalone/yarn.lock
+            examples/webhook-receiver/yarn.lock
       - run: yarn install --frozen-lockfile
       - run: yarn lint
       - run: yarn format:check
       - run: yarn build
       - run: yarn test
+
+      # examples はルートの lint / prettier / workflow の対象外だったため、
+      # SDK の変更で壊れても検知できなかった。standalone は link:../../ で
+      # ルートを参照するので、ルートの build のあとに置く。
+      - name: Install examples/standalone
+        working-directory: examples/standalone
+        run: yarn install --frozen-lockfile
+      # next build は TypeScript の検査を含むので、別途 tsc は走らせない
+      - name: Build examples/standalone
+        working-directory: examples/standalone
+        run: yarn build
+      - name: Test examples/standalone
+        working-directory: examples/standalone
+        run: yarn test
+
+      - name: Install examples/webhook-receiver
+        working-directory: examples/webhook-receiver
+        run: yarn install --frozen-lockfile
+      - name: Lint examples/webhook-receiver
+        working-directory: examples/webhook-receiver
+        run: yarn lint
