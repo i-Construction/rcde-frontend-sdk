@@ -88,7 +88,7 @@ export function getBufferChunk(
   return buffer.slice(start, end);
 }
 
-export type PointCloudMultipartUploadRequest = PointCloudUploadRequest & {
+type PointCloudMultipartUploadRequest = PointCloudUploadRequest & {
   partTotal: number;
 };
 
