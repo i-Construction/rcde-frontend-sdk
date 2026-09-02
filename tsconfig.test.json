@@ -2,6 +2,13 @@
   // tsconfig.json の exclude はテストを型検査から外している。
   // これは vite-plugin-dts が同じ設定を読み、dist に *.test.d.ts を混ぜないための除外なので消せない。
   // 型検査だけを目的にした別プロジェクトとして、emit なしでテストも含めて検査する。
+  //
+  // typeRoots が ./types に絞られているため @types/node のグローバルは入らない。
+  // process や Buffer を使うテストを書いて「Buffer が見つからない」で落ちたら、
+  // ここに "types": ["node"] を足す。
+  //
+  // エディタ（tsserver）はファイルから上へ tsconfig.json だけを探すので、
+  // この設定は自動では拾われない。手元で検知したいなら yarn typecheck を回す。
   "extends": "./tsconfig.json",
   "include": ["src"],
   "exclude": [],
