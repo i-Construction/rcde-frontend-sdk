@@ -41,6 +41,7 @@ import {
 } from "../lib/viewerMemory";
 import { raycastViews } from "../lib/viewerRaycast";
 import type { Command, CoordinateSystemType } from "../bridge/viewerBridge";
+import type { RCDEAppConfig } from "../types/viewerConfig";
 import { CHANNEL } from "../bridge/viewerChannel";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { ReferencePointAxis } from "./ReferencePointAxis";
@@ -128,11 +129,7 @@ type BrowserPerformance = Performance & {
   measureUserAgentSpecificMemory?: () => Promise<{ bytes: number }>;
 };
 
-export type RCDEAppConfig = {
-  token: string;
-  baseUrl?: string;
-  authType?: "2legged" | "3legged";
-};
+export type { RCDEAppConfig } from "../types/viewerConfig";
 
 export type ViewerProps = {
   app: RCDEAppConfig;
