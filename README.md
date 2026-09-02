@@ -24,10 +24,14 @@ peerDependencies は次のとおりです。いずれも利用側のアプリが
 | `@react-three/fiber` | `^8.17.10`     | 下の注記も参照                           |
 | `@react-three/drei`  | `^9.120.4`     | `@react-three/fiber` の系列に揃える      |
 
-React 19 と `@react-three/fiber` 9 系の組み合わせでも動作しますが、上の `peerDependencies` が
-その範囲を含んでいないため、npm 7 以降では `ERESOLVE` になります。
-その構成で使う場合は `--legacy-peer-deps` を付けるか、`package.json` の `overrides`
-（yarn は `resolutions`）で解決先を固定してください。
+React 19 の構成（`@react-three/fiber` 9 系 / `@react-three/drei` 10 系）でも動作しますが、
+上の `peerDependencies` はその範囲を含んでいません。挙動はパッケージマネージャで分かれます。
+
+| パッケージマネージャ | 挙動                                     | 回避方法                                                   |
+| -------------------- | ---------------------------------------- | ---------------------------------------------------------- |
+| npm 7 以降           | `ERESOLVE` で失敗                        | `--legacy-peer-deps`、または `package.json` の `overrides` |
+| pnpm                 | 既定の `strict-peer-dependencies` で失敗 | `strict-peer-dependencies=false`、または `pnpm.overrides`  |
+| yarn                 | 警告のみで継続                           | 対応不要                                                   |
 
 SDK 自体のビルド・開発に使うバージョンは次のとおりです。
 
@@ -411,14 +415,15 @@ function ContractFileCount({ contractId }: { contractId: number }) {
 ```ts
 import { RCDEClient } from "@i-con/frontend-sdk";
 
-// トークンはサーバー側で発行したものを受け取る
-const accessToken = process.env.NEXT_PUBLIC_RCDE_ACCESS_TOKEN ?? "";
-
-const client = new RCDEClient({
-  accessToken,
-  baseUrl: "/api/rcde",
-  authType: "2legged",
-});
+// アクセストークンはサーバー側で発行し、props や API 経由でクライアントへ渡す。
+// ブラウザから読める env（Next.js の NEXT_PUBLIC_*）に置くとバンドルへ埋め込まれるため使わない
+export function createRCDEClient(accessToken: string) {
+  return new RCDEClient({
+    accessToken,
+    baseUrl: "/api/rcde",
+    authType: "2legged",
+  });
+}
 ```
 
 ### コンストラクタのオプション（`RCDEClientOptions`）
