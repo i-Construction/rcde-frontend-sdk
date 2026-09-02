@@ -53,16 +53,27 @@ type HoveredFileStatus = {
   pclodLabel: PclodStatusLabel;
 };
 
+function resolvePclodKind(pclodLabel: PclodStatusLabel): StatusRowKind {
+  switch (pclodLabel) {
+    case "処理中":
+      return "processing";
+    case "待機中":
+      return "waiting";
+    case "完了":
+      return "completed";
+    case "不明":
+      return "unknown";
+    case "-":
+      return "idle";
+  }
+}
+
 function resolveRowStatusKind(
   uploadLabel: UploadStatusLabel,
   pclodLabel: PclodStatusLabel
 ): StatusRowKind {
   if (uploadLabel === "アップロード中") return "uploading";
-  if (pclodLabel === "処理中") return "processing";
-  if (pclodLabel === "待機中") return "waiting";
-  if (pclodLabel === "完了") return "completed";
-  if (pclodLabel === "不明") return "unknown";
-  return "idle";
+  return resolvePclodKind(pclodLabel);
 }
 
 function StatusLabelChip({ label }: { label: string }) {
@@ -111,8 +122,6 @@ function popoverStatusIcon(kind: StatusRowKind | "upload-done") {
       return <HelpOutlineIcon sx={{ fontSize: STATUS_ICON_SIZE, color: "grey.400" }} />;
     case "idle":
       return null;
-    default:
-      return null;
   }
 }
 
@@ -157,18 +166,7 @@ function FileStatusHoverPopper({ hovered }: FileStatusHoverPopperProps) {
 
   const { anchorEl, uploadLabel, pclodLabel } = hovered;
   const uploadIconKind = uploadLabel === "アップロード中" ? "uploading" : "upload-done";
-  const pclodIconKind =
-    pclodLabel === "-"
-      ? "idle"
-      : pclodLabel === "待機中"
-        ? "waiting"
-        : pclodLabel === "処理中"
-          ? "processing"
-          : pclodLabel === "完了"
-            ? "completed"
-            : pclodLabel === "不明"
-              ? "unknown"
-              : "idle";
+  const pclodIconKind = resolvePclodKind(pclodLabel);
 
   return (
     <Popper
