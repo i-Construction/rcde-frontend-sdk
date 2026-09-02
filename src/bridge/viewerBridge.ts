@@ -35,7 +35,41 @@ type Command =
 
 function post(cmd: Command) {
   if (typeof window === "undefined") return;
+  // targetOrigin は "*" のまま。宛先が同一ウィンドウ自身なので、配送先のリスナーは
+  // 常に同一オリジンのスクリプトに限られ、"*" でも他オリジンへは渡らない。
+  // sandbox iframe ではオリジンが "null" になり window.location.origin を渡すと
+  // 一致しなくなるため、"*" の方が壊れにくい。
   window.postMessage({ channel: CHANNEL, cmd }, "*");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * `postMessage` で届いた値を `Command` として扱ってよいか判定する。
+ *
+ * `src/index.ts` が `export * from "./bridge/viewerBridge"` しているため、
+ * export するとパッケージの公開 API が増える。モジュール内に閉じる。
+ */
+function isViewerCommand(value: unknown): value is Command {
+  if (!isRecord(value)) return false;
+
+  switch (value.type) {
+    case "RESET":
+      return true;
+    case "SET_APPEARANCE":
+      // pointSize / opacity は受信側が既存値へフォールバックするため、
+      // payload がオブジェクトであることまでを必須にする。
+      return isRecord(value.payload);
+    case "SET_TRANSFORM":
+      // fileId は fileTransforms のキーになる。欠けていると `undefined` キーの
+      // エントリが増えるだけで例外にならず、静かに壊れる。NaN も同じくキーが
+      // "NaN" に潰れるため、Number.isFinite で数値かつ有限であることまで見る。
+      return isRecord(value.payload) && Number.isFinite(value.payload.fileId);
+    default:
+      return false;
+  }
 }
 
 export const ViewerBridge = {
@@ -52,7 +86,19 @@ export const ViewerBridge = {
     if (typeof window === "undefined") return () => {};
     const listener = (e: MessageEvent) => {
       if (!e?.data || e.data.channel !== CHANNEL) return;
-      handler(e.data.cmd as Command);
+      // 送信元が同一ウィンドウのものだけ受け付ける。埋め込み元ページや iframe から
+      // 投げられた message では source が相手の window になるため、ここで落ちる。
+      // e.origin は見ない。同一ウィンドウ宛の postMessage では origin は常に自分自身に
+      // なり、source の同一性判定より弱い条件にしかならないため。
+      // 外部由来はログにも出さない（敵対的なページに console を溢れさせないため）。
+      if (e.source !== window) return;
+      if (!isViewerCommand(e.data.cmd)) {
+        // ここまで来たのは同一ウィンドウの、チャンネル名も合っているコマンド。
+        // 利用側の実装ミスの可能性が高いので、握り潰さず気づけるようにする。
+        console.warn("[ViewerBridge] 未知の形式のコマンドを無視しました:", e.data.cmd);
+        return;
+      }
+      handler(e.data.cmd);
     };
     window.addEventListener("message", listener);
     return () => window.removeEventListener("message", listener);
