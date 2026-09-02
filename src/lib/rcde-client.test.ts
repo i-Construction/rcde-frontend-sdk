@@ -22,7 +22,10 @@ function createClient(payload: RawListPayload) {
   return createRequestCapturingClient({ responsePayload: payload }).client;
 }
 
-/** fetchImpl が受け取った 1 回分のリクエスト。URL は問い合わせ文字列まで含めた完全な形で控える */
+/**
+ * fetchImpl が受け取った 1 回分のリクエスト。URL は問い合わせ文字列まで含めた完全な形で控える。
+ * ヘッダ名は Headers の正規化に合わせて小文字で控えるので、断言も小文字で書く
+ */
 type CapturedRequest = {
   url: string;
   method?: string;
@@ -56,7 +59,13 @@ function captureRequestBody(body: RequestInit["body"]): unknown {
   }
 }
 
-/** 送信された URL・メソッド・ヘッダ・ボディを控える fetchImpl */
+/**
+ * 送信された URL・メソッド・ヘッダ・ボディを控える fetchImpl。
+ *
+ * ヘッダは Headers を通してから控える。fetch のヘッダはプレーンオブジェクト・Headers・
+ * [名前, 値][] のいずれも取り得るので、素のスプレッドだと Headers を渡す形へ変わった瞬間に
+ * 中身が空になり、「ヘッダの値が違う」ではなく「ヘッダが無い」という読みにくい落ち方になる
+ */
 function createRequestCapture(options: CaptureResponseOptions = {}) {
   const { responsePayload = {}, ok = true, status = 200 } = options;
   const requests: CapturedRequest[] = [];
@@ -64,7 +73,7 @@ function createRequestCapture(options: CaptureResponseOptions = {}) {
     requests.push({
       url: String(url),
       method: init?.method,
-      headers: { ...(init?.headers as Record<string, string> | undefined) },
+      headers: Object.fromEntries(new Headers(init?.headers)),
       body: captureRequestBody(init?.body),
     });
     return {
@@ -559,8 +568,8 @@ describe("点群アップロードへの受け渡し（uploadContractFile）", (
       expect(requests[0].url).toBe(`${AUTHENTICATED}/contractFile/pointCloud`);
       expect(requests[0].method).toBe("POST");
       expect(requests[0].headers).toEqual({
-        "Content-Type": "application/json",
-        Authorization: "Bearer token-123",
+        "content-type": "application/json",
+        authorization: "Bearer token-123",
       });
     });
 
@@ -603,15 +612,15 @@ describe("リクエストヘッダの組み立て（RCDEClient）", () => {
       );
 
       expect(request.headers).toEqual({
-        "Content-Type": "application/json",
-        Authorization: "Bearer token-123",
+        "content-type": "application/json",
+        authorization: "Bearer token-123",
       });
     });
 
     it("アクセストークンを渡していないクライアントで取得するとき、認証ヘッダを載せない", async () => {
       const request = await captureRequest({}, (client) => client.getConstructionList());
 
-      expect(request.headers).toEqual({ "Content-Type": "application/json" });
+      expect(request.headers).toEqual({ "content-type": "application/json" });
     });
   });
 });
