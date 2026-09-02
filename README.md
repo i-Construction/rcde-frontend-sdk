@@ -18,11 +18,16 @@ peerDependencies は次のとおりです。いずれも利用側のアプリが
 
 | パッケージ           | バージョン範囲 | 備考                                     |
 | -------------------- | -------------- | ---------------------------------------- |
-| `react`              | `^18.3.1`      | React 19 でも動作を確認しています        |
+| `react`              | `^18.3.1`      | 下の注記も参照                           |
 | `react-dom`          | `^18.3.1`      | `react` と同じメジャーバージョンに揃える |
 | `three`              | `^0.171.0`     | 3D 描画本体                              |
-| `@react-three/fiber` | `^8.17.10`     | React 19 では 9 系を使います             |
+| `@react-three/fiber` | `^8.17.10`     | 下の注記も参照                           |
 | `@react-three/drei`  | `^9.120.4`     | `@react-three/fiber` の系列に揃える      |
+
+React 19 と `@react-three/fiber` 9 系の組み合わせでも動作しますが、上の `peerDependencies` が
+その範囲を含んでいないため、npm 7 以降では `ERESOLVE` になります。
+その構成で使う場合は `--legacy-peer-deps` を付けるか、`package.json` の `overrides`
+（yarn は `resolutions`）で解決先を固定してください。
 
 SDK 自体のビルド・開発に使うバージョンは次のとおりです。
 
@@ -146,8 +151,9 @@ const App = ({
   constructionId: number;
   contractId: number;
 }) => {
-  // app の参照が変わるたびに内部の RCDEClient が作り直され、
-  // ファイル一覧の再取得と表示状態のリセットが起きるためメモ化する
+  // 参照が変わるたびに初期化の effect が再実行されるためメモ化する。
+  // 設定値が同じなら内部で早期 return するので RCDEClient は作り直されないが、
+  // 無駄な再実行は避けられる
   const app = useMemo<RCDEAppConfig>(
     () => ({
       token: accessToken,
@@ -404,6 +410,9 @@ function ContractFileCount({ contractId }: { contractId: number }) {
 
 ```ts
 import { RCDEClient } from "@i-con/frontend-sdk";
+
+// トークンはサーバー側で発行したものを受け取る
+const accessToken = process.env.NEXT_PUBLIC_RCDE_ACCESS_TOKEN ?? "";
 
 const client = new RCDEClient({
   accessToken,
