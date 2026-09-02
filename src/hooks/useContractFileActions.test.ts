@@ -64,7 +64,6 @@ function setupMocks(overrides?: {
   vi.mocked(useReferencePoint).mockReturnValue({
     point: undefined as never,
     change: vi.fn(),
-    save: vi.fn(),
     focusFileById: focusFileByIdMock,
   });
   vi.mocked(useClient).mockReturnValue({
