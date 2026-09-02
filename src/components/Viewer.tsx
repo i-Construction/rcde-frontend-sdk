@@ -528,12 +528,20 @@ const Viewer: FC<ViewerProps> = (props) => {
   // 実際に load したかどうかを契約 ID で覚えて判定する。
   const loadedContractIdRef = useRef<number | undefined>(undefined);
 
+  // 一覧取得は世代番号で新しい要求だけを採用する。isInitialLoad は await の前に決まる一方
+  // loadedContractIdRef の更新は await の後なので、先の要求が飛んでいる最中に次の要求が
+  // 始まると両方が初回ロード扱いになり、後着した古い応答がユーザーの表示切り替えを巻き戻す。
+  // 契約を切り替えた直後に前の契約の応答が後着する場合も同じ経路で防ぐ。
+  const contractFilesRequestGenerationRef = useRef(0);
+
   const fetchContractFiles = useCallback(async () => {
     if (!client || !contractId) return;
 
     const isInitialLoad = loadedContractIdRef.current !== contractId;
+    const generation = ++contractFilesRequestGenerationRef.current;
     try {
       const res = await client.getContractFileList({ contractId });
+      if (generation !== contractFilesRequestGenerationRef.current) return;
       const contractFiles = res?.contractFiles ?? [];
       if (isInitialLoad) {
         load(contractFiles, contractFileIdsRef.current);
@@ -543,6 +551,7 @@ const Viewer: FC<ViewerProps> = (props) => {
         updateFiles(contractFiles);
       }
     } catch (err) {
+      if (generation !== contractFilesRequestGenerationRef.current) return;
       console.warn("[Viewer] getContractFileList threw:", err);
       // 取得失敗と 0 件は区別できないので、再取得の失敗では既存の表示を壊さず前回の一覧を残す。
       // 初回だけは空にする。別の契約へ切り替えた直後に失敗したとき、
