@@ -393,7 +393,7 @@ function summarizeMemoryEstimates(
 }
 
 const Viewer: FC<ViewerProps> = (props) => {
-  const { load, containers } = useContractFiles();
+  const { load, updateFiles, containers } = useContractFiles();
   const {
     app,
     constructionId,
@@ -513,18 +513,35 @@ const Viewer: FC<ViewerProps> = (props) => {
     setProject({ constructionId, contractId });
   }, [constructionId, contractId, setProject]);
 
+  // 初回ロードが済んだ契約 ID。contractFilesRefetchKey は「初回は undefined で渡す」使い方と
+  // 「最初から数値を渡す」使い方の両方があり得るため、キーの値からは初回かどうかを判定できない。
+  // 実際に load したかどうかを契約 ID で覚えて判定する。
+  const loadedContractIdRef = useRef<number | undefined>(undefined);
+
   const fetchContractFiles = useCallback(async () => {
     if (!client || !contractId) return;
 
+    const isInitialLoad = loadedContractIdRef.current !== contractId;
     try {
       const res = await client.getContractFileList({ contractId });
       const contractFiles = res?.contractFiles ?? [];
-      load(contractFiles, memoizedContractFileIds);
+      if (isInitialLoad) {
+        load(contractFiles, memoizedContractFileIds);
+        loadedContractIdRef.current = contractId;
+      } else {
+        // 再取得では contractFileIds から作り直さず、ユーザーが切り替えた表示状態を引き継ぐ
+        updateFiles(contractFiles);
+      }
     } catch (err) {
       console.warn("[Viewer] getContractFileList threw:", err);
-      load([], memoizedContractFileIds);
+      // 取得失敗と 0 件は区別できないので、再取得の失敗では既存の表示を壊さず前回の一覧を残す。
+      // 初回だけは空にする。別の契約へ切り替えた直後に失敗したとき、
+      // 前の契約のファイルを出し続けてしまうため。
+      if (isInitialLoad) {
+        load([], memoizedContractFileIds);
+      }
     }
-  }, [client, contractId, memoizedContractFileIds, load]);
+  }, [client, contractId, memoizedContractFileIds, load, updateFiles]);
 
   // 初回と contractFilesRefetchKey 由来の再取得を 1 本の effect にまとめる。
   // 分けていたときは、呼び出し側が最初から数値のキーを渡すとマウント時に 2 本とも発火していた。
