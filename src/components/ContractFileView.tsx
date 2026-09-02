@@ -15,15 +15,7 @@ import { ContractFile } from "../contexts/contractFiles";
 import { parsePngBuffer } from "../lib/pngParse";
 import { loadTile } from "../lib/tileLoader";
 import type { ViewerFileMemoryEstimate } from "../lib/viewerMemory";
-
-// 座標系の型定義
-type CoordinateSystemType =
-  | "RIGHT_HANDED_X_UP"
-  | "LEFT_HANDED_X_UP"
-  | "RIGHT_HANDED_Y_UP"
-  | "LEFT_HANDED_Y_UP"
-  | "RIGHT_HANDED_Z_UP"
-  | "LEFT_HANDED_Z_UP";
+import type { CoordinateSystemType } from "../bridge/viewerBridge";
 
 // 座標系ごとの変換定義
 const COORDINATE_SYSTEM_TRANSFORMS: Record<
