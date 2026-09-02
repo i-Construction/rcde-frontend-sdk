@@ -12,7 +12,6 @@ import { isPclodCompleted } from "../lib/contractFileStatus";
 export type ReferencePointContextType = {
   point: Vector3;
   change: (point: Vector3) => void;
-  save: (point: Vector3) => void;
   /**
    * 指定ファイルの Bounding Box 中心へ基準点を移動する。
    * 成功時は `true`、対象なし・PCLOD 未完了・メタデータ取得失敗時は `false` を返す。
@@ -28,13 +27,6 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
   const { containers } = useContractFiles();
 
   const change = useCallback(
-    (point: Vector3) => {
-      setPoint(point);
-    },
-    [setPoint]
-  );
-
-  const save = useCallback(
     (point: Vector3) => {
       setPoint(point);
     },
@@ -71,7 +63,7 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
   );
 
   return (
-    <ReferencePointContext.Provider value={{ point, change, save, focusFileById }}>
+    <ReferencePointContext.Provider value={{ point, change, focusFileById }}>
       {children}
     </ReferencePointContext.Provider>
   );
@@ -82,7 +74,7 @@ export const ReferencePointProvider: FC<{ children: ReactNode }> = ({ children }
  *
  * @example
  * ```tsx
- * const { point, change, save, focusFileById } = useReferencePoint();
+ * const { point, change, focusFileById } = useReferencePoint();
  * ```
  *
  * @returns Reference point context
