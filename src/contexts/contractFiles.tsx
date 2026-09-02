@@ -15,6 +15,11 @@ export type ContractFileContainer = {
 type ContractFilesContextType = {
   containers: ContractFileContainer[];
   load: (files: ContractFiles, visibleIds?: number[]) => void;
+  /**
+   * 再取得した一覧でファイルの中身を差し替える。表示・非表示は ID で前回の状態を引き継ぐ。
+   * 前回に無かったファイルは、直近の load で適用した visibleIds に従う。
+   * load を一度も呼んでいなければ visibleIds は未指定の扱いになり、全件が表示になる。
+   */
   updateFiles: (files: ContractFiles) => void;
   toggleVisibility: (container: ContractFileContainer) => void;
 };
