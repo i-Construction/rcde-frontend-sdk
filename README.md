@@ -27,11 +27,11 @@ peerDependencies は次のとおりです。いずれも利用側のアプリが
 React 19 の構成（`@react-three/fiber` 9 系 / `@react-three/drei` 10 系）でも動作しますが、
 上の `peerDependencies` はその範囲を含んでいません。挙動はパッケージマネージャで分かれます。
 
-| パッケージマネージャ | 挙動                                     | 回避方法                                                   |
-| -------------------- | ---------------------------------------- | ---------------------------------------------------------- |
-| npm 7 以降           | `ERESOLVE` で失敗                        | `--legacy-peer-deps`、または `package.json` の `overrides` |
-| pnpm                 | 既定の `strict-peer-dependencies` で失敗 | `strict-peer-dependencies=false`、または `pnpm.overrides`  |
-| yarn                 | 警告のみで継続                           | 対応不要                                                   |
+| パッケージマネージャ | 挙動                                                                                                           | 回避方法                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| npm 7 以降           | `ERESOLVE` で失敗                                                                                              | `--legacy-peer-deps`、または `package.json` の `overrides`               |
+| pnpm                 | 既定では警告のみ（v8 以降は `strict-peer-dependencies` の既定が false）。v7 以前や明示的に有効化した場合は失敗 | 失敗する場合は `strict-peer-dependencies=false`、または `pnpm.overrides` |
+| yarn                 | 警告のみで継続                                                                                                 | 対応不要                                                                 |
 
 SDK 自体のビルド・開発に使うバージョンは次のとおりです。
 
