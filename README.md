@@ -5,27 +5,52 @@
 RCDEの機能をフロントエンドアプリケーションで利用するためのSDKです。
 
 本SDKは、RCDE連携型モニタリングアプリのフロントエンド共通機能を提供します。  
-Next.js（App Router構成）および React Three Fiber をベースとし、点群ビューア、認証、契約項目管理、ファイルアップロードなどを統合します。
+React Three Fiber をベースとし、点群ビューア、契約ファイル管理、ファイルアップロードなどを統合します。
 
 このSDKはReact環境(バージョン18以上)で使用することを前提としています。
+アクセストークンの発行は SDK の役割ではなく、利用側が発行したトークンを受け取ります。
 
 ---
 
 ## 開発環境要件
 
-| 項目       | バージョン      | 備考                                        |
-| ---------- | --------------- | ------------------------------------------- |
-| Node.js    | **24.x**        | LTS推奨（24.18.0）                          |
-| React      | **18.3.1 固定** | Three.js互換のため他バージョン不可          |
-| Next.js    | **16.2.9 固定** | Three.js／React Three Fiber間の依存制約あり |
-| Vite       | ^6.x            | ライブラリビルド用                          |
-| TypeScript | ^5.x            | 型定義完全対応                              |
-| Three.js   | ^0.171.0        | `@react-three/fiber` 依存                   |
+peerDependencies は次のとおりです。いずれも利用側のアプリが用意します。
 
-> ⚠️ **React/Nextバージョンは厳密固定です。**
+| パッケージ           | バージョン範囲 | 備考                                     |
+| -------------------- | -------------- | ---------------------------------------- |
+| `react`              | `^18.3.1`      | 下の注記も参照                           |
+| `react-dom`          | `^18.3.1`      | `react` と同じメジャーバージョンに揃える |
+| `three`              | `^0.171.0`     | 3D 描画本体                              |
+| `@react-three/fiber` | `^8.17.10`     | 下の注記も参照                           |
+| `@react-three/drei`  | `^9.120.4`     | `@react-three/fiber` の系列に揃える      |
+
+React 19 の構成（`@react-three/fiber` 9 系 / `@react-three/drei` 10 系）でも動作しますが、
+上の `peerDependencies` はその範囲を含んでいません。挙動はパッケージマネージャで分かれます。
+
+| パッケージマネージャ | 挙動                                                                                                           | 回避方法                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| npm 7 以降           | `ERESOLVE` で失敗                                                                                              | `--legacy-peer-deps`、または `package.json` の `overrides`               |
+| pnpm                 | 既定では警告のみ（v8 以降は `strict-peer-dependencies` の既定が false）。v7 以前や明示的に有効化した場合は失敗 | 失敗する場合は `strict-peer-dependencies=false`、または `pnpm.overrides` |
+| yarn                 | 警告のみで継続                                                                                                 | 対応不要                                                                 |
+
+SDK 自体のビルド・開発に使うバージョンは次のとおりです。
+
+| 項目       | バージョン | 備考                           |
+| ---------- | ---------- | ------------------------------ |
+| Node.js    | 24.18.0    | `package.json` の `volta.node` |
+| TypeScript | `~5.6.2`   | 型定義の生成に使用             |
+| Vite       | `^6.0.1`   | ライブラリビルド用             |
+
+> **バージョンの組み合わせについて**
 >
-> Three.js と React 18.3.1 / Next.js 16.2.9 の組み合わせでのみビルドが安定します。  
-> これ以外のバージョンでは、`react-reconciler` や `r3f` 関連でコンパイルエラーが発生します。
+> peerDependencies の宣言は React 18 系ですが、`examples/standalone` は
+> React 19 / Next.js 16.2.9 / `@react-three/fiber` 9 系 / `@react-three/drei` 10 系で動作しています。
+> React 18 に固定する必要はありません。  
+> 揃えるべきなのは React と React DOM、および `@react-three/fiber` と `@react-three/drei` の
+> 対応関係です（React 18 なら fiber 8 系、React 19 なら fiber 9 系）。
+> ここがずれると `react-reconciler` 関連の型エラーや実行時エラーが発生します。
+>
+> SDK は Next.js に依存していません。Next.js 以外の React アプリでも利用できます。
 
 ---
 
@@ -53,31 +78,37 @@ yarn build
 
 ## 構成概要
 
+公開エントリポイントは `src/index.ts` の 1 つだけです。
+利用側は常に `@i-con/frontend-sdk` から import します（サブパス import は提供していません）。
+
+```text
+src/
+├── bridge/       # ViewerBridge（Viewer へのコマンド送信）
+├── components/   # RCDE / Viewer / ContractFileView / ReferencePointAxis など
+├── contexts/     # ClientProvider / ContractFilesProvider / ReferencePointProvider など
+├── hooks/        # useContractFileActions などのカスタムフック
+├── lib/          # RCDEClient と R-CDE API 連携・点群読み込みのロジック
+├── services/     # ピッキング処理
+├── types/        # R-CDE API の共通型定義
+└── index.ts      # 公開 API のエントリポイント
 ```
-packages/
-└── @i-con/frontend-sdk/
-    ├── src/
-    │   ├── components/       # 汎用コンポーネント（FileUploadModal, ViewerPanel等）
-    │   ├── contexts/         # グローバルステート管理
-    │   ├── hooks/            # カスタムフック（useViewer, useAuth等）
-    │   ├── lib/              # RCDE API連携ロジック
-    │   └── types/            # 共通型定義
-    ├── dist/                 # ビルド成果物
-    ├── package.json
-    └── tsconfig.json
-```
+
+ビルド成果物は `dist/` に出力され、npm パッケージには `dist/` と `types/` だけが含まれます。
 
 ---
 
 ## 主な機能
 
-| モジュール      | 概要                                      |
-| --------------- | ----------------------------------------- |
-| ViewerBridge    | Three.jsビューワーとReact間のブリッジ処理 |
-| useViewer       | 点群・基準面の表示制御用フック            |
-| useAuth         | RCDE OAuth 3-legged認証対応               |
-| FileUploadModal | S3/RCDE両対応のアップロードモーダル       |
-| contractFiles   | 契約項目別ファイル管理用コンテキスト      |
+| モジュール                    | 概要                                                                       |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `RCDE`                        | Provider 一式と `Viewer` をまとめたルートコンポーネント                    |
+| `Viewer`                      | 点群を描画する 3D ビューア本体。Provider を自前構成する場合に使う          |
+| `ViewerBridge`                | ビューア外の UI から表示位置・見た目の変更を指示するコマンド送信モジュール |
+| `RCDEClient`                  | R-CDE API クライアント（ファイル一覧・メタデータ・アップロードなど）       |
+| `useContractFileActions`      | 契約ファイル一覧の行データ生成と表示・フォーカス・ダウンロード操作         |
+| `useReferencePoint`           | 基準点座標の取得と更新                                                     |
+| `ContractFilesProvider`       | 契約ファイル一覧の保持と表示状態の管理                                     |
+| `deriveFileStatus` ほか状態値 | アップロード / PCLOD の状態判定ユーティリティ                              |
 
 ---
 
@@ -106,30 +137,54 @@ RCDEのサイトでアプリケーションを作成します。
 ## 基本的な使用方法
 
 RCDEコンポーネントを配置することでビューワを表示することができます。
-RCDEコンポーネントには[事前準備](#事前準備)で作成したアプリケーションの情報と、
+RCDEコンポーネントには R-CDE API のアクセストークンを含む `app` 設定と、
 表示したい現場のIDと契約IDを渡します。
 
-```typescript
-import { RCDE, RCDEProps } from "@i-con/frontend-sdk";
+```tsx
+"use client";
 
-const App = () => {
-  // 事前準備で作成したアプリケーションの情報 (clientId, clientSecret)
-  const app = useMemo(() => {
-    return {
-      clientId: "client id",
-      clientSecret: "client secret",
-    };
-  }, []);
+import { useMemo } from "react";
+import { RCDE, type RCDEAppConfig } from "@i-con/frontend-sdk";
 
-  return (
-    <RCDE
-      constructionId={constructionId}
-      contractId={contractId}
-      app={app}
-    />
+const App = ({
+  accessToken,
+  constructionId,
+  contractId,
+}: {
+  accessToken: string;
+  constructionId: number;
+  contractId: number;
+}) => {
+  // 参照が変わるたびに初期化の effect が再実行されるためメモ化する。
+  // 設定値が同じなら内部で早期 return するので RCDEClient は作り直されないが、
+  // 無駄な再実行は避けられる
+  const app = useMemo<RCDEAppConfig>(
+    () => ({
+      token: accessToken,
+      baseUrl: "/api/rcde",
+      authType: "2legged",
+    }),
+    [accessToken]
   );
+
+  return <RCDE constructionId={constructionId} contractId={contractId} app={app} />;
 };
 ```
+
+`app` に渡す `RCDEAppConfig` のフィールドは次の 3 つです。
+
+| フィールド | 必須 | 内容                                                                                          |
+| ---------- | ---- | --------------------------------------------------------------------------------------------- |
+| `token`    | 必須 | R-CDE API のアクセストークン。`Authorization: Bearer <token>` として送信されます              |
+| `baseUrl`  | 任意 | API のベース URL。省略時は空文字（同一オリジンの相対パス）です                                |
+| `authType` | 任意 | `"2legged"`（既定）または `"3legged"`。API パスの接頭辞と一部クエリパラメータが切り替わります |
+
+[事前準備](#事前準備)で作成したアプリケーションの `clientId` / `clientSecret` は、
+**SDK には渡しません**。ブラウザに秘匿情報を置かないため、サーバー側でこれらを使って
+アクセストークンを発行し、そのトークンだけを `app.token` に渡します。
+`examples/standalone` では Next.js の Route Handler がトークン発行と API プロキシを担い、
+`baseUrl` にそのプロキシのパス（`/api/rcde`）を指定しています。
+ブラウザから R-CDE API を直接呼ぶと CORS で失敗するため、プロキシ経由の構成を推奨します。
 
 ### `memoryMonitoring` の使い方
 
@@ -226,71 +281,230 @@ const App = () => {
 
 ## ViewerBridgeの使い方
 
-ViewerBridge は、Three.jsベースの3DビューワーとReactコンポーネント間のブリッジとして動作します。
-ReactからThree.jsのシーン制御・カメラ操作・モデルロードを直接行うための統一インターフェースです。
+`ViewerBridge` は、すでに描画されている `RCDE` / `Viewer` に対して、
+ビューア外の UI（ツールバー、ダイアログ、サイドバーなど）から表示指示を送るためのモジュールです。
+
+Three.js のシーンやカメラを直接触るオブジェクトではありません。
+実体は `window.postMessage` の薄いラッパーで、`RCDE_VIEWER_CMD` というチャンネル名を付けた
+コマンドを送るだけです。`Viewer` が同じチャンネルの `message` イベントを購読しており、
+受け取ったコマンドに応じて内部の state を更新します。
+このため React のツリーをまたいでいても、Provider の外からでも呼び出せます。
+
+`Viewer` を描画していない状態で呼んでも例外にはならず、受け手がいないため何も起こりません。
+サーバーサイドレンダリング時（`window` が無い環境）も同様に無視されます。
 
 ### 基本構成
 
 ```tsx
 "use client";
-import { useEffect, useRef } from "react";
-import { ViewerBridge } from "@i-con/frontend-sdk";
 
-export default function ViewerPanel() {
-  const viewerRef = useRef<HTMLDivElement>(null);
+import { useEffect } from "react";
+import {
+  CoordinateSystem,
+  ViewerBridge,
+  type ViewerAppearance,
+  type ViewerTransform,
+} from "@i-con/frontend-sdk";
 
+export function ViewerToolbar({ fileId }: { fileId: number }) {
+  // 同じチャンネルへ送られたコマンドを購読する（戻り値は購読解除関数）
   useEffect(() => {
-    if (!viewerRef.current) return;
-
-    // 初期化
-    ViewerBridge.init(viewerRef.current, {
-      backgroundColor: "#000",
-      gridVisible: true,
+    return ViewerBridge.addListener((cmd) => {
+      console.log(cmd.type);
     });
-
-    // モデルロード例
-    ViewerBridge.loadPointCloud({
-      url: "/example-data/sample.las",
-      color: "#00ff00",
-    });
-
-    // カメラ操作例
-    ViewerBridge.setCamera({
-      position: [5, 10, 15],
-      target: [0, 0, 0],
-    });
-
-    // 回転アニメーション例
-    ViewerBridge.animate((time) => {
-      ViewerBridge.setRotation({ x: 0, y: time * 0.001, z: 0 });
-    });
-
-    return () => {
-      ViewerBridge.dispose();
-    };
   }, []);
 
-  return <div ref={viewerRef} style={{ width: "100%", height: "600px", background: "#111" }} />;
+  const moveFile = () => {
+    const transform: ViewerTransform = {
+      // 対象ファイルは fileId で指定する（省略できない）
+      fileId,
+      translation: { x: 10, y: 0, z: 0 },
+      // 単位は度（degree）
+      rotation: { x: 0, y: 0, z: 90 },
+    };
+    ViewerBridge.setTransform(transform);
+  };
+
+  const changeAppearance = () => {
+    const appearance: ViewerAppearance = {
+      pointSize: 3,
+      opacity: 80,
+      upAxis: "Z",
+      coordinateSystem: CoordinateSystem.RightHandedZUp,
+      // fileId を省略するとビューア全体（後方互換）の見た目に適用される
+      fileId,
+    };
+    ViewerBridge.setAppearance(appearance);
+  };
+
+  return (
+    <div>
+      <button onClick={moveFile}>移動・回転</button>
+      <button onClick={changeAppearance}>見た目を変更</button>
+      <button onClick={() => ViewerBridge.reset()}>初期状態に戻す</button>
+    </div>
+  );
 }
 ```
 
 ### 主なAPI一覧
 
-| メソッド                                                | 機能概要                                 |
-| ------------------------------------------------------- | ---------------------------------------- |
-| `init(container: HTMLElement, options?: ViewerOptions)` | ビューワー初期化                         |
-| `loadPointCloud({ url, color })`                        | 点群データをロード                       |
-| `setTransform({ translation, rotation, scale })`        | オブジェクトの位置・回転・拡縮設定       |
-| `setCamera({ position, target })`                       | カメラ位置と注視点を設定                 |
-| `resetCamera()`                                         | カメラを初期位置に戻す                   |
-| `animate(callback: (time: number) => void)`             | 毎フレーム呼ばれるアニメーション関数登録 |
-| `dispose()`                                             | ビューワー破棄とメモリ解放               |
+| メソッド                                       | 機能概要                                                                     |
+| ---------------------------------------------- | ---------------------------------------------------------------------------- |
+| `setTransform(tx: ViewerTransform)`            | `tx.fileId` のファイルに平行移動と回転を適用する                             |
+| `setAppearance(app: ViewerAppearance)`         | 点サイズ・不透明度・カメラの上方向・座標系を設定する                         |
+| `reset()`                                      | 位置・回転・見た目・カメラの上方向を初期値へ戻す                             |
+| `addListener(handler: (cmd: Command) => void)` | 同チャンネルへ送られたコマンドを購読する。戻り値の関数を呼ぶと購読を解除する |
+
+`ViewerTransform` は `{ translation, rotation, fileId }` です。
+`fileId` は R-CDE に登録されている契約ファイルの ID で、**必須**です。
+`translation` / `rotation` は `{ x, y, z }` の数値で、`rotation` の単位は度です。
+拡縮（`scale`）は扱いません。
+
+`ViewerAppearance` は `{ pointSize, opacity, upAxis?, coordinateSystem?, fileId? }` です。
+`pointSize` は 0〜5、`opacity` は 0〜100 に丸められます。
+`fileId` を指定するとそのファイルだけに、省略するとビューア全体に適用されます。
+`upAxis` は `"Y"` / `"Z"` で、カメラの上方向にのみ効きます。
+`coordinateSystem` には `CoordinateSystem` 定数（`RightHandedZUp` など 6 種）を渡します。
+
+`reset()` は点サイズ 2・不透明度 100・カメラ上方向 Z にリセットし、
+`setTransform` / `setAppearance` でファイル単位に積んだ設定をすべて破棄します。
+
+`addListener` が受け取るのは同じチャンネルへ送られたコマンドで、自分が
+`setTransform` などで送ったものも届きます。`Viewer` は購読する側であり、
+コマンドを送り返すことはありません。
 
 ### 補足
 
-ViewerBridge は React Three Fiber 経由で Three.js にアクセスしており、
-React 18.3.1 固定で動作します。
-それ以外のバージョンでは Reconciler の内部構造が異なるため動作しません。
+`setTransform` で移動・回転したファイルは、`onContractFileClick` / `onObjectClick` /
+`onObjectHover` の当たり判定に反映されません。判定には移動前のバウンディングボックスが
+使われます。
+
+---
+
+## RCDEClientの使い方
+
+`RCDEClient` は R-CDE API を叩くクライアントです。
+契約ファイルの一覧取得、点群メタデータの取得、ファイルのアップロード、
+現場・契約の一覧取得などを提供します。
+
+`RCDE` を使っている場合、`app` の内容から生成済みのインスタンスを
+`useClient()` で取り出せます。こちらが通常の使い方です。
+
+```tsx
+"use client";
+
+import { useClient } from "@i-con/frontend-sdk";
+
+function ContractFileCount({ contractId }: { contractId: number }) {
+  const { client } = useClient();
+
+  const load = async () => {
+    // Provider のマウント直後は client が undefined になりうる
+    if (!client) return;
+    const { contractFiles } = await client.getContractFileList({ contractId });
+    console.log(contractFiles.length);
+  };
+
+  return <button onClick={load}>件数を数える</button>;
+}
+```
+
+ビューアを描画せず API だけを使う場合は、直接生成することもできます。
+
+```ts
+import { RCDEClient } from "@i-con/frontend-sdk";
+
+// アクセストークンはサーバー側で発行し、props や API 経由でクライアントへ渡す。
+// ブラウザから読める env（Next.js の NEXT_PUBLIC_*）に置くとバンドルへ埋め込まれるため使わない
+export function createRCDEClient(accessToken: string) {
+  return new RCDEClient({
+    accessToken,
+    baseUrl: "/api/rcde",
+    authType: "2legged",
+  });
+}
+```
+
+### コンストラクタのオプション（`RCDEClientOptions`）
+
+すべて任意です。
+
+| オプション    | 既定値             | 内容                                                                                              |
+| ------------- | ------------------ | ------------------------------------------------------------------------------------------------- |
+| `accessToken` | なし               | 指定すると `Authorization: Bearer <token>` を全リクエストに付与する                               |
+| `baseUrl`     | `""`               | API のベース URL。省略時は同一オリジンの相対パスになる                                            |
+| `authType`    | `"2legged"`        | `"2legged"` は `/ext/v2/authenticated`、`"3legged"` は `/ext/v2/userAuthenticated` を接頭辞に使う |
+| `fetchImpl`   | グローバル `fetch` | 差し替え用の fetch 実装。テストやプロキシ層の差し込みに使う                                       |
+
+`RCDEAppConfig` の `token` がここでは `accessToken` という名前になる点に注意してください。
+
+### 主なメソッド
+
+| メソッド                                                            | 戻り値                  | 内容                                               |
+| ------------------------------------------------------------------- | ----------------------- | -------------------------------------------------- |
+| `getContractFileList({ contractId })`                               | `{ contractFiles }`     | 契約ファイル一覧。PCLOD のバッチ処理状態を含む     |
+| `getContractFileMetadata({ contractId, contractFileId })`           | メタデータ JSON         | 点群の LOD メタデータ                              |
+| `getContractFileImagePosition({ contractId, contractFileId, ... })` | `ArrayBuffer`           | 点群タイルの位置バッファ                           |
+| `getContractFileImageColor({ contractId, contractFileId, ... })`    | `ArrayBuffer`           | 点群タイルの色バッファ                             |
+| `getContractFileDownloadUrl(contractId, fileId)`                    | `{ url, presignedURL }` | ダウンロード用の署名付き URL                       |
+| `uploadContractFile(params)`                                        | レスポンス JSON         | 一括アップロード。ファイル全体を 1 回の PUT で送る |
+| `uploadContractFileMultipart(params)`                               | `{ contractFileId }`    | 分割アップロード。大容量ファイル向け               |
+| `getConstructionList()`                                             | `{ constructions }`     | 現場一覧                                           |
+| `getConstruction(constructionId)`                                   | `Construction`          | 現場 1 件                                          |
+| `createConstruction(params)`                                        | レスポンス JSON         | 現場を作成する                                     |
+| `getContractList({ constructionId })`                               | `{ contracts }`         | 契約一覧                                           |
+| `createContract({ constructionId, name, contractedAt })`            | レスポンス JSON         | 契約を作成する                                     |
+
+いずれも 2xx 以外のレスポンスを受けた時点で `Error` を throw します（戻り値で失敗を返しません）。
+
+> `createContract` は R-CDE が必須にしている項目をまだ送っていないため、現時点では 400 で失敗します。
+
+### 大容量ファイルの分割アップロード（`uploadContractFileMultipart`）
+
+`uploadContractFile` はファイル全体を 1 回の PUT で送るため、大きな点群ファイルでは
+タイムアウトしやすくなります。`uploadContractFileMultipart` はファイルをチャンクへ分割し、
+パートごとに署名付き URL へ送信します。
+
+```ts
+import type { RCDEClient } from "@i-con/frontend-sdk";
+
+const MEBIBYTE = 1024 * 1024;
+
+async function upload(client: RCDEClient, contractId: number, file: File) {
+  const buffer = await file.arrayBuffer();
+
+  const { contractFileId } = await client.uploadContractFileMultipart({
+    contractId,
+    name: file.name,
+    buffer,
+    // 1 パートのサイズ。省略時は 100 MiB
+    chunkSize: 50 * MEBIBYTE,
+    // 契約ファイルが採番された直後に呼ばれる。アップロード中の行を一覧へ出すのに使う
+    onContractFileCreated: (createdId) => {
+      console.log("registered", createdId);
+    },
+    onUploadProgress: (completedParts, totalParts) => {
+      console.log(`${completedParts}/${totalParts}`);
+    },
+  });
+
+  return contractFileId;
+}
+```
+
+`params` は `uploadContractFile` と共通の
+`{ contractId, name, buffer, pointCloudAttribute?, onContractFileCreated? }` に、
+`chunkSize?` と `onUploadProgress?` を加えたものです。
+`buffer` は `ArrayBuffer` なので、`File` からは `await file.arrayBuffer()` で取得します。
+パートは並行して送信されるため、`onUploadProgress` の第 1 引数は完了したパート数であり、
+何番目のパートが完了したかは示しません。
+途中で失敗した場合は開始済みのマルチパートアップロードを破棄してから元のエラーを throw します。
+
+アップロード完了後、R-CDE 側で PCLOD 変換が非同期に走ります。
+表示できるようになったかどうかは `getContractFileList` の
+`batchProcessingResult` か、[`useContractFileActions`](#ファイル一覧の操作usecontractfileactions) の
+`getFileStatus` / `isPclodCompleted` で判定してください。
 
 ---
 
@@ -344,34 +558,40 @@ const { point } = useReferencePoint();
 例えば、基準点位置の変化に合わせて配置したいオブジェクトがある場合、
 そのオブジェクトの座標に対して`point`を加算することで、基準点位置と同期して配置することができます。
 
-```typescript
-import { RCDE, RCDEProps, useReferencePoint } from "@i-con/frontend-sdk";
+```tsx
+"use client";
+
+import { FC, useMemo } from "react";
+import { RCDE, type RCDEAppConfig, useReferencePoint } from "@i-con/frontend-sdk";
 
 const Example: FC = () => {
   const { point } = useReferencePoint();
-  return <group position={point}>
-    <mesh>
-      <boxGeometry />
-      <meshBasicMaterial color="red" />
-    </mesh>
-  </group>;
+  return (
+    <group position={point}>
+      <mesh>
+        <boxGeometry />
+        <meshBasicMaterial color="red" />
+      </mesh>
+    </group>
+  );
 };
 
-const App = () => {
-  // 事前準備で作成したアプリケーションの情報 (clientId, clientSecret)
-  const app = useMemo(() => {
-    return {
-      clientId: "client id",
-      clientSecret: "client secret",
-    };
-  }, []);
+const App = ({
+  accessToken,
+  constructionId,
+  contractId,
+}: {
+  accessToken: string;
+  constructionId: number;
+  contractId: number;
+}) => {
+  const app = useMemo<RCDEAppConfig>(
+    () => ({ token: accessToken, baseUrl: "/api/rcde", authType: "2legged" }),
+    [accessToken]
+  );
 
   return (
-    <RCDE
-      constructionId={constructionId}
-      contractId={contractId}
-      app={app}
-    >
+    <RCDE constructionId={constructionId} contractId={contractId} app={app}>
       <Example />
     </RCDE>
   );
@@ -491,20 +711,30 @@ function FileList({ pendingUploads }) {
 
 ## Three.js／R3F統合に関する注意
 
-- Three.js オブジェクトは React Reconciler 18.3.1 に依存します。
-- `three` は Vite の `optimizeDeps.include` に追加しておく必要があります。
-- ViewerBridge は直接 three.js のカメラ・シーン・マテリアルを制御します。
-- `react-three-fiber` と `three` のバージョン不一致によりビルドエラーが出る場合は、
-  `node_modules` を削除して再インストールしてください。
+- `three` / `@react-three/fiber` / `@react-three/drei` / `react` / `react-dom` は
+  ライブラリのバンドルから external にしています。利用側アプリの依存が 1 つだけ解決されるようにしてください。
+  同じパッケージが二重に読み込まれると R3F のコンテキストが分かれて描画されません。
+- `@react-three/fiber` と `@react-three/drei` は対応する系列同士で使ってください
+  （React 18 なら fiber 8 系 + drei 9 系、React 19 なら fiber 9 系 + drei 10 系）。
+- `ViewerBridge` は Three.js を直接制御しません。`window.postMessage` でコマンドを送り、
+  `Viewer` の内部 state を経由して描画へ反映されます。
+- バージョン不一致でビルドエラーが出る場合は、`node_modules` を削除して再インストールしてください。
 
 ---
 
 ## 開発時の注意事項
 
-- Next.js App Router 構成に準拠しています（`src/app/` 配下に各画面を配置）。
-- クライアント側コンポーネントには `"use client"` 指定を付与してください。
-- RCDEトークンはセッション内で管理され、クライアントでの永続保存は禁止されています。
-- 大容量ファイルのアップロードには分割処理とリトライ機構を実装済みです。
+- SDK は Next.js の構成に依存しません。`src/app/` のような画面ディレクトリは持たず、
+  公開するのはコンポーネントとフックだけです。App Router を使った画面の組み方は
+  `examples/standalone` を参照してください。
+- SDK のコンポーネントはすべてブラウザで動きます。Next.js App Router から使う場合は、
+  それらを描画するコンポーネントに `"use client"` を付与してください。
+- アクセストークンは `RCDEClient` のインスタンスがメモリ上に保持するだけで、
+  SDK は Cookie や localStorage へ保存しません。トークンの取得・保管・失効時の再取得は
+  利用側アプリの責務です。
+- 大容量ファイルは `uploadContractFileMultipart` で分割送信できます。
+  失敗したパートの自動リトライは行いません。失敗時はアップロード全体を破棄して
+  エラーを throw するため、再試行は利用側で行ってください。
 
 ---
 
@@ -522,3 +752,4 @@ function FileList({ pendingUploads }) {
 | 1.1.0      | 2025-10-21 | React 18.3.1 / Next 14.2.5 固定明記、Three.js依存性追記、ViewerBridge使用例追加、RCDE認証要約追加 |
 | 1.2.0      | 2026-06-25 | Node.js 24 / Next.js 16.2.9 対応、同梱 example 削除                                               |
 | 1.3.0      | 2026-08-31 | サンプルを examples/ 配下の 2 タイプ（standalone / webhook-receiver）に整理                       |
+| 1.4.0      | 2026-09-02 | ViewerBridge・app 設定・構成概要・依存バージョンの記述を実装に合わせて修正、RCDEClient の節を追加 |
