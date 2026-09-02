@@ -224,12 +224,16 @@ export function ViewerHeader({
         {headerErrorText !== "" && (
           <Box
             role="alert"
+            title={headerErrorText}
             sx={{
               fontSize: 12,
               color: HEADER_ERROR_COLOR,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
+              // flex item の既定 min-width: auto では nowrap テキストが
+              // min-content 未満に縮まず、長い文言でヘッダーが横に溢れる。
+              minWidth: 0,
             }}
           >
             {headerErrorText}
