@@ -92,7 +92,7 @@ export type PointCloudMultipartUploadRequest = PointCloudUploadRequest & {
   partTotal: number;
 };
 
-export function buildPointCloudMultipartUploadRequest(params: {
+function buildPointCloudMultipartUploadRequest(params: {
   contractId: number;
   name: string;
   buffer: ArrayBuffer;
@@ -117,7 +117,7 @@ export function buildS3PartsFromUploadResults(
   return results.map(({ partNumber, etag }) => ({ partNumber, etag }));
 }
 
-export function buildCompleteMultipartUploadRequest(params: {
+function buildCompleteMultipartUploadRequest(params: {
   contractFileId: number;
   s3UploadId: string;
   s3Parts: S3UploadPart[];
@@ -136,7 +136,7 @@ export function buildCompleteMultipartUploadRequest(params: {
   };
 }
 
-export function buildDeleteMultipartUploadRequest(params: {
+function buildDeleteMultipartUploadRequest(params: {
   contractFileId: number;
   s3UploadId: string;
   blockChainUploadId: string;
@@ -152,7 +152,7 @@ export function buildDeleteMultipartUploadRequest(params: {
   };
 }
 
-export function buildMultipartStartApiFetchInit(
+function buildMultipartStartApiFetchInit(
   uploadRequest: PointCloudMultipartUploadRequest,
   headers: Record<string, string>
 ): { method: "POST"; headers: Record<string, string>; body: string } {
@@ -163,7 +163,7 @@ export function buildMultipartStartApiFetchInit(
   };
 }
 
-export function buildCompleteMultipartApiFetchInit(
+function buildCompleteMultipartApiFetchInit(
   request: ReturnType<typeof buildCompleteMultipartUploadRequest>,
   headers: Record<string, string>
 ): { method: "PUT"; headers: Record<string, string>; body: string } {
@@ -174,7 +174,7 @@ export function buildCompleteMultipartApiFetchInit(
   };
 }
 
-export function buildDeleteMultipartApiFetchInit(
+function buildDeleteMultipartApiFetchInit(
   request: ReturnType<typeof buildDeleteMultipartUploadRequest>,
   headers: Record<string, string>
 ): { method: "DELETE"; headers: Record<string, string>; body: string } {
