@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
@@ -13,16 +13,13 @@ import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Divider from "@mui/material/Divider";
-
-type Construction = {
-  id: number;
-  name: string;
-};
-
-type Contract = {
-  id: number;
-  name: string;
-};
+import {
+  describeConstructionsApiError,
+  fetchConstructions,
+  fetchContracts,
+  type Construction,
+  type Contract,
+} from "@/lib/constructions-browser-api";
 
 type Props = {
   accessToken: string;
@@ -42,29 +39,32 @@ export function ConstructionSelector({ accessToken }: Props) {
   const [setupLoading, setSetupLoading] = useState(false);
   const [setupSuccess, setSetupSuccess] = useState("");
 
-  useEffect(() => {
-    fetchConstructions();
-  }, []);
-
-  const fetchConstructions = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/constructions", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const constructionListResponse = await res.json();
-      if (!res.ok) {
-        setError(constructionListResponse.error ?? "現場一覧の取得に失敗しました");
-        return;
+  // アンマウント後の setState を避けるため、呼び出し側から中断済みかを渡す。
+  const loadConstructions = useCallback(
+    async (isCancelled: () => boolean = () => false) => {
+      setLoading(true);
+      setError("");
+      try {
+        const constructionList = await fetchConstructions(accessToken);
+        if (isCancelled()) return;
+        setConstructions(constructionList);
+      } catch (caught) {
+        if (isCancelled()) return;
+        setError(describeConstructionsApiError(caught));
+      } finally {
+        if (!isCancelled()) setLoading(false);
       }
-      setConstructions(constructionListResponse.constructions ?? []);
-    } catch {
-      setError("現場一覧の取得に失敗しました");
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [accessToken]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadConstructions(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [loadConstructions]);
 
   const handleSelectConstruction = async (construction: Construction) => {
     setSelectedConstruction(construction);
@@ -72,17 +72,9 @@ export function ConstructionSelector({ accessToken }: Props) {
     setContractsLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/constructions?constructionId=${construction.id}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (res.ok) {
-        const contractListResponse = await res.json();
-        setContracts(contractListResponse.contracts ?? []);
-      } else {
-        setError("契約一覧の取得に失敗しました");
-      }
-    } catch {
-      setError("契約一覧の取得に失敗しました");
+      setContracts(await fetchContracts(accessToken, construction.id));
+    } catch (caught) {
+      setError(describeConstructionsApiError(caught));
     } finally {
       setContractsLoading(false);
     }
@@ -117,7 +109,7 @@ export function ConstructionSelector({ accessToken }: Props) {
         return;
       }
       setSetupSuccess(setupResponse.message ?? "テストデータを作成しました");
-      await fetchConstructions();
+      await loadConstructions();
     } catch {
       setError("テストデータの作成に失敗しました");
     } finally {
