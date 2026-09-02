@@ -65,7 +65,42 @@ function isOmittedOrFiniteNumber(value: unknown): boolean {
 }
 
 /**
+ * 省略されている（`undefined`）か、`x` / `y` / `z` がすべて有限数のオブジェクトのときだけ true。
+ *
+ * `SET_TRANSFORM` の `translation` / `rotation` は型では required だが、受信側は
+ * `?? { x: 0, y: 0, z: 0 }` でフォールバックするため省略しても動く。実際
+ * `{ fileId, translation }` だけを送って「回転は既定のまま平行移動だけ」という
+ * 使い方が成立するので、ここで必須化すると動いている呼び出しを壊す。省略は通す。
+ *
+ * 一方「存在するが不正」は静かに壊れる。`translation: 5` は上記の `??` を素通りし、
+ * `ContractFileView` の `position={[translation.x, translation.y, translation.z]}` に
+ * `undefined` が 3 つ入って three.js の position が `NaN` になる。
+ * `{ x: NaN, y: 0, z: 0 }` なら直接 `NaN`。`rotation` も `rotation.x * (Math.PI / 180)`
+ * で同じ結果になる。`pointSize: NaN` が `clamp` を素通りするのと同じクラスなので、
+ * 同じ粒度で弾く。
+ *
+ * `null` は `isRecord` が落とす。`isOmittedOrFiniteNumber` と揃えて、省略
+ * （`undefined`）だけを許し `null` は通さない。
+ */
+function isOmittedOrFiniteVec3(value: unknown): boolean {
+  if (value === undefined) return true;
+  return (
+    isRecord(value) &&
+    Number.isFinite(value.x) &&
+    Number.isFinite(value.y) &&
+    Number.isFinite(value.z)
+  );
+}
+
+/**
  * `postMessage` で届いた値を `Command` として扱ってよいか判定する。
+ *
+ * 判定は**コマンド単位**で、1 フィールドでも不正なら payload 全体を落とす。
+ * `{ pointSize: null, opacity: 50, fileId: 12 }` は正当な `opacity: 50` ごと
+ * 捨てられ、`{ fileId: 12, translation: 5, rotation: { x: 0, y: 0, z: 90 } }` は
+ * 正当な `rotation` ごと捨てられる。不正な値を含むコマンドを部分適用すると、
+ * どこまで反映されたかが呼び出し側から見えなくなるため、境界ではこちらを取る。
+ * warn を見た人が「もう片方のフィールドは効いたはず」と読まないよう注意する。
  *
  * `src/index.ts` が `export * from "./bridge/viewerBridge"` しているため、
  * export するとパッケージの公開 API が増える。モジュール内に閉じる。
@@ -90,7 +125,14 @@ function isViewerCommand(value: unknown): value is Command {
       // fileId は fileTransforms のキーになる。欠けていると `undefined` キーの
       // エントリが増えるだけで例外にならず、静かに壊れる。NaN も同じくキーが
       // "NaN" に潰れるため、Number.isFinite で数値かつ有限であることまで見る。
-      return isRecord(value.payload) && Number.isFinite(value.payload.fileId);
+      // translation / rotation は「省略可、ただし存在するなら有限数の Vec3」。
+      // 欠落を必須化しないのは、片方だけ送る使い方が現に成立しているため。
+      return (
+        isRecord(value.payload) &&
+        Number.isFinite(value.payload.fileId) &&
+        isOmittedOrFiniteVec3(value.payload.translation) &&
+        isOmittedOrFiniteVec3(value.payload.rotation)
+      );
     default:
       return false;
   }

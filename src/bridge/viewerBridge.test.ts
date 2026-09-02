@@ -156,6 +156,68 @@ describe("ViewerBridge.addListener", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it("SET_TRANSFORM の translation がオブジェクトでない数値のとき、ハンドラは呼ばれない", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+
+    // ガードを通すと受信側の `?? { x: 0, y: 0, z: 0 }` が発火せず、
+    // three.js の position に undefined が 3 つ入って NaN になる。
+    fakeWindow.dispatch({
+      channel: CHANNEL,
+      cmd: { type: "SET_TRANSFORM", payload: { fileId: 12, translation: 5 } },
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("SET_TRANSFORM の translation の x が NaN のとき、ハンドラは呼ばれない", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+
+    fakeWindow.dispatch({
+      channel: CHANNEL,
+      cmd: {
+        type: "SET_TRANSFORM",
+        payload: { fileId: 12, translation: { x: NaN, y: 0, z: 0 } },
+      },
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("SET_TRANSFORM の rotation の z が数値でない文字列のとき、ハンドラは呼ばれない", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+
+    fakeWindow.dispatch({
+      channel: CHANNEL,
+      cmd: {
+        type: "SET_TRANSFORM",
+        payload: {
+          fileId: 12,
+          translation: { x: 1, y: 2, z: 3 },
+          rotation: { x: 0, y: 0, z: "90" },
+        },
+      },
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("SET_TRANSFORM が translation だけを持つとき、省略された rotation は検証されずハンドラが呼ばれる", () => {
+    const handler = vi.fn();
+    ViewerBridge.addListener(handler);
+    const cmd = {
+      type: "SET_TRANSFORM",
+      payload: { fileId: 12, translation: { x: 1, y: 2, z: 3 } },
+    };
+
+    fakeWindow.dispatch({ channel: CHANNEL, cmd });
+
+    // 「回転は既定のまま平行移動だけ」は現に動いている使い方なので、通し続ける。
+    expect(handler).toHaveBeenCalledWith(cmd);
+  });
+
   it("SET_TRANSFORM に fileId しか入っていないとき、ハンドラはそのコマンドで呼ばれる", () => {
     const handler = vi.fn();
     ViewerBridge.addListener(handler);
