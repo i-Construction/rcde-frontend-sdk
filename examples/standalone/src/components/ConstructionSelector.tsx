@@ -219,7 +219,9 @@ export function ConstructionSelector({ accessToken }: Props) {
                 </Box>
               )}
 
-              {!contractsLoading && contracts.length === 0 && (
+              {/* 取得に失敗したときの contracts は [] のままなので、
+                  現場一覧と同じくエラー中は 0 件表示を出さない。 */}
+              {!contractsLoading && !error && contracts.length === 0 && (
                 <Typography variant="body2" color="text.secondary">
                   契約が見つかりませんでした
                 </Typography>
