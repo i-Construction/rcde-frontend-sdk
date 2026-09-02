@@ -1,5 +1,5 @@
 import { RCDEClient } from "../lib/rcde-client";
-import { createContext, FC, ReactNode, useCallback, useContext, useState } from "react";
+import { createContext, FC, ReactNode, useCallback, useContext, useRef, useState } from "react";
 import { createContainers, mergeContainersPreservingVisibility } from "./contractFileContainers";
 
 export type ContractFiles = NonNullable<
@@ -24,12 +24,18 @@ const ContractFilesContext = createContext<ContractFilesContextType | undefined>
 export const ContractFilesProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [containers, setContainers] = useState<ContractFileContainer[]>([]);
 
+  // load で適用した可視ポリシー。再取得で新しく現れたファイルにも同じ方針を当てはめるため覚えておく。
+  const loadedVisibleIdsRef = useRef<number[] | undefined>(undefined);
+
   const load = useCallback((files: ContractFiles, visibleIds?: number[]) => {
+    loadedVisibleIdsRef.current = visibleIds;
     setContainers(createContainers(files, visibleIds));
   }, []);
 
   const updateFiles = useCallback((files: ContractFiles) => {
-    setContainers((prev) => mergeContainersPreservingVisibility(prev, files));
+    setContainers((prev) =>
+      mergeContainersPreservingVisibility(prev, files, loadedVisibleIdsRef.current)
+    );
   }, []);
 
   const toggleVisibility = useCallback((container: ContractFileContainer) => {

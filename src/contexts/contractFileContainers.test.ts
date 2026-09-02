@@ -60,12 +60,53 @@ describe("mergeContainersPreservingVisibility（再取得）", () => {
     expect(toVisibilityByName(containers)).toEqual({ "a.las": false });
   });
 
-  it("再取得で新しく現れたファイルは、表示の状態で一覧に加わる", () => {
+  it("初回に表示したいファイル ID を渡していないとき、再取得で新しく現れたファイルは表示の状態で一覧に加わる", () => {
     const previous = [{ file: fileA, visible: false }];
 
     const containers = mergeContainersPreservingVisibility(previous, [fileA, fileB]);
 
     expect(toVisibilityByName(containers)).toEqual({ "a.las": false, "b.las": true });
+  });
+
+  it("初回に表示したいファイル ID として空の一覧を渡していたとき、再取得で新しく現れたファイルは非表示で一覧に加わる", () => {
+    const previous = [{ file: fileA, visible: true }];
+
+    const containers = mergeContainersPreservingVisibility(previous, [fileA, fileB], []);
+
+    expect(toVisibilityByName(containers)).toEqual({ "a.las": true, "b.las": false });
+  });
+
+  it("初回に表示したいファイル ID へ含めていた ID のファイルが再取得で新しく現れたとき、表示の状態で一覧に加わる", () => {
+    const previous = [{ file: fileA, visible: false }];
+
+    const containers = mergeContainersPreservingVisibility(previous, [fileA, fileB], [2]);
+
+    expect(toVisibilityByName(containers)).toEqual({ "a.las": false, "b.las": true });
+  });
+
+  it("ID を持たないファイルが複数あるとき、再取得しても互いの表示状態を引き継がない", () => {
+    const firstFileWithoutId: TestFile = { name: "no-id-1.las" };
+    const secondFileWithoutId: TestFile = { name: "no-id-2.las" };
+    const previous = [
+      { file: firstFileWithoutId, visible: true },
+      { file: secondFileWithoutId, visible: false },
+    ];
+
+    const containers = mergeContainersPreservingVisibility(previous, [
+      firstFileWithoutId,
+      secondFileWithoutId,
+    ]);
+
+    expect(toVisibilityByName(containers)).toEqual({ "no-id-1.las": true, "no-id-2.las": true });
+  });
+
+  it("初回に表示したいファイル ID を渡していたとき、ID を持たないファイルは再取得しても非表示になる", () => {
+    const fileWithoutId: TestFile = { name: "no-id.las" };
+    const previous = [{ file: fileWithoutId, visible: true }];
+
+    const containers = mergeContainersPreservingVisibility(previous, [fileWithoutId], [1]);
+
+    expect(toVisibilityByName(containers)).toEqual({ "no-id.las": false });
   });
 
   it("再取得で消えたファイルは、一覧から取り除かれる", () => {
