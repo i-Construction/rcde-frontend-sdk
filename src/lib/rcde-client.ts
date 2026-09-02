@@ -97,6 +97,27 @@ async function requestRcdeArrayBuffer(
   return await res.arrayBuffer();
 }
 
+/** 問い合わせが空のときは ? を付けずパスだけを返す */
+function buildUrlWithQuery(url: string, queryParams: URLSearchParams): string {
+  const query = queryParams.toString();
+  return query ? `${url}?${query}` : url;
+}
+
+/**
+ * 2legged のときだけ契約 ID を問い合わせの末尾に足す。
+ *
+ * 契約ファイル一覧（認証方式を見ず常に付ける）と契約一覧（現場 ID の真偽も見る）は条件が違うので
+ * ここへ寄せない。条件を揃えるかどうかは R-CDE 側の 3legged ハンドラを見ないと決まらない。
+ */
+function appendContractIdFor2Legged(
+  queryParams: URLSearchParams,
+  authType: AuthType,
+  contractId: number
+): void {
+  if (authType !== "2legged") return;
+  queryParams.append("contractId", String(contractId));
+}
+
 export class RCDEClient {
   private baseUrl: string;
   private token?: string;
@@ -127,11 +148,12 @@ export class RCDEClient {
     contractId: number;
   }): Promise<{ contractFiles: ContractFile[] }> {
     const { contractId } = params;
-    const url = this.getApiPath("/contractFile");
+    // 契約ファイル一覧だけは認証方式を見ず常に契約 ID を付ける（他メソッドと条件が違う唯一の形）
     const queryParams = new URLSearchParams({ contractId: String(contractId) });
+    const url = buildUrlWithQuery(this.getApiPath("/contractFile"), queryParams);
     const data = await requestRcdeJson<{ contractFiles: RawContractFile[]; total?: number }>(
       this.fetchImpl,
-      `${url}?${queryParams}`,
+      url,
       this.headers()
     );
     const contractFiles = (data.contractFiles ?? []).map(parseContractFile);
@@ -143,14 +165,12 @@ export class RCDEClient {
     contractFileId: number;
   }): Promise<Json> {
     const { contractId, contractFileId } = params;
-    const url = this.getApiPath("/pclod/meta");
     const queryParams = new URLSearchParams({
       contractFileId: String(contractFileId),
     });
-    if (this.authType === "2legged") {
-      queryParams.append("contractId", String(contractId));
-    }
-    return requestRcdeJson<Json>(this.fetchImpl, `${url}?${queryParams}`, this.headers());
+    appendContractIdFor2Legged(queryParams, this.authType, contractId);
+    const url = buildUrlWithQuery(this.getApiPath("/pclod/meta"), queryParams);
+    return requestRcdeJson<Json>(this.fetchImpl, url, this.headers());
   }
 
   // 画像（位置）バッファ
@@ -161,16 +181,14 @@ export class RCDEClient {
     addr?: string;
   }): Promise<ArrayBuffer> {
     const { contractId, contractFileId, level = 0, addr = "0-0-0" } = params;
-    const url = this.getApiPath("/pclod/imagePosition");
     const queryParams = new URLSearchParams({
       contractFileId: String(contractFileId),
       level: String(level),
       addr,
     });
-    if (this.authType === "2legged") {
-      queryParams.append("contractId", String(contractId));
-    }
-    return requestRcdeArrayBuffer(this.fetchImpl, `${url}?${queryParams}`, this.headers());
+    appendContractIdFor2Legged(queryParams, this.authType, contractId);
+    const url = buildUrlWithQuery(this.getApiPath("/pclod/imagePosition"), queryParams);
+    return requestRcdeArrayBuffer(this.fetchImpl, url, this.headers());
   }
 
   // 画像（色）バッファ
@@ -181,16 +199,14 @@ export class RCDEClient {
     addr?: string;
   }): Promise<ArrayBuffer> {
     const { contractId, contractFileId, level = 0, addr = "0-0-0" } = params;
-    const url = this.getApiPath("/pclod/imageColor");
     const queryParams = new URLSearchParams({
       contractFileId: String(contractFileId),
       level: String(level),
       addr,
     });
-    if (this.authType === "2legged") {
-      queryParams.append("contractId", String(contractId));
-    }
-    return requestRcdeArrayBuffer(this.fetchImpl, `${url}?${queryParams}`, this.headers());
+    appendContractIdFor2Legged(queryParams, this.authType, contractId);
+    const url = buildUrlWithQuery(this.getApiPath("/pclod/imageColor"), queryParams);
+    return requestRcdeArrayBuffer(this.fetchImpl, url, this.headers());
   }
 
   // ダウンロードURL
@@ -198,15 +214,15 @@ export class RCDEClient {
     contractId: number,
     fileId: number
   ): Promise<{ presignedURL: string; url: string }> {
-    const url = this.getApiPath(`/contractFile/downloadURL/${fileId}`);
-    let fullUrl = url;
-    if (this.authType === "2legged") {
-      const queryParams = new URLSearchParams({ contractId: String(contractId) });
-      fullUrl = `${url}?${queryParams}`;
-    }
+    const queryParams = new URLSearchParams();
+    appendContractIdFor2Legged(queryParams, this.authType, contractId);
+    const url = buildUrlWithQuery(
+      this.getApiPath(`/contractFile/downloadURL/${fileId}`),
+      queryParams
+    );
     const data = await requestRcdeJson<{ presignedURL?: string; url?: string }>(
       this.fetchImpl,
-      fullUrl,
+      url,
       this.headers()
     );
     const presignedURL = data.presignedURL ?? data.url ?? "";
@@ -266,15 +282,16 @@ export class RCDEClient {
   // Contract関連のAPI
   async getContractList(params: { constructionId: number }): Promise<{ contracts: Contract[] }> {
     const { constructionId } = params;
-    const url = this.getApiPath("/contract");
     const queryParams = new URLSearchParams();
+    // 付与条件が他メソッドと違う（2legged なら常に、3legged は現場 ID が truthy のときだけ）。
+    // 揃えると 3legged で現場 ID 0 の絞り込みが変わるので、2legged 判定のヘルパーへ寄せない
     if (this.authType === "2legged" || constructionId) {
       queryParams.append("constructionId", String(constructionId));
     }
-    const fullUrl = queryParams.toString() ? `${url}?${queryParams}` : url;
+    const url = buildUrlWithQuery(this.getApiPath("/contract"), queryParams);
     const data = await requestRcdeJson<{ contracts: Contract[]; total?: number }>(
       this.fetchImpl,
-      fullUrl,
+      url,
       this.headers()
     );
     return { contracts: data.contracts ?? [] };
