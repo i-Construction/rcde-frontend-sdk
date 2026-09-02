@@ -40,6 +40,7 @@ import {
   type ViewerMemorySource,
 } from "../lib/viewerMemory";
 import { raycastViews } from "../lib/viewerRaycast";
+import { clamp } from "../lib/viewerMath";
 import {
   ViewerBridge,
   type CoordinateSystemType,
@@ -157,8 +158,6 @@ export type ViewerProps = {
   onObjectHover?: (event: ViewerHoverEvent) => void;
   memoryMonitoring?: ViewerMemoryMonitoringOptions;
 };
-
-const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 /**
  * 点群の見た目の初期値。マウント時の state と RESET コマンドの復帰先が同じ値になるよう
