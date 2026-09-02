@@ -32,8 +32,7 @@ import {
 } from "@mui/material";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-export const CONTRACT_FILE_SIDEBAR_WIDTH = 320;
-const SIDEBAR_WIDTH = CONTRACT_FILE_SIDEBAR_WIDTH;
+const SIDEBAR_WIDTH = 320;
 const STATUS_ICON_SIZE = 16;
 const POPOVER_BG = "#111827";
 const LABEL_CHIP_BG = "#808000";
