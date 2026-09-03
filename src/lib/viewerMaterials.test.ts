@@ -103,6 +103,24 @@ describe("applyAppearanceToMaterials", () => {
     expect(points.material.size).toBe(2);
   });
 
+  it("マテリアルが根の孫の階層にあるとき、その孫にも適用される", () => {
+    const points = createPointsWithBasicMaterial();
+    const root = groupOf(groupOf(points));
+
+    applyAppearanceToMaterials(root, { pointSize: 2, opacity: 50 });
+
+    expect(points.material.size).toBe(2);
+    expect(points.material.opacity).toBeCloseTo(0.5);
+  });
+
+  it("根自身がマテリアルを持つとき、根にも適用される", () => {
+    const points = createPointsWithBasicMaterial();
+
+    applyAppearanceToMaterials(points, { pointSize: 2 });
+
+    expect(points.material.size).toBe(2);
+  });
+
   it("uniforms を持つマテリアルに適用したとき、uniforms の点の大きさと不透明度が書き換わる", () => {
     const points = createPointsWithShaderMaterial();
 
@@ -110,6 +128,17 @@ describe("applyAppearanceToMaterials", () => {
 
     expect(points.material.uniforms.pointSize.value).toBe(2);
     expect(points.material.uniforms.opacity.value).toBeCloseTo(0.4);
+  });
+
+  it("uniforms はあるが pointSize / opacity のキーを持たないマテリアルのとき、uniforms へは書き込まず例外にもならない", () => {
+    const material = new ShaderMaterial({ uniforms: { uColor: { value: 1 } } });
+    const points = new Points(new BufferGeometry(), material);
+
+    expect(() =>
+      applyAppearanceToMaterials(groupOf(points), { pointSize: 2, opacity: 50 })
+    ).not.toThrow();
+    expect(points.material.uniforms.pointSize).toBeUndefined();
+    expect(points.material.uniforms.opacity).toBeUndefined();
   });
 
   it("uniforms を持たないマテリアルに適用したとき、size と opacity が書き換わる", () => {

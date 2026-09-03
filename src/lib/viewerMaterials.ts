@@ -25,10 +25,8 @@ export type MaterialAppearance = {
 };
 
 /**
- * root 配下のすべてのマテリアルへ外観設定を適用する。
- *
- * appearance に含まれないプロパティは書き込まない。
- * ファイル単位で pointSize だけを指定し、opacity は全体設定のままにする使い方を支える。
+ * root とその配下すべてのマテリアルへ外観設定を適用する。
+ * root 自身がマテリアルを持つ場合も対象に含む。
  */
 export const applyAppearanceToMaterials = (
   root: Object3D | null,
@@ -39,6 +37,9 @@ export const applyAppearanceToMaterials = (
   const { pointSize, opacity } = appearance;
   if (pointSize === undefined && opacity === undefined) return;
 
+  // 既定値で埋めないこと（`clamp(opacity ?? 100, ...)` などにしない）。埋めると
+  // ファイル単位で pointSize だけを指定したときに opacity が 100% へ巻き戻る。
+  // viewerMaterials.test.ts の先頭 2 件がこの回帰を検出する。
   const clampedPointSize = pointSize === undefined ? undefined : clamp(pointSize, 0, 5);
   const opacity01 = opacity === undefined ? undefined : clamp(opacity, 0, 100) / 100;
 
