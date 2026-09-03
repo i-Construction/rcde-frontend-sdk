@@ -45,6 +45,22 @@ async function fetchFirstConstructionWithId(rawId: unknown) {
   return constructions[0];
 }
 
+/**
+ * ID だけを差し替えた現場を単体取得で受け取る。
+ * 単体取得のレスポンスは一覧と形が違い createClient の RawListPayload に載らないため、別に立てる。
+ */
+async function fetchConstructionWithId(rawId: unknown) {
+  const fetchImpl = (async () =>
+    ({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: rawId, name: "○○川改修工事" }),
+    }) as Response) as unknown as typeof fetch;
+
+  const client = new RCDEClient({ baseUrl: "https://example.com", fetchImpl });
+  return client.getConstruction(constructionId);
+}
+
 describe("契約ファイル一覧の ID 取り込み（getContractFileList）", () => {
   describe("正常系", () => {
     it("R-CDE が ID に整数を返したとき、その数値をそのまま利用側へ渡す", async () => {
@@ -260,6 +276,24 @@ describe("現場一覧の ID 取り込み（getConstructionList）", () => {
 
       expect(constructions.map((construction) => construction.id)).toEqual([3, undefined, 5]);
       expect(constructions).toHaveLength(3);
+    });
+  });
+});
+
+describe("現場の単体取得の ID 取り込み（getConstruction）", () => {
+  describe("正常系", () => {
+    it("R-CDE が ID に整数を返したとき、その数値をそのまま利用側へ渡す", async () => {
+      const construction = await fetchConstructionWithId(3);
+
+      expect(construction.id).toBe(3);
+    });
+  });
+
+  describe("異常系", () => {
+    it("ID が数値ではなく文字列で届いたとき、文字列を素通しせず ID 無しとして扱う", async () => {
+      const construction = await fetchConstructionWithId("3");
+
+      expect(construction.id).toBeUndefined();
     });
   });
 });
