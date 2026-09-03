@@ -100,6 +100,18 @@ describe("mergeContainersPreservingVisibility（再取得）", () => {
     expect(toVisibilityByName(containers)).toEqual({ "no-id-1.las": true, "no-id-2.las": true });
   });
 
+  it("ID を持たないファイルが混ざっていても、ID を持つファイルは再取得しても前回の表示状態を保つ", () => {
+    const fileWithoutId: TestFile = { name: "no-id.las" };
+    const previous = [
+      { file: fileWithoutId, visible: false },
+      { file: fileA, visible: false },
+    ];
+
+    const containers = mergeContainersPreservingVisibility(previous, [fileWithoutId, fileA]);
+
+    expect(toVisibilityByName(containers)).toEqual({ "no-id.las": true, "a.las": false });
+  });
+
   it("初回に表示したいファイル ID を渡していたとき、ID を持たないファイルは再取得しても非表示になる", () => {
     const fileWithoutId: TestFile = { name: "no-id.las" };
     const previous = [{ file: fileWithoutId, visible: true }];

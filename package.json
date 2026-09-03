@@ -37,11 +37,9 @@
     "@emotion/styled": "^11.14.0",
     "@i-con/pcd-viewer": "0.0.27",
     "@mui/material": "^6.1.10",
-    "@xstate/react": "^5.0.0",
     "chroma-js": "^3.1.2",
     "js-quadtree": "^3.3.6",
-    "pngjs": "^7.0.0",
-    "xstate": "^5.19.0"
+    "pngjs": "^7.0.0"
   },
   "peerDependencies": {
     "@react-three/drei": "^9.120.4",
