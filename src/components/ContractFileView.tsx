@@ -453,7 +453,7 @@ function getDefaultPointCloudSize(props: {
   // so radius of the poisson disk is `{side length of the unit} / sqrt(2 ^ 14)`.
   // resulting radius multiplied by 3 is optimal size of the point cloud.
   const ps = (s / 128) * 3;
-  return Math.min(Math.max(min ?? ps, ps), max ?? ps);
+  return clamp(ps, min ?? ps, max ?? ps);
 }
 
 export { ContractFileView };
