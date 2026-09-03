@@ -100,11 +100,14 @@ function appendContractIdFor2Legged(
 }
 
 /**
- * 点群タイル画像の問い合わせ URL を組み立てる。位置画像と色画像は取得先セグメントだけが違い、
+ * 点群タイル画像の問い合わせ URL を組み立てる。位置画像と色画像は取得先 URL だけが違い、
  * 問い合わせの並び（contractFileId → level → addr → contractId）も省略時の既定値も揃っている。
+ *
+ * imageEndpointUrl は問い合わせ文字列を付ける前のエンドポイント URL で、buildUrlWithQuery の
+ * 第 1 引数と同じ役割。組み立て済みの画像 URL を渡す口ではない。
  */
 function buildPclodImageUrl(
-  imageUrl: string,
+  imageEndpointUrl: string,
   authType: AuthType,
   params: { contractId: number; contractFileId: number; level?: number; addr?: string }
 ): string {
@@ -115,7 +118,7 @@ function buildPclodImageUrl(
     addr,
   });
   appendContractIdFor2Legged(queryParams, authType, contractId);
-  return buildUrlWithQuery(imageUrl, queryParams);
+  return buildUrlWithQuery(imageEndpointUrl, queryParams);
 }
 
 export class RCDEClient {
@@ -141,7 +144,7 @@ export class RCDEClient {
     return `${this.baseUrl}${AUTH_API_PREFIX[this.authType]}${segment}`;
   }
 
-  /** R-CDE の応答を JSON として読む。成功以外は sendRcdeRequest が失敗させる */
+  /** R-CDE の応答を JSON として読む。失敗は sendRcdeRequest 側。T は検証せず信じた形。parse は呼び出し側 */
   private async requestJson<T>(url: string, init: Omit<RequestInit, "headers"> = {}): Promise<T> {
     const res = await sendRcdeRequest(this.fetchImpl, url, this.headers(), init);
     return (await res.json()) as T;
