@@ -38,7 +38,8 @@ import {
   type ViewerMemorySource,
 } from "../lib/viewerMemory";
 import { raycastViews } from "../lib/viewerRaycast";
-import { clamp, toNormalizedDeviceCoordinates } from "../lib/viewerMath";
+import { clamp } from "../lib/viewerMath";
+import { useMouseNdcPosition } from "../hooks/useMouseNdcPosition";
 import { applyAppearanceToMaterials } from "../lib/viewerMaterials";
 import {
   ViewerBridge,
@@ -176,6 +177,7 @@ const ClickHandler: FC<{
 }> = ({ views, referencePoint, onContractFileClick, onObjectClick }) => {
   const { camera, gl } = useThree();
   const raycaster = useMemo(() => new Raycaster(), []);
+  const getNdc = useMouseNdcPosition({ canvas: gl.domElement });
 
   const viewsRef = useRef(views);
   const referencePointRef = useRef(referencePoint);
@@ -195,11 +197,7 @@ const ClickHandler: FC<{
     (event: MouseEvent) => {
       if (!onContractFileClickRef.current && !onObjectClickRef.current) return;
 
-      const rect = gl.domElement.getBoundingClientRect();
-      const pointer = toNormalizedDeviceCoordinates(
-        { x: event.clientX - rect.left, y: event.clientY - rect.top },
-        rect
-      );
+      const pointer = getNdc(event);
 
       const hit = raycastViews(
         pointer,
@@ -227,7 +225,7 @@ const ClickHandler: FC<{
         });
       }
     },
-    [gl, raycaster]
+    [getNdc, raycaster]
   );
 
   useEffect(() => {
@@ -250,6 +248,7 @@ const HoverHandler: FC<{
 }> = ({ views, referencePoint, onObjectHover }) => {
   const { camera, gl } = useThree();
   const raycaster = useMemo(() => new Raycaster(), []);
+  const getNdc = useMouseNdcPosition({ canvas: gl.domElement });
   const lastHoveredFileIdRef = useRef<number | undefined>(undefined);
   const throttleTimerRef = useRef<number | null>(null);
   const pendingEventRef = useRef<MouseEvent | null>(null);
@@ -267,11 +266,7 @@ const HoverHandler: FC<{
 
   const processEvent = useCallback(
     (event: MouseEvent) => {
-      const rect = gl.domElement.getBoundingClientRect();
-      const pointer = toNormalizedDeviceCoordinates(
-        { x: event.clientX - rect.left, y: event.clientY - rect.top },
-        rect
-      );
+      const pointer = getNdc(event);
 
       const hit = raycastViews(
         pointer,
@@ -296,7 +291,7 @@ const HoverHandler: FC<{
         onObjectHoverRef.current({ hit: false });
       }
     },
-    [gl, raycaster]
+    [getNdc, raycaster]
   );
 
   const handleMouseMove = useCallback(

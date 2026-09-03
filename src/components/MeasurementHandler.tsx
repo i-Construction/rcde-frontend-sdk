@@ -2,7 +2,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BufferGeometry, Matrix4, Points, Scene, Vector3 } from "three";
 import { buildTree, pick } from "../services/Picking";
-import { useMouseUVPosition } from "../hooks/useMouseUVPosition";
+import { useMouseNdcPosition } from "../hooks/useMouseNdcPosition";
 import { MeasurementView } from "./MeasurementView";
 import { useReferencePoint } from "../contexts/referencePoint";
 
@@ -50,7 +50,7 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
   const { camera, gl, scene } = useThree();
   const canvas = gl.domElement;
 
-  const getUV = useMouseUVPosition({ canvas });
+  const getNdc = useMouseNdcPosition({ canvas });
 
   // MeasurementView に渡す points を決定
   // externalAppEditedPoints が渡されている場合はそちらを優先
@@ -93,12 +93,12 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
     return () => clearTimeout(timer);
   }, [camera, scene]);
 
-  const pickPoint = useCallback((uv: { x: number; y: number }): Vector3 | undefined => {
+  const pickPoint = useCallback((ndc: { x: number; y: number }): Vector3 | undefined => {
     if (!treeRef.current || pointsRef.current.length === 0) {
       return undefined;
     }
 
-    const pickedPoint = pick(uv, treeRef.current, pointsRef.current);
+    const pickedPoint = pick(ndc, treeRef.current, pointsRef.current);
     return pickedPoint;
   }, []);
 
@@ -125,8 +125,7 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      const uv = getUV(e);
-      const world = pickPoint({ x: uv.x, y: uv.y });
+      const world = pickPoint(getNdc(e));
       if (world !== undefined) {
         lastRef.current = world;
         setHead(world);
@@ -169,7 +168,7 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({ onChange, externalApp
       window.removeEventListener("keydown", handleKeyDown);
       canvas.removeEventListener("contextmenu", handleContextMenu, { capture: true });
     };
-  }, [canvas, getUV, pickPoint, points, setPoints, onChange]);
+  }, [canvas, getNdc, pickPoint, points, setPoints, onChange]);
 
   return <MeasurementView edit points={displayPoints} />;
 };
