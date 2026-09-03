@@ -50,4 +50,12 @@ describe("toNormalizedDeviceCoordinates", () => {
     expect(ndc.x).toBeCloseTo(-0.5);
     expect(ndc.y).toBeCloseTo(0.5);
   });
+
+  it("要素の左下寄りを指したとき、NDC は (-0.75, -0.5) になる", () => {
+    // 幅と高さの正規化値を別の値にして（0.125 と 0.75）、x と y の分子を
+    // 取り違えた変換を検出できるようにする。ほかの 4 点は x/width === y/height なので通ってしまう。
+    const ndc = toNormalizedDeviceCoordinates({ x: 100, y: 300 }, size);
+    expect(ndc.x).toBeCloseTo(-0.75);
+    expect(ndc.y).toBeCloseTo(-0.5);
+  });
 });
