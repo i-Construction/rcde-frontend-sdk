@@ -1,11 +1,14 @@
-import { RCDEClient } from "../lib/rcde-client";
 import { createContext, FC, ReactNode, useCallback, useContext, useRef, useState } from "react";
 import { createContainers, mergeContainersPreservingVisibility } from "./contractFileContainers";
+import type { ContractFile } from "../lib/rcde-client";
 
-export type ContractFiles = NonNullable<
-  Awaited<ReturnType<RCDEClient["getContractFileList"]>>["contractFiles"]
->;
-export type ContractFile = ContractFiles[number];
+/**
+ * 契約ファイルの型は rcde-client.ts が正本。ここは公開 API の入口として再輸出するだけで、
+ * getContractFileList の戻り値から逆算しない。逆算にすると定義の所在が読み取りにくく、
+ * クライアントのメソッド定義を変えたときに公開型が黙って動く。
+ */
+export type { ContractFile };
+export type ContractFiles = ContractFile[];
 
 export type ContractFileContainer = {
   file: ContractFile;
