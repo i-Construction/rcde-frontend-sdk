@@ -38,8 +38,9 @@ export const applyAppearanceToMaterials = (
   if (pointSize === undefined && opacity === undefined) return;
 
   // 既定値で埋めないこと（`clamp(opacity ?? 100, ...)` などにしない）。埋めると
-  // ファイル単位で pointSize だけを指定したときに opacity が 100% へ巻き戻る。
-  // viewerMaterials.test.ts の先頭 2 件がこの回帰を検出する。
+  // ファイル単位で片方だけを指定したときに、もう片方が既定値へ巻き戻る。
+  // viewerMaterials.test.ts の「〜だけを指定したとき、〜は元の値のまま残る」3 件が
+  // この回帰を検出する。
   const clampedPointSize = pointSize === undefined ? undefined : clamp(pointSize, 0, 5);
   const opacity01 = opacity === undefined ? undefined : clamp(opacity, 0, 100) / 100;
 
