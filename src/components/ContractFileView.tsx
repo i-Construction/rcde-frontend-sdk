@@ -9,13 +9,14 @@ import {
   PointCloudMeta,
 } from "@i-con/pcd-viewer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Euler, Group, Object3D, Vector3 } from "three";
+import { Euler, Group, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile } from "../contexts/contractFiles";
 import { parsePngBuffer } from "../lib/pngParse";
 import { loadTile } from "../lib/tileLoader";
 import type { ViewerFileMemoryEstimate } from "../lib/viewerMemory";
 import { clamp } from "../lib/viewerMath";
+import { applyAppearanceToMaterials } from "../lib/viewerMaterials";
 import { CoordinateSystem, type CoordinateSystemType } from "../bridge/viewerBridge";
 
 // 座標系ごとの変換定義
@@ -349,46 +350,9 @@ const ContractFileView = ({
 
   // Apply inspector appearance settings to this file's materials
   useEffect(() => {
-    const group = groupRef.current;
-    if (!group) return;
-    if (inspectorPointSize === undefined && inspectorOpacity === undefined) return;
-
-    group.traverse((obj: Object3D) => {
-      const mat = (
-        obj as {
-          material?: {
-            size?: number;
-            uniforms?: Record<string, { value?: number }>;
-            opacity?: number;
-            transparent?: boolean;
-            needsUpdate?: boolean;
-          };
-        }
-      ).material;
-      if (!mat) return;
-
-      if (inspectorPointSize !== undefined) {
-        const ps = clamp(inspectorPointSize, 0, 5);
-        if (typeof mat.size === "number") {
-          mat.size = ps;
-          mat.needsUpdate = true;
-        }
-        if (mat.uniforms?.pointSize?.value !== undefined) {
-          mat.uniforms.pointSize.value = ps;
-        }
-      }
-
-      if (inspectorOpacity !== undefined) {
-        const opacity01 = clamp(inspectorOpacity, 0, 100) / 100;
-        if (mat.uniforms?.opacity?.value !== undefined) {
-          mat.uniforms.opacity.value = opacity01;
-        }
-        if (typeof mat.opacity === "number") {
-          mat.opacity = opacity01;
-          if (opacity01 < 1 && mat.transparent !== true) mat.transparent = true;
-          mat.needsUpdate = true;
-        }
-      }
+    applyAppearanceToMaterials(groupRef.current, {
+      pointSize: inspectorPointSize,
+      opacity: inspectorOpacity,
     });
   }, [inspectorPointSize, inspectorOpacity]);
 
