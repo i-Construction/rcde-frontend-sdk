@@ -20,7 +20,6 @@ import {
   Vector3,
   Group,
   PerspectiveCamera,
-  Object3D,
   Raycaster,
   WebGLRenderer,
 } from "three";
@@ -40,6 +39,7 @@ import {
 } from "../lib/viewerMemory";
 import { raycastViews } from "../lib/viewerRaycast";
 import { clamp, toNormalizedDeviceCoordinates } from "../lib/viewerMath";
+import { applyAppearanceToMaterials } from "../lib/viewerMaterials";
 import {
   ViewerBridge,
   type CoordinateSystemType,
@@ -761,43 +761,6 @@ const Viewer: FC<ViewerProps> = (props) => {
   const handleRendererReady = useCallback((renderer: WebGLRenderer | null) => {
     rendererRef.current = renderer;
   }, []);
-  const applyAppearanceToScene = useCallback(
-    (root: Group | null, ps: number, opPercent: number) => {
-      if (!root) return;
-      const pointSize = clamp(ps, 0, 5);
-      const opacity01 = clamp(opPercent, 0, 100) / 100;
-
-      root.traverse((obj: Object3D) => {
-        const mat = (
-          obj as {
-            material?: {
-              size?: number;
-              uniforms?: Record<string, { value?: number }>;
-              opacity?: number;
-              transparent?: boolean;
-              needsUpdate?: boolean;
-            };
-          }
-        ).material;
-        if (!mat) return;
-
-        if (typeof mat.size === "number") {
-          mat.size = pointSize;
-          mat.needsUpdate = true;
-        }
-        if (mat.uniforms) {
-          if (mat.uniforms.pointSize?.value !== undefined) mat.uniforms.pointSize.value = pointSize;
-          if (mat.uniforms.opacity?.value !== undefined) mat.uniforms.opacity.value = opacity01;
-        }
-        if (typeof mat.opacity === "number") {
-          mat.opacity = opacity01;
-          if (opacity01 < 1 && mat.transparent !== true) mat.transparent = true;
-          mat.needsUpdate = true;
-        }
-      });
-    },
-    []
-  );
 
   const visibleFileIds = useMemo(
     () =>
@@ -961,8 +924,11 @@ const Viewer: FC<ViewerProps> = (props) => {
   });
 
   useEffect(() => {
-    applyAppearanceToScene(transformRootRef.current, appearance.pointSize, appearance.opacity);
-  }, [appearance, applyAppearanceToScene]);
+    applyAppearanceToMaterials(transformRootRef.current, {
+      pointSize: appearance.pointSize,
+      opacity: appearance.opacity,
+    });
+  }, [appearance]);
 
   useEffect(() => {
     if (!isMemoryMonitoringEnabled) {
