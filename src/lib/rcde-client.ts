@@ -28,7 +28,14 @@ export type BatchProcessingResult = {
 };
 
 export type ContractFile = {
-  id: number;
+  /**
+   * R-CDE 上の契約ファイル ID。R-CDE は常に数値を返すため、通常は必ず読める。
+   *
+   * 型が省略可能なのは、ここが res.json() 由来の未検証 JSON を受ける境界だからで、整数として
+   * 読めない値が届いたときだけ undefined になる（parseEntityId）。利用側は ID を鍵にする処理
+   * （表示状態の引き継ぎ、点群タイルの取得、ダウンロード URL の要求）の前に有無を確かめる。
+   */
+  id?: number;
   name: string;
   /**
    * 契約ファイル自体のライフサイクル（R-CDE の CDEStatus）。1: WIP / 2: Shared /
@@ -42,9 +49,9 @@ export type ContractFile = {
   batchProcessingResult?: BatchProcessingResult;
 };
 
-/** API から届いたままの契約ファイル。検証前なので batchProcessingResult の中身は unknown 扱いにする */
+/** API から届いたままの契約ファイル。検証前なので id と batchProcessingResult の中身は unknown 扱いにする */
 type RawContractFile = {
-  id: number;
+  id?: unknown;
   name: string;
   status?: number;
   uploadedAt?: string;
@@ -219,8 +226,8 @@ export class RCDEClient {
       headers: this.headers(),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { constructions: Construction[]; total?: number };
-    return { constructions: data.constructions ?? [] };
+    const data = (await res.json()) as { constructions: RawConstruction[]; total?: number };
+    return { constructions: (data.constructions ?? []).map(parseConstruction) };
   }
 
   async getConstruction(constructionId: number): Promise<Construction> {
@@ -229,7 +236,7 @@ export class RCDEClient {
       headers: this.headers(),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as Construction;
+    return parseConstruction((await res.json()) as RawConstruction);
   }
 
   async createConstruction(params: CreateConstructionParams): Promise<Json> {
@@ -256,8 +263,8 @@ export class RCDEClient {
       headers: this.headers(),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { contracts: Contract[]; total?: number };
-    return { contracts: data.contracts ?? [] };
+    const data = (await res.json()) as { contracts: RawContract[]; total?: number };
+    return { contracts: (data.contracts ?? []).map(parseContract) };
   }
 
   /**
@@ -294,7 +301,11 @@ export class RCDEClient {
 }
 
 export type Construction = {
-  id: number;
+  /**
+   * R-CDE 上の現場 ID。省略可能な理由は `ContractFile.id` と同じで、ここが res.json() 由来の
+   * 未検証 JSON を受ける境界だから。整数として読めない値が届いたときだけ undefined になる。
+   */
+  id?: number;
   name: string;
   address?: string;
   contractedAt?: string;
@@ -304,7 +315,14 @@ export type Construction = {
 };
 
 export type Contract = {
-  id: number;
+  /**
+   * R-CDE 上の契約 ID。省略可能な理由は `ContractFile.id` と同じで、ここが res.json() 由来の
+   * 未検証 JSON を受ける境界だから。整数として読めない値が届いたときだけ undefined になる。
+   *
+   * 3 つの ID の中でこれだけ影響範囲が広い。`appendContractIdFor2Legged` を通って 2-legged の
+   * ほぼ全リクエストの問い合わせ文字列に載るため、読めない値を通すと失敗の出方が散らばる。
+   */
+  id?: number;
   name: string;
   contractedAt?: string;
   /**
@@ -333,11 +351,54 @@ function parseBatchProcessingResult(
     : { id, rawStatus: status };
 }
 
+/**
+ * R-CDE のエンティティ ID を数値として読める形に正規化する。読めない値は undefined にする。
+ *
+ * ID は R-CDE への問い合わせ文字列に載る（点群タイルの取得先、ダウンロード URL の要求、
+ * 2-legged の契約 ID 付与）。未検証のまま通すと、文字列の "10" や NaN が String() を経て
+ * URL に紛れ、R-CDE 側で別のエラーとして現れるため原因を追いにくい。
+ *
+ * typeof だけでは足りない。typeof NaN は "number" なので NaN が網をすり抜け、"NaN" という
+ * 問い合わせになる。Number.isFinite でも足りない。String(1.5) は "1.5"、String(1e21) は
+ * "1e+21" で、小数も指数表記もそのまま URL に載る。Number.isSafeInteger は NaN / Infinity /
+ * 小数 / String() が指数表記になる大きさの数値を、1 つの述語でまとめて落とす。
+ *
+ * 値域（正の整数のみ）までは見ない。R-CDE の採番規則を SDK 側へ写すことになり、規則が変われば
+ * SDK が正しい ID を捨てる。ここで守るのは「整数として URL に載せられること」だけにする。
+ *
+ * 読めない ID を持つ要素を一覧から取り除く形は採らない。名前や状態は読めるうえ、落とすと利用者が
+ * アップロードしたはずのファイルを画面から探せなくなる。検証結果は ID の有無としてだけ表す。
+ */
+function parseEntityId(rawId: unknown): number | undefined {
+  return typeof rawId === "number" && Number.isSafeInteger(rawId) ? rawId : undefined;
+}
+
+/** API から届いたままの現場。検証前なので id は unknown 扱いにする */
+type RawConstruction = Omit<Construction, "id"> & { id?: unknown };
+
+/** API から届いたままの契約。検証前なので id は unknown 扱いにする */
+type RawContract = Omit<Contract, "id"> & { id?: unknown };
+
+/**
+ * 現場・契約は ID 以外のフィールドを SDK が解釈しない。ID だけ差し替えて残りはそのまま通す形にし、
+ * R-CDE が返す未知のフィールドを取り落とさないようにする。
+ *
+ * 戻り値には id キーが必ず生える（読めなかったときは値が undefined）。読めたかどうかを
+ * "id" in construction では判定できないので、利用側は c.id !== undefined で見る。
+ */
+function parseConstruction(rawConstruction: RawConstruction): Construction {
+  return { ...rawConstruction, id: parseEntityId(rawConstruction.id) };
+}
+
+function parseContract(rawContract: RawContract): Contract {
+  return { ...rawContract, id: parseEntityId(rawContract.id) };
+}
+
 function parseContractFile(rawContractFile: RawContractFile): ContractFile {
   const normalizedBatchResult = parseBatchProcessingResult(rawContractFile.batchProcessingResult);
 
   return {
-    id: rawContractFile.id,
+    id: parseEntityId(rawContractFile.id),
     name: rawContractFile.name,
     status: rawContractFile.status,
     uploadedAt: rawContractFile.uploadedAt,
