@@ -28,8 +28,7 @@ jobs:
       - run: yarn typecheck
       - run: yarn test
 
-  # examples はルートの lint / prettier / workflow の対象外だったため、
-  # SDK の変更で壊れても検知できなかった。
+  # examples はルートの lint / prettier の対象外なので、この job で独立に検証する。
   examples:
     # needs: ci を付けると ci が落ちた時点で skip され、
     # 「SDK は通ったがサンプルが壊れた」を切り分けたいという目的が達成できない。
