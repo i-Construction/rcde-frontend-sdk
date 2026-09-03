@@ -28,7 +28,14 @@ export type BatchProcessingResult = {
 };
 
 export type ContractFile = {
-  id: number;
+  /**
+   * R-CDE 上の契約ファイル ID。R-CDE は常に数値を返すため、通常は必ず読める。
+   *
+   * 型が省略可能なのは、ここが res.json() 由来の未検証 JSON を受ける境界だからで、
+   * 数値として読めない値が届いたときだけ undefined になる。利用側は ID を鍵にする処理
+   * （表示状態の引き継ぎ、点群タイルの取得、ダウンロード URL の要求）の前に有無を確かめる。
+   */
+  id?: number;
   name: string;
   /**
    * 契約ファイル自体のライフサイクル（R-CDE の CDEStatus）。1: WIP / 2: Shared /
@@ -42,9 +49,9 @@ export type ContractFile = {
   batchProcessingResult?: BatchProcessingResult;
 };
 
-/** API から届いたままの契約ファイル。検証前なので batchProcessingResult の中身は unknown 扱いにする */
+/** API から届いたままの契約ファイル。検証前なので id と batchProcessingResult の中身は unknown 扱いにする */
 type RawContractFile = {
-  id: number;
+  id?: unknown;
   name: string;
   status?: number;
   uploadedAt?: string;
@@ -352,11 +359,28 @@ function parseBatchProcessingResult(
     : { id, rawStatus: status };
 }
 
+/**
+ * 契約ファイルの ID を数値として読める形に正規化する。読めない値は undefined にする。
+ *
+ * ID は点群タイルの取得先やダウンロード URL の要求に問い合わせ文字列として載る。未検証のまま
+ * 通すと、文字列の "10" や NaN が String() を経て URL に紛れ、R-CDE 側で別のエラーとして現れる。
+ * 呼び出し側は ID の有無しか見ないため、数値でない値は「無い」と揃えたほうが分岐が増えない。
+ *
+ * typeof だけでは足りない。typeof NaN は "number" なので、NaN は typeof の網をすり抜けて
+ * "NaN" という問い合わせになる。Number.isFinite で NaN と Infinity をまとめて落とす。
+ *
+ * ファイルを一覧から取り除く形は採らない。ID を読めないファイルも名前と状態は表示できるうえ、
+ * 落とすと利用者がアップロードしたはずのファイルを画面から探せなくなる。
+ */
+function parseContractFileId(rawId: unknown): number | undefined {
+  return typeof rawId === "number" && Number.isFinite(rawId) ? rawId : undefined;
+}
+
 function parseContractFile(rawContractFile: RawContractFile): ContractFile {
   const normalizedBatchResult = parseBatchProcessingResult(rawContractFile.batchProcessingResult);
 
   return {
-    id: rawContractFile.id,
+    id: parseContractFileId(rawContractFile.id),
     name: rawContractFile.name,
     status: rawContractFile.status,
     uploadedAt: rawContractFile.uploadedAt,
