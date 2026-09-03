@@ -9,21 +9,15 @@ import {
   PointCloudMeta,
 } from "@i-con/pcd-viewer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Euler, Group, Object3D, Vector3 } from "three";
+import { Euler, Group, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile } from "../contexts/contractFiles";
 import { parsePngBuffer } from "../lib/pngParse";
 import { loadTile } from "../lib/tileLoader";
 import type { ViewerFileMemoryEstimate } from "../lib/viewerMemory";
-
-// 座標系の型定義
-type CoordinateSystemType =
-  | "RIGHT_HANDED_X_UP"
-  | "LEFT_HANDED_X_UP"
-  | "RIGHT_HANDED_Y_UP"
-  | "LEFT_HANDED_Y_UP"
-  | "RIGHT_HANDED_Z_UP"
-  | "LEFT_HANDED_Z_UP";
+import { clamp } from "../lib/viewerMath";
+import { applyAppearanceToMaterials } from "../lib/viewerMaterials";
+import { CoordinateSystem, type CoordinateSystemType } from "../bridge/viewerBridge";
 
 // 座標系ごとの変換定義
 const COORDINATE_SYSTEM_TRANSFORMS: Record<
@@ -34,17 +28,17 @@ const COORDINATE_SYSTEM_TRANSFORMS: Record<
   }
 > = {
   // 右手系 Z Up → 変換不要
-  RIGHT_HANDED_Z_UP: { rotation: [0, 0, 0], scale: [1, 1, 1] },
+  [CoordinateSystem.RightHandedZUp]: { rotation: [0, 0, 0], scale: [1, 1, 1] },
   // 右手系 Y Up → X軸周りに +90° 回転して Y→Z へ
-  RIGHT_HANDED_Y_UP: { rotation: [Math.PI / 2, 0, 0], scale: [1, 1, 1] },
+  [CoordinateSystem.RightHandedYUp]: { rotation: [Math.PI / 2, 0, 0], scale: [1, 1, 1] },
   // 右手系 X Up → Y軸周りに -90° 回転して X→Z へ
-  RIGHT_HANDED_X_UP: { rotation: [0, -Math.PI / 2, 0], scale: [1, 1, 1] },
+  [CoordinateSystem.RightHandedXUp]: { rotation: [0, -Math.PI / 2, 0], scale: [1, 1, 1] },
   // 左手系 Z Up → X軸ミラーで右手系に変換
-  LEFT_HANDED_Z_UP: { rotation: [0, 0, 0], scale: [-1, 1, 1] },
+  [CoordinateSystem.LeftHandedZUp]: { rotation: [0, 0, 0], scale: [-1, 1, 1] },
   // 左手系 Y Up → X軸周りに +90° 回転 + X軸ミラー
-  LEFT_HANDED_Y_UP: { rotation: [Math.PI / 2, 0, 0], scale: [-1, 1, 1] },
+  [CoordinateSystem.LeftHandedYUp]: { rotation: [Math.PI / 2, 0, 0], scale: [-1, 1, 1] },
   // 左手系 X Up → Y軸周りに -90° 回転 + X軸ミラー
-  LEFT_HANDED_X_UP: { rotation: [0, -Math.PI / 2, 0], scale: [-1, 1, 1] },
+  [CoordinateSystem.LeftHandedXUp]: { rotation: [0, -Math.PI / 2, 0], scale: [-1, 1, 1] },
 };
 
 export type ContractFileProps = {
@@ -59,8 +53,6 @@ export type ContractFileProps = {
   inspectorCoordinateSystem?: CoordinateSystemType;
   onMemoryEstimateChange?: (estimate: ViewerFileMemoryEstimate) => void;
 };
-
-const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 const ContractFileView = ({
   file,
@@ -358,46 +350,9 @@ const ContractFileView = ({
 
   // Apply inspector appearance settings to this file's materials
   useEffect(() => {
-    const group = groupRef.current;
-    if (!group) return;
-    if (inspectorPointSize === undefined && inspectorOpacity === undefined) return;
-
-    group.traverse((obj: Object3D) => {
-      const mat = (
-        obj as {
-          material?: {
-            size?: number;
-            uniforms?: Record<string, { value?: number }>;
-            opacity?: number;
-            transparent?: boolean;
-            needsUpdate?: boolean;
-          };
-        }
-      ).material;
-      if (!mat) return;
-
-      if (inspectorPointSize !== undefined) {
-        const ps = clamp(inspectorPointSize, 0, 5);
-        if (typeof mat.size === "number") {
-          mat.size = ps;
-          mat.needsUpdate = true;
-        }
-        if (mat.uniforms?.pointSize?.value !== undefined) {
-          mat.uniforms.pointSize.value = ps;
-        }
-      }
-
-      if (inspectorOpacity !== undefined) {
-        const opacity01 = clamp(inspectorOpacity, 0, 100) / 100;
-        if (mat.uniforms?.opacity?.value !== undefined) {
-          mat.uniforms.opacity.value = opacity01;
-        }
-        if (typeof mat.opacity === "number") {
-          mat.opacity = opacity01;
-          if (opacity01 < 1 && mat.transparent !== true) mat.transparent = true;
-          mat.needsUpdate = true;
-        }
-      }
+    applyAppearanceToMaterials(groupRef.current, {
+      pointSize: inspectorPointSize,
+      opacity: inspectorOpacity,
     });
   }, [inspectorPointSize, inspectorOpacity]);
 
@@ -462,7 +417,7 @@ function getDefaultPointCloudSize(props: {
   // so radius of the poisson disk is `{side length of the unit} / sqrt(2 ^ 14)`.
   // resulting radius multiplied by 3 is optimal size of the point cloud.
   const ps = (s / 128) * 3;
-  return Math.min(Math.max(min ?? ps, ps), max ?? ps);
+  return clamp(ps, min ?? ps, max ?? ps);
 }
 
 export { ContractFileView };

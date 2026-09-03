@@ -1,5 +1,5 @@
 import { RCDEClient } from "../lib/rcde-client";
-import { RCDEAppConfig } from "../components/Viewer";
+import type { RCDEAppConfig } from "../types/viewerConfig";
 import {
   createContext,
   Dispatch,
