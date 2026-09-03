@@ -583,7 +583,7 @@ const Viewer: FC<ViewerProps> = (props) => {
   }, [client, contractId, load, updateFiles]);
 
   // 初回と contractFilesRefetchKey 由来の再取得を 1 本の effect にまとめる。
-  // 分けていたときは、呼び出し側が最初から数値のキーを渡すとマウント時に 2 本とも発火していた。
+  // 2 本に分けると、呼び出し側が最初から数値のキーを渡したときにマウント時に両方が発火する。
   // client / contractId の未設定は fetchContractFiles 側で早期 return する。
   useEffect(() => {
     fetchContractFiles();

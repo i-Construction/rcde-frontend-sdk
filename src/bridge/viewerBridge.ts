@@ -54,8 +54,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * 省略は正当な使い方であり、必須にすると現行の呼び出しを壊す。一方 `NaN` は
  * `??` を素通りするので、`pointSize: NaN` は `clamp` の戻り値ごと `NaN` になって
  * three.js の `material.size` に入り、点群が描画されなくなる。`fileId: NaN` は
- * `fileAppearances` のキーを `"NaN"` に潰す。`SET_TRANSFORM` の `fileId` に
- * `Number.isFinite` を入れたのと同じクラスの壊れ方なので、同じ粒度で弾く。
+ * `fileAppearances` のキーを `"NaN"` に潰す。`SET_TRANSFORM` の `fileId` と同じ
+ * クラスの壊れ方なので、同じ粒度で弾く。
  *
  * `null` は通さない。受信側の `fileId !== undefined` を満たしてしまい、
  * `fileAppearances` にキー `"null"` のエントリを作るため。

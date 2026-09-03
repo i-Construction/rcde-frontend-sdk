@@ -87,8 +87,7 @@ function buildUrlWithQuery(url: string, queryParams: URLSearchParams): string {
  *
  * 条件が違う 2 つ（getContractFileList は認証方式を見ず常に付ける、getContractList は現場 ID の
  * 真偽も見る）はここへ寄せない。揃えてよいかどうかは R-CDE 側の 3legged ハンドラが 2legged と
- * 同じ絞り込みをしているかで決まり、SDK 側だけでは判断できない。この理由は本 JSDoc を正とし、
- * 呼び出し側には重複して書かない。
+ * 同じ絞り込みをしているかで決まり、SDK 側だけでは判断できない。
  */
 function appendContractIdFor2Legged(
   queryParams: URLSearchParams,
