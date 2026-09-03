@@ -17,11 +17,9 @@ import {
   Color,
   DoubleSide,
   Quaternion,
-  Vector2,
   Vector3,
   Group,
   PerspectiveCamera,
-  Object3D,
   Raycaster,
   WebGLRenderer,
 } from "three";
@@ -40,37 +38,18 @@ import {
   type ViewerMemorySource,
 } from "../lib/viewerMemory";
 import { raycastViews } from "../lib/viewerRaycast";
+import { clamp } from "../lib/viewerMath";
+import { useMouseNdcPosition } from "../hooks/useMouseNdcPosition";
+import { applyAppearanceToMaterials } from "../lib/viewerMaterials";
+import {
+  ViewerBridge,
+  type CoordinateSystemType,
+  type ViewerAppearance,
+} from "../bridge/viewerBridge";
+import type { RCDEAppConfig } from "../types/viewerConfig";
 import { ContractFileProps, ContractFileView } from "./ContractFileView";
 import { ReferencePointAxis } from "./ReferencePointAxis";
 import { ReferencePointView } from "./ReferencePointView";
-
-type UpAxis = "Y" | "Z";
-
-type CoordinateSystemType =
-  | "RIGHT_HANDED_X_UP"
-  | "LEFT_HANDED_X_UP"
-  | "RIGHT_HANDED_Y_UP"
-  | "LEFT_HANDED_Y_UP"
-  | "RIGHT_HANDED_Z_UP"
-  | "LEFT_HANDED_Z_UP";
-
-type ViewerTransform = {
-  translation: { x: number; y: number; z: number };
-  rotation: { x: number; y: number; z: number }; // degree
-  fileId: number; // RCDE DB ID
-};
-type ViewerAppearance = {
-  pointSize: number; // 0..5
-  opacity: number; // 0..100
-  upAxis?: UpAxis; // カメラUp
-  coordinateSystem?: CoordinateSystemType; // ファイル単位の座標系
-  fileId?: number; // R-CDEのデータベースに登録されているファイルID
-};
-type Command =
-  | { type: "SET_TRANSFORM"; payload: ViewerTransform }
-  | { type: "SET_APPEARANCE"; payload: ViewerAppearance }
-  | { type: "RESET" };
-const CHANNEL = "RCDE_VIEWER_CMD";
 
 /**
  * 3D ビューア上のクリックイベント。
@@ -154,16 +133,19 @@ type BrowserPerformance = Performance & {
   measureUserAgentSpecificMemory?: () => Promise<{ bytes: number }>;
 };
 
-export type RCDEAppConfig = {
-  token: string;
-  baseUrl?: string;
-  authType?: "2legged" | "3legged";
-};
+export type { RCDEAppConfig } from "../types/viewerConfig";
 
 export type ViewerProps = {
   app: RCDEAppConfig;
   constructionId: number;
   contractId: number;
+  /**
+   * 初回ロード時に表示するファイルの ID。省略すると全ファイルを表示する。
+   *
+   * 適用されるのは初回ロード時（contractId を切り替えた直後のロードを含む）のみで、
+   * 以降にこの prop を差し替えても表示状態は変わらない。ロード後の表示・非表示は
+   * ユーザーの切り替え操作を優先し、contractFilesRefetchKey による再取得でも保たれる。
+   */
   contractFileIds?: number[];
   r3f?: R3FProps;
   children?: ReactNode;
@@ -177,7 +159,15 @@ export type ViewerProps = {
   memoryMonitoring?: ViewerMemoryMonitoringOptions;
 };
 
-const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+/**
+ * 点群の見た目の初期値。マウント時の state と RESET コマンドの復帰先が同じ値になるよう
+ * 1 箇所にまとめる。使うときは複製する（state に同じ参照を入れると React が更新を
+ * 打ち切り、RESET でシーンへの再適用が走らなくなるため）。
+ */
+const DEFAULT_APPEARANCE: Pick<ViewerAppearance, "pointSize" | "opacity"> = {
+  pointSize: 2,
+  opacity: 100,
+};
 
 const ClickHandler: FC<{
   views: (ContractFileProps & { boundingBox: Box3 })[];
@@ -187,6 +177,7 @@ const ClickHandler: FC<{
 }> = ({ views, referencePoint, onContractFileClick, onObjectClick }) => {
   const { camera, gl } = useThree();
   const raycaster = useMemo(() => new Raycaster(), []);
+  const getNdc = useMouseNdcPosition({ canvas: gl.domElement });
 
   const viewsRef = useRef(views);
   const referencePointRef = useRef(referencePoint);
@@ -206,12 +197,10 @@ const ClickHandler: FC<{
     (event: MouseEvent) => {
       if (!onContractFileClickRef.current && !onObjectClickRef.current) return;
 
-      const rect = gl.domElement.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const pointer = getNdc(event);
 
       const hit = raycastViews(
-        new Vector2(x, y),
+        pointer,
         cameraRef.current,
         raycaster,
         viewsRef.current,
@@ -236,7 +225,7 @@ const ClickHandler: FC<{
         });
       }
     },
-    [gl, raycaster]
+    [getNdc, raycaster]
   );
 
   useEffect(() => {
@@ -259,6 +248,7 @@ const HoverHandler: FC<{
 }> = ({ views, referencePoint, onObjectHover }) => {
   const { camera, gl } = useThree();
   const raycaster = useMemo(() => new Raycaster(), []);
+  const getNdc = useMouseNdcPosition({ canvas: gl.domElement });
   const lastHoveredFileIdRef = useRef<number | undefined>(undefined);
   const throttleTimerRef = useRef<number | null>(null);
   const pendingEventRef = useRef<MouseEvent | null>(null);
@@ -276,12 +266,10 @@ const HoverHandler: FC<{
 
   const processEvent = useCallback(
     (event: MouseEvent) => {
-      const rect = gl.domElement.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const pointer = getNdc(event);
 
       const hit = raycastViews(
-        new Vector2(x, y),
+        pointer,
         cameraRef.current,
         raycaster,
         viewsRef.current,
@@ -303,7 +291,7 @@ const HoverHandler: FC<{
         onObjectHoverRef.current({ hit: false });
       }
     },
-    [gl, raycaster]
+    [getNdc, raycaster]
   );
 
   const handleMouseMove = useCallback(
@@ -423,7 +411,7 @@ function summarizeMemoryEstimates(
 }
 
 const Viewer: FC<ViewerProps> = (props) => {
-  const { load, containers } = useContractFiles();
+  const { load, updateFiles, containers } = useContractFiles();
   const {
     app,
     constructionId,
@@ -482,10 +470,12 @@ const Viewer: FC<ViewerProps> = (props) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
-  const [appearance, setAppearance] = useState<{ pointSize: number; opacity: number }>({
-    pointSize: 2,
-    opacity: 100,
+  const [appearance, setAppearance] = useState<typeof DEFAULT_APPEARANCE>({
+    ...DEFAULT_APPEARANCE,
   });
+  // コマンドリスナーは購読し直さずに最新の外観を読む必要があるため ref に持つ。
+  // 書き手は下のコマンドハンドラだけで、初期値はここで state から取る。
+  const appearanceRef = useRef(appearance);
   const isMemoryMonitoringEnabled = memoryMonitoring?.enabled === true;
   const memorySampleIntervalMs = Math.max(memoryMonitoring?.sampleIntervalMs ?? 15000, 1000);
 
@@ -526,11 +516,14 @@ const Viewer: FC<ViewerProps> = (props) => {
     >
   >({});
 
-  // Memoize contractFileIds to prevent unnecessary re-renders
-  // Use JSON.stringify to compare array contents rather than reference
-  const contractFileIdsKey = contractFileIds ? JSON.stringify(contractFileIds) : undefined;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const memoizedContractFileIds = useMemo(() => contractFileIds, [contractFileIdsKey]);
+  // contractFileIds は初回ロードのときだけ使う。fetchContractFiles の deps に載せると、
+  // 呼び出し側が prop を差し替えるたびに identity が変わって再取得が走る一方、
+  // 初回ロード済みの契約では新しい ID 一覧が捨てられ、リクエストだけが無駄に飛ぶ。
+  // そのため deps には載せず、最新値を ref 経由で読む。
+  const contractFileIdsRef = useRef(contractFileIds);
+  useLayoutEffect(() => {
+    contractFileIdsRef.current = contractFileIds;
+  });
 
   useEffect(() => {
     initialize(app);
@@ -540,31 +533,61 @@ const Viewer: FC<ViewerProps> = (props) => {
     setProject({ constructionId, contractId });
   }, [constructionId, contractId, setProject]);
 
+  // 初回ロードが済んだ契約 ID。contractFilesRefetchKey は「初回は undefined で渡す」使い方と
+  // 「最初から数値を渡す」使い方の両方があり得るため、キーの値からは初回かどうかを判定できない。
+  // 実際に load したかどうかを契約 ID で覚えて判定する。
+  //
+  // 更新するのは応答が成功した時点なので、契約 A → B と切り替えて B のロードが終わる前に A へ戻すと、
+  // ref は A のままで A が初回ロード扱いにならず、contractFileIds が再適用されない。
+  // ただし B の一覧は一度も入っていないので A の表示状態が続くだけで破綻はしない。
+  // contractId の変化で ref を undefined へ戻す手もあるが、切り替えの最中に一覧が空へ落ちる。
+  // そのため、この食い違いは直さずに許容する。
+  const loadedContractIdRef = useRef<number | undefined>(undefined);
+
+  // 一覧取得は世代番号で新しい要求だけを採用する。isInitialLoad は await の前に決まる一方
+  // loadedContractIdRef の更新は await の後なので、先の要求が飛んでいる最中に次の要求が
+  // 始まると両方が初回ロード扱いになり、後着した古い応答がユーザーの表示切り替えを巻き戻す。
+  // 契約を切り替えた直後に前の契約の応答が後着する場合も同じ経路で防ぐ。
+  const contractFilesRequestGenerationRef = useRef(0);
+
   const fetchContractFiles = useCallback(async () => {
     if (!client || !contractId) return;
 
+    const isInitialLoad = loadedContractIdRef.current !== contractId;
+    // 可視ポリシーも要求を出した時点の値で固定する。await の後に ref を読むと、応答を待つ間に
+    // 呼び出し側が prop を差し替えたときに完了時点の値が初回ロードへ適用され、
+    // ViewerProps.contractFileIds の「初回ロード時のみ効く」という説明と食い違う。
+    const visibleIds = contractFileIdsRef.current;
+    const generation = ++contractFilesRequestGenerationRef.current;
     try {
       const res = await client.getContractFileList({ contractId });
+      if (generation !== contractFilesRequestGenerationRef.current) return;
       const contractFiles = res?.contractFiles ?? [];
-      load(contractFiles, memoizedContractFileIds);
+      if (isInitialLoad) {
+        load(contractFiles, visibleIds);
+        loadedContractIdRef.current = contractId;
+      } else {
+        // 再取得では contractFileIds から作り直さず、ユーザーが切り替えた表示状態を引き継ぐ
+        updateFiles(contractFiles);
+      }
     } catch (err) {
+      if (generation !== contractFilesRequestGenerationRef.current) return;
       console.warn("[Viewer] getContractFileList threw:", err);
-      load([], memoizedContractFileIds);
+      // 取得失敗と 0 件は区別できないので、再取得の失敗では既存の表示を壊さず前回の一覧を残す。
+      // 初回だけは空にする。別の契約へ切り替えた直後に失敗したとき、
+      // 前の契約のファイルを出し続けてしまうため。
+      if (isInitialLoad) {
+        load([], visibleIds);
+      }
     }
-  }, [client, contractId, memoizedContractFileIds, load]);
+  }, [client, contractId, load, updateFiles]);
 
+  // 初回と contractFilesRefetchKey 由来の再取得を 1 本の effect にまとめる。
+  // 2 本に分けると、呼び出し側が最初から数値のキーを渡したときにマウント時に両方が発火する。
+  // client / contractId の未設定は fetchContractFiles 側で早期 return する。
   useEffect(() => {
-    if (client && contractId) {
-      fetchContractFiles();
-    }
-  }, [client, contractId, fetchContractFiles]);
-
-  useEffect(() => {
-    if (contractFilesRefetchKey === undefined) {
-      return;
-    }
     fetchContractFiles();
-  }, [contractFilesRefetchKey, fetchContractFiles]);
+  }, [fetchContractFiles, contractFilesRefetchKey]);
 
   const camera = useMemo(
     () => ({
@@ -733,43 +756,6 @@ const Viewer: FC<ViewerProps> = (props) => {
   const handleRendererReady = useCallback((renderer: WebGLRenderer | null) => {
     rendererRef.current = renderer;
   }, []);
-  const applyAppearanceToScene = useCallback(
-    (root: Group | null, ps: number, opPercent: number) => {
-      if (!root) return;
-      const pointSize = clamp(ps, 0, 5);
-      const opacity01 = clamp(opPercent, 0, 100) / 100;
-
-      root.traverse((obj: Object3D) => {
-        const mat = (
-          obj as {
-            material?: {
-              size?: number;
-              uniforms?: Record<string, { value?: number }>;
-              opacity?: number;
-              transparent?: boolean;
-              needsUpdate?: boolean;
-            };
-          }
-        ).material;
-        if (!mat) return;
-
-        if (typeof mat.size === "number") {
-          mat.size = pointSize;
-          mat.needsUpdate = true;
-        }
-        if (mat.uniforms) {
-          if (mat.uniforms.pointSize?.value !== undefined) mat.uniforms.pointSize.value = pointSize;
-          if (mat.uniforms.opacity?.value !== undefined) mat.uniforms.opacity.value = opacity01;
-        }
-        if (typeof mat.opacity === "number") {
-          mat.opacity = opacity01;
-          if (opacity01 < 1 && mat.transparent !== true) mat.transparent = true;
-          mat.needsUpdate = true;
-        }
-      });
-    },
-    []
-  );
 
   const visibleFileIds = useMemo(
     () =>
@@ -933,8 +919,11 @@ const Viewer: FC<ViewerProps> = (props) => {
   });
 
   useEffect(() => {
-    applyAppearanceToScene(transformRootRef.current, appearance.pointSize, appearance.opacity);
-  }, [appearance, applyAppearanceToScene]);
+    applyAppearanceToMaterials(transformRootRef.current, {
+      pointSize: appearance.pointSize,
+      opacity: appearance.opacity,
+    });
+  }, [appearance]);
 
   useEffect(() => {
     if (!isMemoryMonitoringEnabled) {
@@ -998,10 +987,7 @@ const Viewer: FC<ViewerProps> = (props) => {
   }, [isMemoryMonitoringEnabled, fileMemoryEstimates, visibleFileIdsKey]);
 
   useEffect(() => {
-    const listener = (e: MessageEvent) => {
-      if (!e?.data || e.data.channel !== CHANNEL) return;
-      const cmd = e.data.cmd as Command;
-
+    return ViewerBridge.addListener((cmd) => {
       if (cmd.type === "SET_TRANSFORM") {
         const { fileId, translation, rotation } = cmd.payload;
         // Store file-specific transform (translation + rotation)
@@ -1015,8 +1001,8 @@ const Viewer: FC<ViewerProps> = (props) => {
       } else if (cmd.type === "SET_APPEARANCE") {
         const up = cmd.payload.upAxis;
         const cs = cmd.payload.coordinateSystem;
-        const nextPointSize = clamp(cmd.payload.pointSize ?? appearance.pointSize, 0, 5);
-        const nextOpacity = clamp(cmd.payload.opacity ?? appearance.opacity, 0, 100);
+        const nextPointSize = clamp(cmd.payload.pointSize ?? appearanceRef.current.pointSize, 0, 5);
+        const nextOpacity = clamp(cmd.payload.opacity ?? appearanceRef.current.opacity, 0, 100);
 
         // fileId が指定されている場合はファイル単位で保存
         const fileId = cmd.payload.fileId;
@@ -1031,7 +1017,11 @@ const Viewer: FC<ViewerProps> = (props) => {
           }));
         } else {
           // fileId がない場合はグローバル（後方互換）
-          setAppearance({ pointSize: nextPointSize, opacity: nextOpacity });
+          // postMessage はタスクごとに配送されるため、再レンダーを待つと
+          // 直後のコマンドが古い値をフォールバックに使う。ref を先に更新する。
+          const nextAppearance = { pointSize: nextPointSize, opacity: nextOpacity };
+          appearanceRef.current = nextAppearance;
+          setAppearance(nextAppearance);
         }
 
         // upAxis は後方互換のためカメラレベルで適用
@@ -1050,7 +1040,9 @@ const Viewer: FC<ViewerProps> = (props) => {
           g.position.set(0, 0, 0);
           g.rotation.set(0, 0, 0, "XYZ");
         }
-        setAppearance({ pointSize: 2, opacity: 100 });
+        const resetAppearance = { ...DEFAULT_APPEARANCE };
+        appearanceRef.current = resetAppearance;
+        setAppearance(resetAppearance);
         setFileAppearances({});
         setFileTransforms({});
 
@@ -1061,10 +1053,8 @@ const Viewer: FC<ViewerProps> = (props) => {
         }
         controlsRef.current?.update?.();
       }
-    };
-    window.addEventListener("message", listener);
-    return () => window.removeEventListener("message", listener);
-  }, [appearance.pointSize, appearance.opacity]);
+    });
+  }, []);
 
   return (
     <Box width={1} height={1} display="flex">

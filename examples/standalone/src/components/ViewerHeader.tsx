@@ -4,19 +4,15 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import { Box, MenuItem, Select, type SelectChangeEvent } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import {
+  fetchConstructions,
+  fetchContracts,
+  type Construction,
+  type Contract,
+} from "@/lib/constructions-browser-api";
 
 const HEADER_HEIGHT = 56;
 const HEADER_BG = "#166534";
-
-type Construction = {
-  id: number;
-  name: string;
-};
-
-type Contract = {
-  id: number;
-  name: string;
-};
 
 type ViewerHeaderProps = {
   accessToken: string;
@@ -75,30 +71,11 @@ export function ViewerHeader({
   const constructionLabel = resolveConstructionLabel(constructionId, constructionName);
   const contractLabel = resolveContractLabel(contractId, contractName);
 
-  const fetchContracts = useCallback(
-    async (targetConstructionId: number): Promise<Contract[]> => {
-      try {
-        const res = await fetch(`/api/constructions?constructionId=${targetConstructionId}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!res.ok) return [];
-        const contractListResponse = await res.json();
-        return contractListResponse.contracts ?? [];
-      } catch {
-        return [];
-      }
-    },
-    [accessToken]
-  );
-
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/constructions", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-      .then((res) => (res.ok ? res.json() : { constructions: [] }))
-      .then((constructionListResponse) => {
-        if (!cancelled) setConstructions(constructionListResponse.constructions ?? []);
+    fetchConstructions(accessToken)
+      .then((constructionList) => {
+        if (!cancelled) setConstructions(constructionList);
       })
       .catch(() => {
         if (!cancelled) setConstructions([]);
@@ -109,21 +86,25 @@ export function ViewerHeader({
   }, [accessToken]);
 
   useEffect(() => {
-    let cancelled = false;
     if (constructionId <= 0) return;
-    fetchContracts(constructionId).then((nextContracts) => {
-      if (!cancelled) setContracts(nextContracts);
-    });
+    let cancelled = false;
+    fetchContracts(accessToken, constructionId)
+      .then((contractList) => {
+        if (!cancelled) setContracts(contractList);
+      })
+      .catch(() => {
+        if (!cancelled) setContracts([]);
+      });
     return () => {
       cancelled = true;
     };
-  }, [constructionId, fetchContracts]);
+  }, [accessToken, constructionId]);
 
   const handleChangeConstruction = useCallback(
     async (event: SelectChangeEvent<number>) => {
       const nextConstructionId = Number(event.target.value);
       const next = constructions.find((c) => c.id === nextConstructionId);
-      const nextContracts = await fetchContracts(nextConstructionId);
+      const nextContracts = await fetchContracts(accessToken, nextConstructionId).catch(() => []);
       setContracts(nextContracts);
       const firstContract = nextContracts[0];
       navigateToViewer(router, {
@@ -133,7 +114,7 @@ export function ViewerHeader({
         contractName: firstContract?.name,
       });
     },
-    [constructions, fetchContracts, router]
+    [accessToken, constructions, router]
   );
 
   const handleChangeContract = useCallback(
