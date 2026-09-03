@@ -58,6 +58,69 @@ const AUTH_API_PREFIX: Record<AuthType, string> = {
   "3legged": "/ext/v2/userAuthenticated",
 };
 
+/**
+ * R-CDE へ 1 リクエスト送り、成功以外は HTTP ステータス付きで失敗させる。
+ *
+ * 認証ヘッダは呼び出し側が組み立てて渡す。ここで一律に載せる形にすると、点群本体の送信先である
+ * オブジェクトストレージのプリサインド URL にも Authorization が付いてしまい、署名と食い違って
+ * 弾かれる。宛先が R-CDE かどうかを判断できるのは呼び出し側だけなので、その判断をここへ持ち込まない。
+ */
+async function sendRcdeRequest(
+  fetchImpl: typeof fetch,
+  url: string,
+  headers: Record<string, string>,
+  init: Omit<RequestInit, "headers"> = {}
+): Promise<Response> {
+  const res = await fetchImpl(url, { ...init, headers });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res;
+}
+
+/** 問い合わせが空のときは ? を付けずパスだけを返す */
+function buildUrlWithQuery(url: string, queryParams: URLSearchParams): string {
+  const query = queryParams.toString();
+  return query ? `${url}?${query}` : url;
+}
+
+/**
+ * 2legged のときだけ契約 ID を問い合わせの末尾に足す。
+ *
+ * 条件が違う 2 つ（getContractFileList は認証方式を見ず常に付ける、getContractList は現場 ID の
+ * 真偽も見る）はここへ寄せない。揃えてよいかどうかは R-CDE 側の 3legged ハンドラが 2legged と
+ * 同じ絞り込みをしているかで決まり、SDK 側だけでは判断できない。この理由は本 JSDoc を正とし、
+ * 呼び出し側には重複して書かない。
+ */
+function appendContractIdFor2Legged(
+  queryParams: URLSearchParams,
+  authType: AuthType,
+  contractId: number
+): void {
+  if (authType !== "2legged") return;
+  queryParams.append("contractId", String(contractId));
+}
+
+/**
+ * 点群タイル画像の問い合わせ URL を組み立てる。位置画像と色画像は取得先 URL だけが違い、
+ * 問い合わせの並び（contractFileId → level → addr → contractId）も省略時の既定値も揃っている。
+ *
+ * imageEndpointUrl は問い合わせ文字列を付ける前のエンドポイント URL で、buildUrlWithQuery の
+ * 第 1 引数と同じ役割。組み立て済みの画像 URL を渡す口ではない。
+ */
+function buildPclodImageUrl(
+  imageEndpointUrl: string,
+  authType: AuthType,
+  params: { contractId: number; contractFileId: number; level?: number; addr?: string }
+): string {
+  const { contractId, contractFileId, level = 0, addr = "0-0-0" } = params;
+  const queryParams = new URLSearchParams({
+    contractFileId: String(contractFileId),
+    level: String(level),
+    addr,
+  });
+  appendContractIdFor2Legged(queryParams, authType, contractId);
+  return buildUrlWithQuery(imageEndpointUrl, queryParams);
+}
+
 export class RCDEClient {
   private baseUrl: string;
   private token?: string;
@@ -81,6 +144,18 @@ export class RCDEClient {
     return `${this.baseUrl}${AUTH_API_PREFIX[this.authType]}${segment}`;
   }
 
+  /** R-CDE の応答を JSON として読む。失敗は sendRcdeRequest 側。T は検証せず信じた形。parse は呼び出し側 */
+  private async requestJson<T>(url: string, init: Omit<RequestInit, "headers"> = {}): Promise<T> {
+    const res = await sendRcdeRequest(this.fetchImpl, url, this.headers(), init);
+    return (await res.json()) as T;
+  }
+
+  /** R-CDE の応答をバイナリのまま読む。点群タイル画像はここを通す（JSON へ寄せると読めなくなる） */
+  private async requestArrayBuffer(url: string): Promise<ArrayBuffer> {
+    const res = await sendRcdeRequest(this.fetchImpl, url, this.headers());
+    return await res.arrayBuffer();
+  }
+
   // ---- 既存で使われている想定のAPI ----
 
   // Viewer などで使用
@@ -88,13 +163,10 @@ export class RCDEClient {
     contractId: number;
   }): Promise<{ contractFiles: ContractFile[] }> {
     const { contractId } = params;
-    const url = this.getApiPath("/contractFile");
+    // 認証方式を見ず常に契約 ID を付ける形はここだけ（寄せない理由は appendContractIdFor2Legged の JSDoc）
     const queryParams = new URLSearchParams({ contractId: String(contractId) });
-    const res = await this.fetchImpl(`${url}?${queryParams}`, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { contractFiles: RawContractFile[]; total?: number };
+    const url = buildUrlWithQuery(this.getApiPath("/contractFile"), queryParams);
+    const data = await this.requestJson<{ contractFiles: RawContractFile[]; total?: number }>(url);
     const contractFiles = (data.contractFiles ?? []).map(parseContractFile);
     return { contractFiles };
   }
@@ -104,18 +176,12 @@ export class RCDEClient {
     contractFileId: number;
   }): Promise<Json> {
     const { contractId, contractFileId } = params;
-    const url = this.getApiPath("/pclod/meta");
     const queryParams = new URLSearchParams({
       contractFileId: String(contractFileId),
     });
-    if (this.authType === "2legged") {
-      queryParams.append("contractId", String(contractId));
-    }
-    const res = await this.fetchImpl(`${url}?${queryParams}`, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as Json;
+    appendContractIdFor2Legged(queryParams, this.authType, contractId);
+    const url = buildUrlWithQuery(this.getApiPath("/pclod/meta"), queryParams);
+    return this.requestJson<Json>(url);
   }
 
   // 画像（位置）バッファ
@@ -125,21 +191,8 @@ export class RCDEClient {
     level?: number;
     addr?: string;
   }): Promise<ArrayBuffer> {
-    const { contractId, contractFileId, level = 0, addr = "0-0-0" } = params;
-    const url = this.getApiPath("/pclod/imagePosition");
-    const queryParams = new URLSearchParams({
-      contractFileId: String(contractFileId),
-      level: String(level),
-      addr,
-    });
-    if (this.authType === "2legged") {
-      queryParams.append("contractId", String(contractId));
-    }
-    const res = await this.fetchImpl(`${url}?${queryParams}`, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.arrayBuffer();
+    const url = buildPclodImageUrl(this.getApiPath("/pclod/imagePosition"), this.authType, params);
+    return this.requestArrayBuffer(url);
   }
 
   // 画像（色）バッファ
@@ -149,21 +202,8 @@ export class RCDEClient {
     level?: number;
     addr?: string;
   }): Promise<ArrayBuffer> {
-    const { contractId, contractFileId, level = 0, addr = "0-0-0" } = params;
-    const url = this.getApiPath("/pclod/imageColor");
-    const queryParams = new URLSearchParams({
-      contractFileId: String(contractFileId),
-      level: String(level),
-      addr,
-    });
-    if (this.authType === "2legged") {
-      queryParams.append("contractId", String(contractId));
-    }
-    const res = await this.fetchImpl(`${url}?${queryParams}`, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.arrayBuffer();
+    const url = buildPclodImageUrl(this.getApiPath("/pclod/imageColor"), this.authType, params);
+    return this.requestArrayBuffer(url);
   }
 
   // ダウンロードURL
@@ -171,17 +211,13 @@ export class RCDEClient {
     contractId: number,
     fileId: number
   ): Promise<{ presignedURL: string; url: string }> {
-    const url = this.getApiPath(`/contractFile/downloadURL/${fileId}`);
-    let fullUrl = url;
-    if (this.authType === "2legged") {
-      const queryParams = new URLSearchParams({ contractId: String(contractId) });
-      fullUrl = `${url}?${queryParams}`;
-    }
-    const res = await this.fetchImpl(fullUrl, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { presignedURL?: string; url?: string };
+    const queryParams = new URLSearchParams();
+    appendContractIdFor2Legged(queryParams, this.authType, contractId);
+    const url = buildUrlWithQuery(
+      this.getApiPath(`/contractFile/downloadURL/${fileId}`),
+      queryParams
+    );
+    const data = await this.requestJson<{ presignedURL?: string; url?: string }>(url);
     const presignedURL = data.presignedURL ?? data.url ?? "";
     return { url: presignedURL, presignedURL };
   }
@@ -215,48 +251,34 @@ export class RCDEClient {
   // Construction関連のAPI
   async getConstructionList(): Promise<{ constructions: Construction[] }> {
     const url = this.getApiPath("/construction");
-    const res = await this.fetchImpl(url, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { constructions: Construction[]; total?: number };
+    const data = await this.requestJson<{ constructions: Construction[]; total?: number }>(url);
     return { constructions: data.constructions ?? [] };
   }
 
   async getConstruction(constructionId: number): Promise<Construction> {
     const url = this.getApiPath(`/construction/${constructionId}`);
-    const res = await this.fetchImpl(url, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as Construction;
+    return this.requestJson<Construction>(url);
   }
 
   async createConstruction(params: CreateConstructionParams): Promise<Json> {
     const url = this.getApiPath("/construction");
-    const res = await this.fetchImpl(url, {
+    return this.requestJson<Json>(url, {
       method: "POST",
-      headers: this.headers(),
       body: JSON.stringify(params),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as Json;
   }
 
   // Contract関連のAPI
   async getContractList(params: { constructionId: number }): Promise<{ contracts: Contract[] }> {
     const { constructionId } = params;
-    const url = this.getApiPath("/contract");
     const queryParams = new URLSearchParams();
+    // 現場 ID の真偽も見る形はここだけ（2legged なら常に、3legged は現場 ID が truthy のときだけ）。
+    // 揃えると 3legged で現場 ID 0 の絞り込みが消える（寄せない理由は appendContractIdFor2Legged の JSDoc）
     if (this.authType === "2legged" || constructionId) {
       queryParams.append("constructionId", String(constructionId));
     }
-    const fullUrl = queryParams.toString() ? `${url}?${queryParams}` : url;
-    const res = await this.fetchImpl(fullUrl, {
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { contracts: Contract[]; total?: number };
+    const url = buildUrlWithQuery(this.getApiPath("/contract"), queryParams);
+    const data = await this.requestJson<{ contracts: Contract[]; total?: number }>(url);
     return { contracts: data.contracts ?? [] };
   }
 
@@ -283,13 +305,10 @@ export class RCDEClient {
       contractedAt,
       constructionId,
     };
-    const res = await this.fetchImpl(url, {
+    return this.requestJson<Json>(url, {
       method: "POST",
-      headers: this.headers(),
       body: JSON.stringify(requestBody),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as Json;
   }
 }
 
