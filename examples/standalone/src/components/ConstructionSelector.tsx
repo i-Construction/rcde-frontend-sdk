@@ -73,8 +73,8 @@ export function ConstructionSelector({ accessToken }: Props) {
     setError("");
     try {
       setContracts(await fetchContracts(accessToken, construction.id));
-    } catch (caught) {
-      setError(describeConstructionsApiError(caught));
+    } catch {
+      setError("契約一覧の取得に失敗しました");
     } finally {
       setContractsLoading(false);
     }
@@ -131,25 +131,8 @@ export function ConstructionSelector({ accessToken }: Props) {
             現場・契約選択
           </Typography>
 
-          {/* 現場一覧の失敗は一覧そのものが出ないため、再取得の導線をエラー表示に添える。
-              契約一覧の表示中は「現場一覧に戻る」があるので添えない。 */}
           {error && (
-            <Alert
-              severity="error"
-              sx={{ mt: 1, mb: 1 }}
-              action={
-                selectedConstruction ? undefined : (
-                  <Button
-                    color="inherit"
-                    size="small"
-                    onClick={() => void loadConstructions()}
-                    disabled={loading}
-                  >
-                    再読み込み
-                  </Button>
-                )
-              }
-            >
+            <Alert severity="error" sx={{ mt: 1, mb: 1 }}>
               {error}
             </Alert>
           )}
@@ -172,9 +155,7 @@ export function ConstructionSelector({ accessToken }: Props) {
                 </Box>
               )}
 
-              {/* 取得に失敗したときの constructions は [] のままなので、
-                  エラー中は 0 件表示とテストデータ作成を出さない。 */}
-              {!loading && !error && constructions.length === 0 && (
+              {!loading && constructions.length === 0 && (
                 <Box>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     現場が見つかりませんでした
@@ -236,9 +217,7 @@ export function ConstructionSelector({ accessToken }: Props) {
                 </Box>
               )}
 
-              {/* 取得に失敗したときの contracts は [] のままなので、
-                  現場一覧と同じくエラー中は 0 件表示を出さない。 */}
-              {!contractsLoading && !error && contracts.length === 0 && (
+              {!contractsLoading && contracts.length === 0 && (
                 <Typography variant="body2" color="text.secondary">
                   契約が見つかりませんでした
                 </Typography>
