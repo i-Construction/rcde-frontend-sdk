@@ -51,7 +51,9 @@ describe("loadTile（Position + Color 並列）", () => {
     expect(fetchPosition).toHaveBeenCalledTimes(1);
     expect(fetchColor).toHaveBeenCalledTimes(1);
     expect(result.position.data).toEqual(new Uint8Array([1, 2, 3, 4]));
-    expect(result.color.data).toEqual(new Uint8Array([5, 6, 7, 8]));
+    // Position のみのケース（color は undefined）との対比なので、まず存在すること自体を主張する
+    expect(result.color).toBeDefined();
+    expect(result.color?.data).toEqual(new Uint8Array([5, 6, 7, 8]));
     expect(result.compressedBytes).toBe(8);
     expect(result.decodedBytes).toBe(8);
   });
