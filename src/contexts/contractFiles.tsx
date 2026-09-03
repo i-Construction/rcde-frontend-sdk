@@ -58,15 +58,8 @@ export function toggleContainerVisibility(
  * ID を読めないファイルは前回の状態と結び付ける手立てが無いので、引き継ぎ対象から外して
  * 既定の表示に戻す。無関係なファイルの状態を当てるよりは、既定へ戻るほうが説明できる。
  *
- * epic/type-foundation の src/contexts/contractFileContainers.ts に同じ名前の関数がある
- * （そちらは load へ渡した visibleIds も引き継ぐ）。両方が develop へ入るときはそちらを残し、
- * この関数は消す。
- *
- * そちらが undefined の ID を弾いていることを ea1e8a5 時点で確認済み。Map<number, boolean> の
- * 明示と、詰めるとき・引くときの両方に undefined の除外がある。だから残す判断で穴は開かない。
- * ただし確認したのは 1 時点なので、解消する人は同じ 2 か所をもう一度読む。型検査では気づけない
- * （new Map(prev.map(...)) に書き戻されると推論が Map<number | undefined, boolean> へ静かに
- * 広がるだけでエラーにならない）。異常系のテストが移設先に残っているかが唯一の関門になる。
+ * Map<number, boolean> は明示する。new Map(prev.map(...)) の形へ書き戻すと推論が
+ * Map<number | undefined, boolean> へ静かに広がり、型検査では上の潰れに気づけない。
  */
 // eslint-disable-next-line react-refresh/only-export-components
 export function mergeContainersPreservingVisibility(
