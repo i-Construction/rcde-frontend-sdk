@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ContractFile, ContractFileContainer } from "./contractFiles";
-import { toggleContainerVisibility } from "./contractFiles";
+import { mergeContainersPreservingVisibility, toggleContainerVisibility } from "./contractFiles";
 
 const uploadedAt = "2024-11-19T06:56:31Z";
 
@@ -59,6 +59,69 @@ describe("表示・非表示の切り替え（toggleContainerVisibility）", () 
       const toggled = toggleContainerVisibility(containers, containers[1]);
 
       expect(toggled.map((container) => container.visible)).toEqual([true, false, true]);
+    });
+  });
+});
+
+describe("一覧の再取得での表示状態の引き継ぎ（mergeContainersPreservingVisibility）", () => {
+  describe("正常系", () => {
+    it("ID を持つファイルは、再取得しても前回の表示状態を保つ", () => {
+      const previous = [
+        createContainer({ id: 1, name: "first.las", uploadedAt }, false),
+        createContainer({ id: 2, name: "second.las", uploadedAt }, true),
+      ];
+      const files: ContractFile[] = [
+        { id: 1, name: "first.las", uploadedAt },
+        { id: 2, name: "second.las", uploadedAt },
+      ];
+
+      const merged = mergeContainersPreservingVisibility(previous, files);
+
+      expect(merged.map((container) => container.visible)).toEqual([false, true]);
+    });
+
+    it("再取得で新しく現れたファイルは表示になる", () => {
+      const previous = [createContainer({ id: 1, name: "first.las", uploadedAt }, false)];
+      const files: ContractFile[] = [
+        { id: 1, name: "first.las", uploadedAt },
+        { id: 2, name: "second.las", uploadedAt },
+      ];
+
+      const merged = mergeContainersPreservingVisibility(previous, files);
+
+      expect(merged.map((container) => container.visible)).toEqual([false, true]);
+    });
+  });
+
+  describe("異常系", () => {
+    it("ID を読めないファイルが 2 件あるとき、再取得で互いの表示状態を引き継がない", () => {
+      const previous = [
+        createContainer({ name: "first.las", uploadedAt }, true),
+        createContainer({ name: "second.las", uploadedAt }, false),
+      ];
+      const files: ContractFile[] = [
+        { name: "first.las", uploadedAt },
+        { name: "second.las", uploadedAt },
+      ];
+
+      const merged = mergeContainersPreservingVisibility(previous, files);
+
+      expect(merged.map((container) => container.visible)).toEqual([true, true]);
+    });
+
+    it("ID を読めないファイルが混ざっていても、ID を持つファイルは前回の表示状態を保つ", () => {
+      const previous = [
+        createContainer({ name: "broken.las", uploadedAt }, false),
+        createContainer({ id: 1, name: "first.las", uploadedAt }, false),
+      ];
+      const files: ContractFile[] = [
+        { name: "broken.las", uploadedAt },
+        { id: 1, name: "first.las", uploadedAt },
+      ];
+
+      const merged = mergeContainersPreservingVisibility(previous, files);
+
+      expect(merged.map((container) => container.visible)).toEqual([true, false]);
     });
   });
 });
