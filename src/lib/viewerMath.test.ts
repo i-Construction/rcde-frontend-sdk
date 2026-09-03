@@ -21,6 +21,12 @@ describe("clamp", () => {
   it("上限ちょうどの値は、そのまま返す", () => {
     expect(clamp(5, 0, 5)).toBe(5);
   });
+
+  it("NaN は範囲に丸められず、NaN のまま返る", () => {
+    // Math.max(0, NaN) も Math.min(5, NaN) も NaN になるため、下限・上限では潰せない。
+    // この挙動があるので src/bridge/viewerBridge.ts の受信境界で NaN を弾いている。
+    expect(clamp(NaN, 0, 5)).toBeNaN();
+  });
 });
 
 describe("toNormalizedDeviceCoordinates", () => {
