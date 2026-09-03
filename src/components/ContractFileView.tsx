@@ -15,6 +15,7 @@ import { ContractFile } from "../contexts/contractFiles";
 import { parsePngBuffer } from "../lib/pngParse";
 import { loadTile } from "../lib/tileLoader";
 import type { ViewerFileMemoryEstimate } from "../lib/viewerMemory";
+import { clamp } from "../lib/viewerMath";
 import { CoordinateSystem, type CoordinateSystemType } from "../bridge/viewerBridge";
 
 // 座標系ごとの変換定義
@@ -51,8 +52,6 @@ export type ContractFileProps = {
   inspectorCoordinateSystem?: CoordinateSystemType;
   onMemoryEstimateChange?: (estimate: ViewerFileMemoryEstimate) => void;
 };
-
-const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 const ContractFileView = ({
   file,
@@ -454,7 +453,7 @@ function getDefaultPointCloudSize(props: {
   // so radius of the poisson disk is `{side length of the unit} / sqrt(2 ^ 14)`.
   // resulting radius multiplied by 3 is optimal size of the point cloud.
   const ps = (s / 128) * 3;
-  return Math.min(Math.max(min ?? ps, ps), max ?? ps);
+  return clamp(ps, min ?? ps, max ?? ps);
 }
 
 export { ContractFileView };

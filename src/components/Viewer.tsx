@@ -17,7 +17,6 @@ import {
   Color,
   DoubleSide,
   Quaternion,
-  Vector2,
   Vector3,
   Group,
   PerspectiveCamera,
@@ -40,6 +39,7 @@ import {
   type ViewerMemorySource,
 } from "../lib/viewerMemory";
 import { raycastViews } from "../lib/viewerRaycast";
+import { clamp, toNormalizedDeviceCoordinates } from "../lib/viewerMath";
 import {
   ViewerBridge,
   type CoordinateSystemType,
@@ -158,8 +158,6 @@ export type ViewerProps = {
   memoryMonitoring?: ViewerMemoryMonitoringOptions;
 };
 
-const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-
 /**
  * 点群の見た目の初期値。マウント時の state と RESET コマンドの復帰先が同じ値になるよう
  * 1 箇所にまとめる。使うときは複製する（state に同じ参照を入れると React が更新を
@@ -198,11 +196,13 @@ const ClickHandler: FC<{
       if (!onContractFileClickRef.current && !onObjectClickRef.current) return;
 
       const rect = gl.domElement.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const pointer = toNormalizedDeviceCoordinates(
+        { x: event.clientX - rect.left, y: event.clientY - rect.top },
+        rect
+      );
 
       const hit = raycastViews(
-        new Vector2(x, y),
+        pointer,
         cameraRef.current,
         raycaster,
         viewsRef.current,
@@ -268,11 +268,13 @@ const HoverHandler: FC<{
   const processEvent = useCallback(
     (event: MouseEvent) => {
       const rect = gl.domElement.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const pointer = toNormalizedDeviceCoordinates(
+        { x: event.clientX - rect.left, y: event.clientY - rect.top },
+        rect
+      );
 
       const hit = raycastViews(
-        new Vector2(x, y),
+        pointer,
         cameraRef.current,
         raycaster,
         viewsRef.current,
