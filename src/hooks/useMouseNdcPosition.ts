@@ -7,6 +7,13 @@ import { toNormalizedDeviceCoordinates } from "../lib/viewerMath";
  *
  * `getBoundingClientRect()` によるキャンバスのオフセット減算はこのフックが担い、
  * `toNormalizedDeviceCoordinates` は DOM を知らない純粋な計算のままにする。
+ *
+ * `rect.x` は `rect.left` と等しい。CSSOM View の `left` は `min(x, x + width)` として導出され、
+ * `getBoundingClientRect()` が返す `DOMRect` の `width` / `height` は非負だからで、仕様上の保証である
+ * （手で作った `new DOMRect(0, 0, -10, -10)` のような負の矩形には当てはまらない）。
+ *
+ * キャンバスの位置と大きさはウィンドウサイズ変更やサイドバーの開閉で変わるので、
+ * rect はレンダー時にキャッシュせずイベントごとに読み直す。
  */
 export const useMouseNdcPosition = (props: { canvas: HTMLCanvasElement }) => {
   const { canvas } = props;
