@@ -176,16 +176,27 @@ const ContractFileView = ({
         return cached;
       }
 
+      // ID を読めなかったファイルはタイルの取得先を組み立てられない。非 null アサーションで
+      // 押し通すと String(undefined) が問い合わせ文字列に載り、R-CDE 側で別のエラーとして
+      // 現れて原因を追いにくくなるので、ここで取得を失敗させる。
+      // このコンポーネントと ContractFileProps は公開しているため、ID を持たないファイルは
+      // Viewer 経由では届かなくても利用者から直接渡され得る。
+      if (client === undefined || project === undefined || file.id === undefined) {
+        return Promise.reject(
+          new Error("[ContractFileView] cannot load tiles without client, project and file id")
+        );
+      }
+
       const requestProps = {
-        contractId: project!.contractId!,
-        contractFileId: file.id!,
+        contractId: project.contractId,
+        contractFileId: file.id,
         level: lod,
         addr,
       };
 
       const promise = loadTile(
-        () => client!.getContractFileImagePosition(requestProps),
-        color ? () => client!.getContractFileImageColor(requestProps) : undefined,
+        () => client.getContractFileImagePosition(requestProps),
+        color ? () => client.getContractFileImageColor(requestProps) : undefined,
         parsePngBuffer
       ).then((result) => {
         registerTileMemory(cacheKey, {
