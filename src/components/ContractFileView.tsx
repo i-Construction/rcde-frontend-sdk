@@ -182,8 +182,15 @@ const ContractFileView = ({
       // このコンポーネントと ContractFileProps は公開しているため、ID を持たないファイルは
       // Viewer 経由では届かなくても利用者から直接渡され得る。
       if (client === undefined || project === undefined || file.id === undefined) {
+        // 呼び出し側（初期ロードの effect）は console.warn(e) しか出さないので、3 つの原因を
+        // 1 文へ畳むとどれが欠けているか切り分けられない。欠けている名前だけを並べる。
+        const missing = [
+          client === undefined ? "client" : undefined,
+          project === undefined ? "project" : undefined,
+          file.id === undefined ? "file.id" : undefined,
+        ].filter((name): name is string => name !== undefined);
         return Promise.reject(
-          new Error("[ContractFileView] cannot load tiles without client, project and file id")
+          new Error(`[ContractFileView] cannot load tiles without ${missing.join(", ")}`)
         );
       }
 

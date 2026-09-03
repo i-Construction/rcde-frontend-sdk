@@ -382,6 +382,9 @@ type RawContract = Omit<Contract, "id"> & { id?: unknown };
 /**
  * 現場・契約は ID 以外のフィールドを SDK が解釈しない。ID だけ差し替えて残りはそのまま通す形にし、
  * R-CDE が返す未知のフィールドを取り落とさないようにする。
+ *
+ * 戻り値には id キーが必ず生える（読めなかったときは値が undefined）。読めたかどうかを
+ * "id" in construction では判定できないので、利用側は c.id !== undefined で見る。
  */
 function parseConstruction(rawConstruction: RawConstruction): Construction {
   return { ...rawConstruction, id: parseEntityId(rawConstruction.id) };
