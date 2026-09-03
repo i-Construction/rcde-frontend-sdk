@@ -70,4 +70,4 @@ const closest = (
   return points[distances.indexOf(d)];
 };
 
-export { buildTree, closest, pick };
+export { buildTree, pick };

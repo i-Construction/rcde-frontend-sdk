@@ -1,10 +1,23 @@
-import { RCDEClient } from "../lib/rcde-client";
-import { createContext, FC, ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  FC,
+  ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createContainers, mergeContainersPreservingVisibility } from "./contractFileContainers";
+import type { ContractFile } from "../lib/rcde-client";
 
-export type ContractFiles = NonNullable<
-  Awaited<ReturnType<RCDEClient["getContractFileList"]>>["contractFiles"]
->;
-export type ContractFile = ContractFiles[number];
+/**
+ * 契約ファイルの型は rcde-client.ts が正本。ここは公開 API の入口として再輸出するだけで、
+ * getContractFileList の戻り値から逆算しない。逆算にすると定義の所在が読み取りにくく、
+ * クライアントのメソッド定義を変えたときに公開型が黙って動く。
+ */
+export type { ContractFile };
+export type ContractFiles = ContractFile[];
 
 export type ContractFileContainer = {
   file: ContractFile;
@@ -14,6 +27,11 @@ export type ContractFileContainer = {
 type ContractFilesContextType = {
   containers: ContractFileContainer[];
   load: (files: ContractFiles, visibleIds?: number[]) => void;
+  /**
+   * 再取得した一覧でファイルの中身を差し替える。表示・非表示は ID で前回の状態を引き継ぐ。
+   * 前回に無かったファイルは、直近の load で適用した visibleIds に従う。
+   * load を一度も呼んでいなければ visibleIds は未指定の扱いになり、全件が表示になる。
+   */
   updateFiles: (files: ContractFiles) => void;
   toggleVisibility: (container: ContractFileContainer) => void;
 };
@@ -46,53 +64,21 @@ export function toggleContainerVisibility(
   );
 }
 
-/**
- * 再取得した一覧に、前回の表示・非表示を ID で引き継いだコンテナ列を返す。
- *
- * ID をそのまま Map のキーにしない。ID は R-CDE から整数として読めなかったときに undefined に
- * なり得るので、キーにすると ID を持たないファイルが 2 件以上あるときに undefined という 1 つの
- * キーへ潰れ、最後の 1 件の visible が全件へ配られる。toggleContainerVisibility と同じ
- * undefined === undefined の成立で、症状が「全件が同時に切り替わる」から
- * 「別のファイルの表示状態を引き継ぐ」に変わっただけになる。
- *
- * ID を読めないファイルは前回の状態と結び付ける手立てが無いので、引き継ぎ対象から外して
- * 既定の表示に戻す。無関係なファイルの状態を当てるよりは、既定へ戻るほうが説明できる。
- *
- * Map<number, boolean> は明示する。new Map(prev.map(...)) の形へ書き戻すと推論が
- * Map<number | undefined, boolean> へ静かに広がり、型検査では上の潰れに気づけない。
- */
-// eslint-disable-next-line react-refresh/only-export-components
-export function mergeContainersPreservingVisibility(
-  previousContainers: ContractFileContainer[],
-  files: ContractFiles
-): ContractFileContainer[] {
-  const visibleByFileId = new Map<number, boolean>();
-  for (const container of previousContainers) {
-    if (container.file.id === undefined) continue;
-    visibleByFileId.set(container.file.id, container.visible);
-  }
-
-  return files.map((file) => ({
-    file,
-    visible: (file.id === undefined ? undefined : visibleByFileId.get(file.id)) ?? true,
-  }));
-}
-
 export const ContractFilesProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [containers, setContainers] = useState<ContractFileContainer[]>([]);
 
+  // load で適用した可視ポリシー。再取得で新しく現れたファイルにも同じ方針を当てはめるため覚えておく。
+  const loadedVisibleIdsRef = useRef<number[] | undefined>(undefined);
+
   const load = useCallback((files: ContractFiles, visibleIds?: number[]) => {
-    setContainers(
-      files.map((file) => ({
-        file,
-        visible:
-          visibleIds === undefined ? true : file.id !== undefined && visibleIds.includes(file.id),
-      }))
-    );
+    loadedVisibleIdsRef.current = visibleIds;
+    setContainers(createContainers(files, visibleIds));
   }, []);
 
   const updateFiles = useCallback((files: ContractFiles) => {
-    setContainers((prev) => mergeContainersPreservingVisibility(prev, files));
+    setContainers((prev) =>
+      mergeContainersPreservingVisibility(prev, files, loadedVisibleIdsRef.current)
+    );
   }, []);
 
   const toggleVisibility = useCallback((container: ContractFileContainer) => {
