@@ -6,3 +6,30 @@ Git のコミットメッセージを生成するとき（ソース管理の「G
 
 - 英語のメッセージは出さない（例: "Added..." → 「追加: ...」にすること）。
 - 1行目: `<種類>: <簡潔な説明>`（種類は 追加・修正・削除・リファクタ など）。
+
+## R-CDE とのステータス型の同期
+
+本 SDK と R-CDE 本体（rcde リポジトリ）は常に対で動く。API が返すステータスの値集合を SDK が知らないまま放置しない。
+
+### DO
+
+- `src/lib/batchProcessingStatus.ts` の `BATCH_PROCESSING_STATUS` を、R-CDE の `server/pkg/ent/schema/batchprocessingresult.go` の `BatchProcessingResultStatus` と 1 対 1 に保つ。
+- R-CDE 側に値が増えたら、同じタイミングで `BATCH_PROCESSING_STATUS` と `PclodStatus`（`src/lib/contractFileStatus.ts`）の両方を更新する。
+- 値集合の対応は `src/lib/batchProcessingStatus.test.ts` で固定する。SDK 側で `BATCH_PROCESSING_STATUS` を編集したときに、`PclodStatus` 側の追随漏れをこのテストと `never` 検査で検知する。
+- 想定外の値は握り潰さない。`BatchProcessingResult.status` を undefined にし、生値は `rawStatus` に残して利用側へ渡す。
+- `BatchProcessingResult.status` の値集合に SDK 独自の値を足さない。R-CDE の値だけを入れ、SDK 側の状態表現（`unknown` など）は `PclodStatus` に置く。
+- `status` という名前のフィールドは 3 種類あり、すべて別軸の数値。取り違えないよう型と JSDoc で区別する。
+  - `ContractFile.status` — R-CDE の `CDEStatus`（1 WIP / 2 Shared / 3 Published / 4 Archived）。
+  - `Contract.status` — R-CDE の `ContactStatus`（1 作成中 / 2 作成済み。`server/pkg/ent/schema/contract.go`）。
+  - `BatchProcessingResult.status` — R-CDE の `BatchProcessingResultStatus`（1 開始 / 2 進行中 / 3 完了 / 4 失敗）。
+- リクエストのパラメータも R-CDE 側の構造体と突き合わせる。R-CDE に無いフィールドを送っても echo の `Bind` が捨てるだけで、型の上では「指定できる」と嘘をつく。
+
+### DON'T
+
+- SDK 単独でステータス値を発明・追加する。
+- 未知の値を `processing` などの既知状態へ寄せる（ポーリングが止まらなくなる）。
+- 検証せずに数値をステータス型へ型アサーションで通す。
+- 値集合の同期テストを「重複」として削除する。
+- ステータスを文字列型で持つ。R-CDE が返すのはすべて `uint8` で、JSON でも数値。
+- R-CDE が受け取らないフィールドを「あると便利そう」でリクエスト型へ足す。
+- SDK の CI が R-CDE 側の追加を検知すると期待する。SDK は R-CDE のソースを参照していないので、R-CDE 単独で値が増えても CI は緑のままになる。実際の検知はランタイムの `status: undefined` 経路だけ。

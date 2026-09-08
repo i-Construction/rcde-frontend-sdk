@@ -1,5 +1,5 @@
 import { RCDEClient } from "../lib/rcde-client";
-import { RCDEAppConfig } from "../components/Viewer";
+import type { RCDEAppConfig } from "../types/viewerConfig";
 import {
   createContext,
   Dispatch,
@@ -52,7 +52,7 @@ export const ClientProvider: FC<{ children: ReactNode }> = ({ children }) => {
     setClient(client);
   }, []);
 
-  const value = useMemo(
+  const value = useMemo<ClientContextType>(
     () => ({ client, initialize, project, setProject }),
     [client, initialize, project, setProject]
   );

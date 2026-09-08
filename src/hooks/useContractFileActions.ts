@@ -3,9 +3,9 @@ import { useClient } from "../contexts/client";
 import { ContractFile, ContractFileContainer, useContractFiles } from "../contexts/contractFiles";
 import { useReferencePoint } from "../contexts/referencePoint";
 import {
-  deriveFileStatusLabels,
+  deriveFileStatus,
   isPclodCompleted,
-  type FileStatusLabels,
+  type FileStatus,
   type PendingUploads,
 } from "../lib/contractFileStatus";
 
@@ -30,10 +30,10 @@ export type ContractFileActions = {
    */
   downloadFile: (file: ContractFile) => Promise<boolean>;
   /**
-   * アップロード/PCLOD のステータスラベルを導出する。
+   * アップロード/PCLOD の状態を導出する。
    * アップロード中判定はフックが保持する `pendingUploads` から内部で行う。
    */
-  getFileStatus: (file: ContractFile) => FileStatusLabels;
+  getFileStatus: (file: ContractFile) => FileStatus;
   /** PCLOD 処理が完了しているか */
   isPclodCompleted: (file: ContractFile) => boolean;
 };
@@ -115,12 +115,12 @@ export const useContractFileActions = (
   );
 
   const getFileStatus = useCallback(
-    (file: ContractFile): FileStatusLabels => {
+    (file: ContractFile): FileStatus => {
       // 呼び出し側の誤用（file 未指定）でも throw しないよう防御する。focusFile / downloadFile と姿勢を揃える
-      if (!file) return { upload: "アップロード中", pclod: "待機中" };
+      if (!file) return { upload: "uploading", pclod: "waiting" };
       // アップロード中判定はフックが保持する pendingUploads から行い、呼び出し側に委ねない
       const isPendingUpload = file.id !== undefined && pendingUploads[file.id] !== undefined;
-      return deriveFileStatusLabels(file, isPendingUpload);
+      return deriveFileStatus(file, isPendingUpload);
     },
     [pendingUploads]
   );

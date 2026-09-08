@@ -1,5 +1,5 @@
-example/
-example/**
+examples/
+examples/**
 .cursor/
 node_modules/
 .git/

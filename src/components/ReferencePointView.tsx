@@ -1,7 +1,7 @@
 import { Box, Typography } from "@mui/material";
 import { FC } from "react";
 
-export type ReferencePointViewProps = {
+type ReferencePointViewProps = {
   point: {
     x: number;
     y: number;

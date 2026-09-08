@@ -2,7 +2,6 @@ import { FC } from "react";
 import { ClientProvider } from "../contexts/client";
 import { ContractFilesProvider } from "../contexts/contractFiles";
 import { ReferencePointProvider } from "../contexts/referencePoint";
-import { GlobalStateContext } from "../contexts/state";
 import { Viewer, ViewerProps } from "./Viewer";
 
 /**
@@ -17,15 +16,13 @@ import { Viewer, ViewerProps } from "./Viewer";
  */
 const RCDE: FC<ViewerProps> = (props) => {
   return (
-    <GlobalStateContext.Provider>
-      <ClientProvider>
-        <ContractFilesProvider>
-          <ReferencePointProvider>
-            <Viewer {...props} />
-          </ReferencePointProvider>
-        </ContractFilesProvider>
-      </ClientProvider>
-    </GlobalStateContext.Provider>
+    <ClientProvider>
+      <ContractFilesProvider>
+        <ReferencePointProvider>
+          <Viewer {...props} />
+        </ReferencePointProvider>
+      </ContractFilesProvider>
+    </ClientProvider>
   );
 };
 

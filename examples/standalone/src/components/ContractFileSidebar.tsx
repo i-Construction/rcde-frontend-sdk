@@ -1,0 +1,560 @@
+"use client";
+
+import {
+  useContractFileActions,
+  type ContractFile,
+  type ContractFileRow,
+  type FileStatus,
+  type PclodStatus,
+  type PendingUploads,
+  type UploadStatus,
+} from "@i-con/frontend-sdk";
+import AutorenewIcon from "@mui/icons-material/Autorenew";
+import CenterFocusStrongIcon from "@mui/icons-material/CenterFocusStrong";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CloudDoneIcon from "@mui/icons-material/CloudDone";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import ScheduleIcon from "@mui/icons-material/Schedule";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import {
+  Box,
+  Button,
+  IconButton,
+  Menu,
+  MenuItem,
+  Paper,
+  Popper,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+
+const SIDEBAR_WIDTH = 320;
+const STATUS_ICON_SIZE = 16;
+const POPOVER_BG = "#111827";
+const LABEL_CHIP_BG = "#808000";
+
+// SDK が返すのは状態値なので、日本語の文言は利用側で決める。網羅した Record にしておくと
+// R-CDE 側でステータスが増えて SDK の状態値が増えたとき、ここが型エラーで落ちる
+const UPLOAD_STATUS_LABELS: Record<UploadStatus, string> = {
+  uploading: "アップロード中",
+  uploaded: "完了",
+};
+
+const PCLOD_STATUS_LABELS: Record<PclodStatus, string> = {
+  none: "-",
+  waiting: "待機中",
+  processing: "処理中",
+  completed: "完了",
+  failed: "失敗",
+  unknown: "不明",
+};
+
+/** 進行中アイコンの回転。keyframes を 1 つに保つためアイコン間で共有する */
+const SPIN_SX = {
+  animation: "sidebarStatusSpin 1s linear infinite",
+  "@keyframes sidebarStatusSpin": {
+    from: { transform: "rotate(0deg)" },
+    to: { transform: "rotate(360deg)" },
+  },
+};
+
+/** レンダーごとに新しい配列を渡すと Popper.js がモディファイアを組み直すため定数にする */
+const POPPER_MODIFIERS = [{ name: "offset", options: { offset: [0, 8] } }];
+
+const ICON_BUTTON_SX = {
+  width: 28,
+  height: 28,
+  opacity: 0.7,
+  "&:hover": { opacity: 1 },
+  "&.Mui-disabled": { opacity: 0.3 },
+};
+
+type StatusRowKind =
+  | "uploading"
+  | "waiting"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "unknown"
+  | "idle";
+
+/** 状態は描画時に rows から引き直すため、state にはキーとアンカーだけ持つ */
+type HoveredFileStatus = {
+  rowKey: string;
+  anchorEl: HTMLElement;
+};
+
+function rowKeyOf(row: ContractFileRow): string {
+  return row.type === "pending" ? `pending-${row.contractFileId}` : String(row.container.file.id);
+}
+
+function findRowStatus(
+  rows: ContractFileRow[],
+  rowKey: string,
+  getFileStatus: (file: ContractFile) => FileStatus
+): FileStatus | null {
+  const row = rows.find((candidate) => rowKeyOf(candidate) === rowKey);
+
+  if (row === undefined) {
+    return null;
+  }
+
+  if (row.type === "pending") {
+    return { upload: "uploading", pclod: "none" };
+  }
+
+  return getFileStatus(row.container.file);
+}
+
+function resolvePclodKind(pclodStatus: PclodStatus): StatusRowKind {
+  switch (pclodStatus) {
+    case "processing":
+      return "processing";
+    case "waiting":
+      return "waiting";
+    case "completed":
+      return "completed";
+    case "failed":
+      return "failed";
+    case "unknown":
+      return "unknown";
+    case "none":
+      return "idle";
+  }
+}
+
+function resolveRowStatusKind(
+  uploadStatus: UploadStatus,
+  pclodStatus: PclodStatus
+): StatusRowKind {
+  if (uploadStatus === "uploading") return "uploading";
+  return resolvePclodKind(pclodStatus);
+}
+
+function StatusLabelChip({ label }: { label: string }) {
+  return (
+    <Box
+      component="span"
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 80,
+        px: 0.75,
+        py: 0.25,
+        borderRadius: 0.5,
+        bgcolor: LABEL_CHIP_BG,
+        color: "common.black",
+        fontSize: 12,
+        fontWeight: 500,
+      }}
+    >
+      {label}
+    </Box>
+  );
+}
+
+function popoverStatusIcon(kind: StatusRowKind | "upload-done") {
+  switch (kind) {
+    case "uploading":
+    case "processing":
+      return <AutorenewIcon sx={{ fontSize: STATUS_ICON_SIZE, ...SPIN_SX, color: "info.light" }} />;
+    case "waiting":
+      return <ScheduleIcon sx={{ fontSize: STATUS_ICON_SIZE, color: "warning.light" }} />;
+    case "completed":
+    case "upload-done":
+      return <CloudDoneIcon sx={{ fontSize: STATUS_ICON_SIZE, color: "success.light" }} />;
+    case "failed":
+      return <ErrorOutlineIcon sx={{ fontSize: STATUS_ICON_SIZE, color: "error.light" }} />;
+    case "unknown":
+      return <HelpOutlineIcon sx={{ fontSize: STATUS_ICON_SIZE, color: "grey.400" }} />;
+    case "idle":
+      return null;
+  }
+}
+
+function rowStatusIcon(kind: StatusRowKind) {
+  const sx = { fontSize: STATUS_ICON_SIZE, flexShrink: 0 };
+
+  switch (kind) {
+    case "uploading":
+    case "processing":
+      return (
+        <AutorenewIcon
+          sx={{
+            ...sx,
+            ...SPIN_SX,
+            color: kind === "uploading" ? "text.secondary" : "info.main",
+          }}
+        />
+      );
+    case "waiting":
+      return <ScheduleIcon sx={{ ...sx, color: "warning.main" }} />;
+    case "completed":
+      return <CheckCircleIcon sx={{ ...sx, color: "success.main" }} />;
+    case "failed":
+      return <ErrorOutlineIcon sx={{ ...sx, color: "error.main" }} />;
+    case "unknown":
+      return <HelpOutlineIcon sx={{ ...sx, color: "text.disabled" }} />;
+    case "idle":
+      return <Box sx={{ width: STATUS_ICON_SIZE, height: STATUS_ICON_SIZE, flexShrink: 0 }} />;
+  }
+}
+
+type FileStatusHoverPopperProps = {
+  anchorEl: HTMLElement;
+  uploadStatus: UploadStatus;
+  pclodStatus: PclodStatus;
+};
+
+function FileStatusHoverPopper({
+  anchorEl,
+  uploadStatus,
+  pclodStatus,
+}: FileStatusHoverPopperProps) {
+  const uploadIconKind = uploadStatus === "uploading" ? "uploading" : "upload-done";
+  const pclodIconKind = resolvePclodKind(pclodStatus);
+
+  return (
+    <Popper
+      open
+      anchorEl={anchorEl}
+      placement="right"
+      modifiers={POPPER_MODIFIERS}
+      sx={{ zIndex: (theme) => theme.zIndex.tooltip, pointerEvents: "none" }}
+    >
+      <Paper
+        elevation={4}
+        sx={{
+          bgcolor: POPOVER_BG,
+          color: "common.white",
+          p: 1.5,
+          pointerEvents: "none",
+        }}
+      >
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <StatusLabelChip label="アップロード" />
+            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+              {popoverStatusIcon(uploadIconKind)}
+              <Typography variant="caption" sx={{ color: "common.white", fontSize: 12 }}>
+                {UPLOAD_STATUS_LABELS[uploadStatus]}
+              </Typography>
+            </Box>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <StatusLabelChip label="PCLOD処理" />
+            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+              {popoverStatusIcon(pclodIconKind)}
+              <Typography variant="caption" sx={{ color: "common.white", fontSize: 12 }}>
+                {PCLOD_STATUS_LABELS[pclodStatus]}
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
+    </Popper>
+  );
+}
+
+type FileRowProps = {
+  rowKey: string;
+  filename: string;
+  uploadStatus: UploadStatus;
+  pclodStatus: PclodStatus;
+  isPclodDone: boolean;
+  isVisible: boolean;
+  disabled?: boolean;
+  onHoverStart: (hovered: HoveredFileStatus) => void;
+  onHoverEnd: (rowKey: string) => void;
+  onVisibilityToggle?: () => void;
+  /** ビューアのカメラを合わせる。DOM の onFocus と区別するため名前を分ける */
+  onFocusFile?: () => void;
+  onMenuOpen?: (el: HTMLElement) => void;
+};
+
+function FileRow({
+  rowKey,
+  filename,
+  uploadStatus,
+  pclodStatus,
+  isPclodDone,
+  isVisible,
+  disabled = false,
+  onHoverStart,
+  onHoverEnd,
+  onVisibilityToggle,
+  onFocusFile,
+  onMenuOpen,
+}: FileRowProps) {
+  const statusKind = resolveRowStatusKind(uploadStatus, pclodStatus);
+
+  // アップロード完了などで行が消えると mouseleave が発火しないため、
+  // アンマウント時に自分の hover 状態を解除して Popper が取り残されないようにする
+  useEffect(() => () => onHoverEnd(rowKey), [rowKey, onHoverEnd]);
+
+  const statusText = `アップロード: ${UPLOAD_STATUS_LABELS[uploadStatus]} / PCLOD: ${PCLOD_STATUS_LABELS[pclodStatus]}`;
+
+  const handleHoverStart = (event: React.SyntheticEvent<HTMLElement>) => {
+    onHoverStart({
+      rowKey,
+      anchorEl: event.currentTarget,
+    });
+  };
+
+  const handleHoverEnd = () => {
+    onHoverEnd(rowKey);
+  };
+
+  return (
+    <Box
+      // マウスに加えてキーボードでも状態を開けるようにする
+      tabIndex={0}
+      onMouseEnter={handleHoverStart}
+      onMouseLeave={handleHoverEnd}
+      onFocus={handleHoverStart}
+      onBlur={handleHoverEnd}
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        width: "100%",
+        py: 0.5,
+        px: 0.5,
+        borderRadius: 1,
+        opacity: isVisible ? 1 : 0.6,
+        "&:hover": { bgcolor: "action.hover" },
+      }}
+    >
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 0.75,
+        }}
+      >
+        {/* ホバーしない経路（キーボード・支援技術）でも状態を読めるようにする */}
+        <Tooltip title={statusText} disableInteractive>
+          <Box component="span" sx={{ display: "inline-flex" }} aria-label={statusText}>
+            {rowStatusIcon(statusKind)}
+          </Box>
+        </Tooltip>
+        <Typography
+          variant="body2"
+          title={filename}
+          sx={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {filename}
+        </Typography>
+      </Box>
+
+      <Box sx={{ display: "flex", alignItems: "center", ml: "auto" }}>
+        <Tooltip title={isVisible ? "非表示にする" : "表示する"} disableInteractive>
+          <span>
+            <IconButton
+              size="small"
+              sx={ICON_BUTTON_SX}
+              disabled={disabled || !isPclodDone}
+              onClick={onVisibilityToggle}
+            >
+              {isVisible ? (
+                <VisibilityIcon sx={{ fontSize: 16 }} />
+              ) : (
+                <VisibilityOffIcon sx={{ fontSize: 16 }} />
+              )}
+            </IconButton>
+          </span>
+        </Tooltip>
+
+        <Tooltip title="フォーカスする" disableInteractive>
+          <span>
+            <IconButton
+              size="small"
+              sx={ICON_BUTTON_SX}
+              disabled={disabled || !isPclodDone || !isVisible}
+              onClick={onFocusFile}
+            >
+              <CenterFocusStrongIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+
+        <Tooltip title="その他" disableInteractive>
+          <span>
+            <IconButton
+              size="small"
+              sx={ICON_BUTTON_SX}
+              disabled={disabled}
+              onClick={(e) => onMenuOpen?.(e.currentTarget)}
+            >
+              <MoreVertIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Box>
+    </Box>
+  );
+}
+
+type ContractFileSidebarProps = {
+  pendingUploads: PendingUploads;
+  headerActions?: ReactNode;
+};
+
+/**
+ * SDK の useContractFileActions フックを使って自作したファイル一覧パネル。
+ * RCDE のプロバイダ配下（auxiliaryContent など）に置くこと。
+ */
+export function ContractFileSidebar({ pendingUploads, headerActions }: ContractFileSidebarProps) {
+  const { rows, toggleVisibility, focusFile, downloadFile, getFileStatus, isPclodCompleted } =
+    useContractFileActions(pendingUploads);
+
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [menuFile, setMenuFile] = useState<ContractFile | undefined>(undefined);
+  const [hoveredStatus, setHoveredStatus] = useState<HoveredFileStatus | null>(null);
+
+  const handleMenuClose = useCallback(() => {
+    setMenuAnchor(null);
+    setMenuFile(undefined);
+  }, []);
+
+  const handleDownload = useCallback(() => {
+    if (menuFile !== undefined) {
+      void downloadFile(menuFile);
+    }
+    handleMenuClose();
+  }, [menuFile, downloadFile, handleMenuClose]);
+
+  const handleHoverStart = useCallback((hovered: HoveredFileStatus) => {
+    setHoveredStatus(hovered);
+  }, []);
+
+  const handleHoverEnd = useCallback((rowKey: string) => {
+    setHoveredStatus((prev) => (prev?.rowKey === rowKey ? null : prev));
+  }, []);
+
+  // ホバー開始時点の値を固定せず、再取得のたびに最新のラベルを引き直す
+  const hoveredRowStatus =
+    hoveredStatus === null ? null : findRowStatus(rows, hoveredStatus.rowKey, getFileStatus);
+
+  return (
+    <Box
+      sx={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        bottom: 0,
+        width: SIDEBAR_WIDTH,
+        display: "flex",
+        flexDirection: "column",
+        bgcolor: "background.paper",
+        borderRight: 1,
+        borderColor: "divider",
+        zIndex: 10,
+        pointerEvents: "auto",
+        overflow: "hidden",
+      }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 2,
+          py: 1.5,
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
+      >
+        <Typography variant="subtitle1" fontWeight={600}>
+          ファイル
+        </Typography>
+        {headerActions}
+      </Box>
+
+      <Box sx={{ flex: 1, overflow: "auto", px: 1, py: 1 }}>
+        {rows.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ px: 1, py: 2 }}>
+            ファイルがありません
+          </Typography>
+        ) : (
+          rows.map((row) => {
+            const rowKey = rowKeyOf(row);
+
+            if (row.type === "pending") {
+              return (
+                <FileRow
+                  key={rowKey}
+                  rowKey={rowKey}
+                  filename={row.name}
+                  uploadStatus="uploading"
+                  pclodStatus="none"
+                  isPclodDone={false}
+                  isVisible={false}
+                  disabled
+                  onHoverStart={handleHoverStart}
+                  onHoverEnd={handleHoverEnd}
+                />
+              );
+            }
+
+            const { file, visible } = row.container;
+            const status = getFileStatus(file);
+            const pclodDone = isPclodCompleted(file);
+
+            return (
+              <FileRow
+                key={file.id}
+                rowKey={rowKey}
+                filename={file.name}
+                uploadStatus={status.upload}
+                pclodStatus={status.pclod}
+                isPclodDone={pclodDone}
+                isVisible={visible}
+                onHoverStart={handleHoverStart}
+                onHoverEnd={handleHoverEnd}
+                onVisibilityToggle={() => toggleVisibility(row.container)}
+                onFocusFile={() => void focusFile(file)}
+                onMenuOpen={(el) => {
+                  setMenuAnchor(el);
+                  setMenuFile(file);
+                }}
+              />
+            );
+          })
+        )}
+      </Box>
+
+      {hoveredStatus !== null && hoveredRowStatus !== null && (
+        <FileStatusHoverPopper
+          anchorEl={hoveredStatus.anchorEl}
+          uploadStatus={hoveredRowStatus.upload}
+          pclodStatus={hoveredRowStatus.pclod}
+        />
+      )}
+
+      <Menu anchorEl={menuAnchor} open={menuAnchor !== null} onClose={handleMenuClose}>
+        <MenuItem onClick={handleDownload}>ダウンロード</MenuItem>
+      </Menu>
+    </Box>
+  );
+}
+
+/** サイドバーヘッダーに置くアップロードボタン */
+export function SidebarUploadButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button size="small" variant="outlined" startIcon={<UploadFileIcon />} onClick={onClick}>
+      アップロード
+    </Button>
+  );
+}

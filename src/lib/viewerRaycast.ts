@@ -33,7 +33,7 @@ export type RaycastView = {
   id?: number;
 };
 
-export type RaycastResult<T extends RaycastView> = {
+type RaycastResult<T extends RaycastView> = {
   view: T;
   distance: number;
   intersectionPoint: Vector3;

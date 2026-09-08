@@ -1,8 +1,8 @@
 # サイドバー機能 確認チェックリスト
 
-レフト/ライトサイドバーから切り出した機能（`useContractFileActions` フック / example の `ContractFileSidebar`）の動作確認項目。
+レフト/ライトサイドバーから切り出した機能（`useContractFileActions` フック / examples/standalone の `ContractFileSidebar`）の動作確認項目。
 
-- 確認場所: example アプリ `/viewer` → 現場・契約を選択後の画面
+- 確認場所: examples/standalone アプリ `/viewer` → 現場・契約を選択後の画面
 - 前提: PCLOD 済みの点群ファイルを含む契約
 - 関連ロジックの自動テスト: `src/hooks/useContractFileActions.test.ts`
 
@@ -16,9 +16,15 @@
 
 ## 2. ステータス表示（`getFileStatus`）
 
-- [ ] 各行に「アップロード: xxx」チップが表示される
-- [ ] 各行に「PCLOD: xxx」チップが表示される
-- [ ] アップロード中の行は「アップロード: アップロード中 / PCLOD: -」になる
+`getFileStatus` は日本語ラベルではなく状態値（`upload`: `uploading` / `uploaded`、`pclod`: `none` / `waiting` / `processing` / `completed` / `failed` / `unknown`）を返す。文言は example 側の写像で決まる。
+
+- [ ] 通常時、各行はファイル名 1 行と左の状態アイコンのみ（Chip は常時表示しない）
+- [ ] 行にホバーすると右側に Popper が開き、「アップロード」「PCLOD処理」の 2 行で状態が表示される
+- [ ] アップロード追跡中の行は `upload: uploading` / `pclod: none` になる（表示は「アップロード中」「-」）
+- [ ] PCLOD が失敗したファイルは `pclod: failed` になり、表示が「失敗」になる
+- [ ] `pclod: failed` の行は表示切替・フォーカスとも無効のままで、待機中の表示に戻らない
+- [ ] Tab キーで行にフォーカスすると、ホバー時と同じ Popper が開く
+- [ ] 左の状態アイコンにポインタを重ねると「アップロード: … / PCLOD: …」のツールチップが出る（読み上げ用の名前も同じ）
 
 ## 3. 表示/非表示切替（`toggleVisibility`）
 

@@ -1,15 +1,25 @@
 export * from "./components/RCDE";
 export * from "./bridge/viewerBridge";
-export { RCDEClient, type AuthType, type RCDEClientOptions } from "./lib/rcde-client";
 export {
-  deriveFileStatusLabels,
+  RCDEClient,
+  type AuthType,
+  type RCDEClientOptions,
+  type BatchProcessingResult,
+} from "./lib/rcde-client";
+export {
+  BATCH_PROCESSING_STATUS,
+  isBatchProcessingStatus,
+  type BatchProcessingStatus,
+} from "./lib/batchProcessingStatus";
+export {
+  deriveFileStatus,
   isPclodCompleted,
   isFileStatusActive,
   type PendingUploads,
   type PendingUpload,
-  type FileStatusLabels,
-  type UploadStatusLabel,
-  type PclodStatusLabel,
+  type FileStatus,
+  type UploadStatus,
+  type PclodStatus,
 } from "./lib/contractFileStatus";
 export {
   useContractFileActions,
@@ -43,23 +53,9 @@ export {
   type ContractFile,
   type ContractFileContainer,
 } from "./contexts/contractFiles";
-export { GlobalStateContext } from "./contexts/state";
 export { ContractFileView } from "./components/ContractFileView";
 export type { ContractFileProps } from "./components/ContractFileView";
-export {
-  MeasurementProvider,
-  useMeasurement,
-  MeasurementContext,
-  type MeasurementContextProps,
-} from "./contexts/measurement";
 export { MeasurementHandler, type MeasurementHandlerProps } from "./components/MeasurementHandler";
 export { MeasurementView } from "./components/MeasurementView";
 export { ReferencePointAxis } from "./components/ReferencePointAxis";
 export type { ReferencePointAxisProps } from "./components/ReferencePointAxis";
-export { CrossSectionHandler, CrossSectionPlane } from "./components/CrossSectionHandler";
-export {
-  ClippingPlanesProvider,
-  useClippingPlanes,
-  ClippingPlanesContext,
-  type ClippingPlanesContextProps,
-} from "./contexts/clippingPlanes";
