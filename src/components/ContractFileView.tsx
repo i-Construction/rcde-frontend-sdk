@@ -153,9 +153,12 @@ const ContractFileView = ({
   );
 
   // memoryMonitoring の ON/OFF で onMemoryEstimateChange が切り替わると
-  // loader 参照も変わるが、PNG キャッシュは file/meta 単位で保持しているため
+  // 参照も変わるが、PNG キャッシュは file/meta 単位で保持しているため
   // 同一タイルのネットワーク再取得は避けられる。
-  const loader: PointCloudLODLoader<PngBuffer> = useCallback(
+  //
+  // 失敗時は素直に reject する。SDK 内部からはこちらを直接使い、
+  // pcd-viewer へ渡すのは下の loader（reject を漏らさない版）。
+  const loadTileCached: PointCloudLODLoader<PngBuffer> = useCallback(
     (props) => {
       const pngBufferCache = cacheStateRef.current.pngBufferCache;
       const { address, color } = props;
@@ -216,6 +219,25 @@ const ContractFileView = ({
     [client, project, file, registerTileMemory]
   );
 
+  // pcd-viewer の PointCloudGrid は loader の戻り値に catch を付けずに then だけを繋ぐ。
+  // そのまま reject を返すと unhandled rejection になり、1 タイルの失敗がアプリ全体の
+  // エラーとして飛ぶ（dev ではオーバーレイが出る）。
+  //
+  // かといって空タイルで resolve すると「読めた」と解釈されて子 LOD の読み込みへ降りてしまい、
+  // 壊れたファイルの数だけ無駄なリクエストが増える。読めなかったことを伝える手段が
+  // loader の戻り値には無いので、解決しない Promise を返して先へ進ませない。
+  // reject と同じく後続の then は動かず、grid は Loading のまま据え置かれる。
+  const loader: PointCloudLODLoader<PngBuffer> = useCallback(
+    (props) =>
+      loadTileCached(props).catch((error: unknown) => {
+        console.warn("[ContractFileView] failed to load tile", error);
+        // loadTileCached が失敗したキーをキャッシュから外しているので、
+        // 次に呼ばれたときは再取得が走る（一時的な通信エラーから復帰できる）。
+        return new Promise<PngBuffer>(() => {});
+      }),
+    [loadTileCached]
+  );
+
   useEffect(() => {
     fileIdRef.current = file.id;
     onMemoryEstimateChangeRef.current = onMemoryEstimateChange;
@@ -230,9 +252,11 @@ const ContractFileView = ({
       if (meta?.version !== undefined) {
         try {
           // load initial position data and check for intensity
+          // 解決しない loader ではなく loadTileCached を使う。失敗を catch できないと
+          // 下の setInit(true) に到達せず、このファイルが何も描画されなくなる。
           const {
             position: { data },
-          } = await loader({
+          } = await loadTileCached({
             address: {
               lod: 0,
               coordinate: {
@@ -254,7 +278,7 @@ const ContractFileView = ({
       }
       setInit(true);
     })();
-  }, [meta, loader]);
+  }, [meta, loadTileCached]);
 
   useEffect(() => {
     return () => {
