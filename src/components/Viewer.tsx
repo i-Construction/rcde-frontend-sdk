@@ -157,6 +157,12 @@ export type ViewerProps = {
   onObjectClick?: (event: ViewerClickEvent) => void;
   onObjectHover?: (event: ViewerHoverEvent) => void;
   memoryMonitoring?: ViewerMemoryMonitoringOptions;
+  /**
+   * `false` を渡すとクリックイベントによるオブジェクト選択を無効化する。
+   * 計測モード中に実装者側で明示的に無効化する用途。
+   * @default true
+   */
+  clickEnabled?: boolean;
 };
 
 /**
@@ -169,12 +175,20 @@ const DEFAULT_APPEARANCE: Pick<ViewerAppearance, "pointSize" | "opacity"> = {
   opacity: 100,
 };
 
+/**
+ * MeasurementHandler がクリックを消費済みであることを示すフラグ。
+ * stopImmediatePropagation の代わりにイベントオブジェクトへ付与し、
+ * 実装者のリスナーを巻き込まずに SDK 内部の ClickHandler のみ抑制する。
+ */
+export const RCDE_CLICK_HANDLED = "__rcde_measurement_handled";
+
 const ClickHandler: FC<{
   views: (ContractFileProps & { boundingBox: Box3 })[];
   referencePoint: Vector3;
   onContractFileClick?: (file: ContractFile | undefined, boundingBox: Box3 | undefined) => void;
   onObjectClick?: (event: ViewerClickEvent) => void;
-}> = ({ views, referencePoint, onContractFileClick, onObjectClick }) => {
+  clickEnabled: boolean;
+}> = ({ views, referencePoint, onContractFileClick, onObjectClick, clickEnabled }) => {
   const { camera, gl } = useThree();
   const raycaster = useMemo(() => new Raycaster(), []);
   const getNdc = useMouseNdcPosition({ canvas: gl.domElement });
@@ -184,6 +198,7 @@ const ClickHandler: FC<{
   const cameraRef = useRef(camera);
   const onContractFileClickRef = useRef(onContractFileClick);
   const onObjectClickRef = useRef(onObjectClick);
+  const clickEnabledRef = useRef(clickEnabled);
 
   useLayoutEffect(() => {
     viewsRef.current = views;
@@ -191,10 +206,13 @@ const ClickHandler: FC<{
     cameraRef.current = camera;
     onContractFileClickRef.current = onContractFileClick;
     onObjectClickRef.current = onObjectClick;
+    clickEnabledRef.current = clickEnabled;
   });
 
   const handleClick = useCallback(
     (event: MouseEvent) => {
+      if (!clickEnabledRef.current) return;
+      if ((event as unknown as Record<string, boolean>)[RCDE_CLICK_HANDLED]) return;
       if (!onContractFileClickRef.current && !onObjectClickRef.current) return;
 
       const pointer = getNdc(event);
@@ -427,6 +445,7 @@ const Viewer: FC<ViewerProps> = (props) => {
     onObjectClick,
     onObjectHover,
     memoryMonitoring,
+    clickEnabled = true,
   } = props;
   const { initialize, client, project, setProject } = useClient();
   const { point } = useReferencePoint();
@@ -1118,6 +1137,7 @@ const Viewer: FC<ViewerProps> = (props) => {
                 referencePoint={point}
                 onContractFileClick={onContractFileClick}
                 onObjectClick={onObjectClick}
+                clickEnabled={clickEnabled}
               />
             )}
             {onObjectHover && (

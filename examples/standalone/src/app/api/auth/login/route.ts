@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getStoredToken } from "@/lib/auth-store";
+import { isExpiringSoon } from "@/lib/rcde-auth-common";
 import { authenticate2Legged } from "@/lib/rcde-auth-login";
 
 /**
@@ -8,7 +9,8 @@ import { authenticate2Legged } from "@/lib/rcde-auth-login";
  */
 export async function GET(request: Request) {
   const existing = await getStoredToken();
-  if (existing) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (existing && !isExpiringSoon(existing.expiresAt, nowSec)) {
     return NextResponse.redirect(new URL("/viewer", request.url));
   }
 

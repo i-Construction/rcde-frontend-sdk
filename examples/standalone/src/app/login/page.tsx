@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getStoredToken } from "@/lib/auth-store";
+import { isExpiringSoon } from "@/lib/rcde-auth-common";
 import { LoginError } from "./LoginError";
 
 type SearchParams = {
@@ -14,7 +15,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   }
 
   const token = await getStoredToken();
-  if (token) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (token && !isExpiringSoon(token.expiresAt, nowSec)) {
     redirect("/viewer");
   }
 

@@ -38,6 +38,7 @@ export type {
 } from "./lib/viewerMemory";
 export {
   Viewer,
+  RCDE_CLICK_HANDLED,
   type RCDEAppConfig,
   type ViewerProps,
   type ViewerClickEvent,
