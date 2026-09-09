@@ -33,6 +33,7 @@ import {
   evaluateViewerMemoryAlert,
   type ViewerFileMemoryEstimate,
   type ViewerMemoryAlertLevel,
+  type ViewerMemoryAlertLevels,
   type ViewerMemoryMonitoringOptions,
   type ViewerMemorySample,
   type ViewerMemorySource,
@@ -484,6 +485,8 @@ const Viewer: FC<ViewerProps> = (props) => {
   const precisePageMeasurementInFlightRef = useRef(false);
   const isMountedRef = useRef(true);
   const memoryAlertLevelRef = useRef<ViewerMemoryAlertLevel | undefined>(undefined);
+  // ヒステリシスは対象ごとに独立して効かせるため、統合レベルとは別に対象別レベルも保持する。
+  const memoryAlertLevelsRef = useRef<ViewerMemoryAlertLevels>({});
   const emitMemorySampleRef = useRef<(opts?: { force?: boolean }) => void>(() => {});
   const refreshPrecisePageMemoryRef = useRef<() => Promise<void>>(async () => {});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -496,7 +499,7 @@ const Viewer: FC<ViewerProps> = (props) => {
   // 書き手は下のコマンドハンドラだけで、初期値はここで state から取る。
   const appearanceRef = useRef(appearance);
   const isMemoryMonitoringEnabled = memoryMonitoring?.enabled === true;
-  const memorySampleIntervalMs = Math.max(memoryMonitoring?.sampleIntervalMs ?? 15000, 1000);
+  const memorySampleIntervalMs = Math.max(memoryMonitoring?.sampleIntervalMs ?? 10000, 1000);
 
   const clearMemoryAlertLevel = useCallback(() => {
     const previousLevel = memoryAlertLevelRef.current;
@@ -509,6 +512,7 @@ const Viewer: FC<ViewerProps> = (props) => {
       activeMonitoringRef.current = undefined;
     }
     memoryAlertLevelRef.current = undefined;
+    memoryAlertLevelsRef.current = {};
     lastEmittedMemorySampleRef.current = undefined;
   }, []);
 
@@ -862,12 +866,14 @@ const Viewer: FC<ViewerProps> = (props) => {
       }
 
       const previousLevel = memoryAlertLevelRef.current;
-      const { nextLevel, alert } = evaluateViewerMemoryAlert({
+      const { nextLevel, nextLevels, alert } = evaluateViewerMemoryAlert({
         sample,
         thresholds: options?.thresholds,
         previousLevel,
+        previousLevels: memoryAlertLevelsRef.current,
       });
       memoryAlertLevelRef.current = nextLevel;
+      memoryAlertLevelsRef.current = nextLevels;
 
       if (nextLevel !== previousLevel) {
         try {

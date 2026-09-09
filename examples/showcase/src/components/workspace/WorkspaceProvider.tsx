@@ -19,8 +19,9 @@ import type {
   ViewerMemoryAlertLevel,
   ViewerMemoryMonitoringOptions,
   ViewerMemorySample,
+  ViewerMemoryThreshold,
   ViewerMemoryThresholds,
-  ViewerMemoryThresholdSource,
+  ViewerMemoryThresholdTarget,
 } from "@i-con/frontend-sdk";
 import { MEBIBYTE, formatBytes } from "@/lib/format";
 
@@ -43,22 +44,30 @@ export type R3FFlags = {
 export type AxisConfig = Required<Pick<ReferencePointAxisProps, "visible" | "length" | "width">>;
 
 /**
+ * `ViewerMemoryThreshold` を MiB 単位で編集するための、監視対象 1 つ分の設定。
+ *
+ * `enabled` を OFF にすると `thresholds` からその対象ごと外れ、SDK 側では判定されない。
+ */
+export type MemoryTargetConfig = {
+  enabled: boolean;
+  warningMiB: number;
+  criticalMiB: number;
+  /** 閾値を下回ったと判定するまでの戻り幅（ヒステリシス）。 */
+  hysteresisMiB: number;
+};
+
+/**
  * `ViewerMemoryThresholds` を MiB 単位で編集するための設定。
  *
- * SDK の閾値は「複数対象を同時に監視する」形ではなく、`source` で選んだ 1 つの観測値に
- * 対して warning / critical を判定する形になっている。そのため設定もフラットに持つ。
+ * SDK の閾値は estimate / jsHeap / page の 3 値それぞれに独立して設定する形なので、
+ * UI 側の設定も対象ごとに持つ。
  */
 export type MemoryConfig = {
   enabled: boolean;
   sampleIntervalMs: number;
   /** 閾値を渡すかどうか。`thresholds` 自体を省略すると監視はサンプル収集だけになる。 */
   thresholdsEnabled: boolean;
-  /** 閾値と比較する観測値の選び方。 */
-  source: ViewerMemoryThresholdSource;
-  warningMiB: number;
-  criticalMiB: number;
-  /** 閾値を下回ったと判定するまでの戻り幅（ヒステリシス）。 */
-  hysteresisMiB: number;
+  targets: Record<ViewerMemoryThresholdTarget, MemoryTargetConfig>;
 };
 
 export type EventLogEntry = {
@@ -126,23 +135,30 @@ type WorkspaceContextValue = {
 
 const MAX_EVENTS = 60;
 
+/**
+ * 3 値は測る範囲が違う（Viewer 推定 < JS ヒープ < ページ全体）ため、既定の閾値も桁を分ける。
+ * `sampleIntervalMs` は SDK の既定値と同じ 10 秒。
+ */
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   enabled: false,
   sampleIntervalMs: 10000,
   thresholdsEnabled: true,
-  source: "max-available",
-  warningMiB: 512,
-  criticalMiB: 768,
-  hysteresisMiB: 32,
+  targets: {
+    estimate: { enabled: true, warningMiB: 256, criticalMiB: 384, hysteresisMiB: 32 },
+    jsHeap: { enabled: true, warningMiB: 512, criticalMiB: 768, hysteresisMiB: 32 },
+    page: { enabled: true, warningMiB: 1024, criticalMiB: 1536, hysteresisMiB: 32 },
+  },
 };
 
-/** `ViewerMemoryThresholdSource` の 4 値に対応する日本語ラベル。 */
-export const MEMORY_SOURCE_LABELS: Record<ViewerMemoryThresholdSource, string> = {
+/** `ViewerMemoryThresholdTarget` の 3 値に対応する日本語ラベル。 */
+export const MEMORY_TARGET_LABELS: Record<ViewerMemoryThresholdTarget, string> = {
   estimate: "Viewer 推定値（estimatedViewerBytes）",
-  "js-heap": "JS ヒープ（jsHeapBytes）",
+  jsHeap: "JS ヒープ（jsHeapBytes）",
   page: "ページ全体（pageBytes）",
-  "max-available": "取得できた値の最大（既定）",
 };
+
+/** 表示順を固定するための対象一覧。 */
+export const MEMORY_TARGETS: ViewerMemoryThresholdTarget[] = ["estimate", "jsHeap", "page"];
 
 const WorkspaceContext = createContext<WorkspaceContextValue | undefined>(undefined);
 
@@ -230,13 +246,21 @@ export function WorkspaceProvider({
   // ViewerMemoryMonitoringOptions を組み立てる。
   // thresholds を省略すると SDK は onSample だけを呼び、アラート判定を行わない。
   const memoryMonitoring = useMemo<ViewerMemoryMonitoringOptions>(() => {
+    // 対象ごとに ON/OFF できるので、OFF の対象はキーごと落として SDK に渡す。
+    // すべて OFF なら空オブジェクトになり、判定対象なしとして扱われる。
     const thresholds: ViewerMemoryThresholds | undefined = memoryConfig.thresholdsEnabled
-      ? {
-          source: memoryConfig.source,
-          warningBytes: memoryConfig.warningMiB * MEBIBYTE,
-          criticalBytes: memoryConfig.criticalMiB * MEBIBYTE,
-          hysteresisBytes: memoryConfig.hysteresisMiB * MEBIBYTE,
-        }
+      ? MEMORY_TARGETS.reduce<ViewerMemoryThresholds>((acc, target) => {
+          const targetConfig = memoryConfig.targets[target];
+          if (targetConfig.enabled) {
+            const threshold: ViewerMemoryThreshold = {
+              warningBytes: targetConfig.warningMiB * MEBIBYTE,
+              criticalBytes: targetConfig.criticalMiB * MEBIBYTE,
+              hysteresisBytes: targetConfig.hysteresisMiB * MEBIBYTE,
+            };
+            acc[target] = threshold;
+          }
+          return acc;
+        }, {})
       : undefined;
 
     return {
@@ -248,9 +272,14 @@ export function WorkspaceProvider({
       },
       onAlert: (alert) => {
         setLastAlert(alert);
-        const message = `${MEMORY_SOURCE_LABELS[memoryConfig.source]} が閾値を超過（${formatBytes(
-          alert.observedBytes
-        )} / 閾値 ${formatBytes(alert.thresholdBytes)}）`;
+        const message = alert.breaches
+          .map(
+            (breach) =>
+              `${MEMORY_TARGET_LABELS[breach.target]} ${formatBytes(
+                breach.observedBytes
+              )}（閾値 ${formatBytes(breach.thresholdBytes)}）`
+          )
+          .join(" / ");
         if (alert.level === "critical") {
           toast.error(`メモリ危険域: ${message}`);
         } else {

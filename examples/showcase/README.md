@@ -17,20 +17,20 @@ SDK が export しているコンポーネント・フック・クラス・ユ�
 
 ## できること
 
-| 分類              | 内容                                                                                                                                               |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 点群ビューア      | `Viewer` を `contractFileIds` 以外の全 prop 指定で表示。地図 / ライト / グリッド / ギズモ / 基準点軸の各 R3F オプションをツールバーから切り替え    |
-| ファイル一覧      | `useContractFileActions` の全メンバー（表示切替・フォーカス・ダウンロード・ステータス判定）と、`useContractFiles` の `load` / `updateFiles` の違い |
-| ステータス表示    | `deriveFileStatus` / `isPclodCompleted` / `isFileStatusActive` / `isBatchProcessingStatus` を使い、アップロード状態と PCLOD 変換状態を区別して表示 |
-| アップロード      | `uploadContractFile`（単発）と `uploadContractFileMultipart`（分割＋進捗）を選んで実行。アップロード中のファイルは一覧に仮の行として並ぶ           |
-| 距離計測          | `MeasurementHandler` で点を打ち、`MeasurementView` で確定線を常時表示                                                                              |
-| 基準点            | `useReferencePoint` の `point` / `change` / `focusFileById`。`ReferencePointAxis` を自前で描画して長さ・太さを変更                                 |
-| 表示・Transform   | `ViewerBridge` の `setAppearance` / `setTransform` / `reset` / `addListener`。`window.postMessage` 経由で外部から制御できることを確認できる        |
-| メモリ監視        | `memoryMonitoring` の全オプション。サンプリング間隔・閾値・判定ソースを変更しながら、サンプル / アラート / レベル変化の 3 コールバックを観察       |
-| イベント          | `onObjectClick` / `onObjectHover` / レガシーの `onContractFileClick` / `ViewerBridge.addListener` を 1 つのログに時系列で流す                      |
-| REST API          | `RCDEClient` の全 12 メソッドを引数を編集して実行し、レスポンス JSON をそのまま確認                                                                |
-| 独自 R3F レイヤー | `Viewer` の `children` / `positionOffsetComponent` / `auxiliaryContent` に自前の要素を差し込む。`ContractFileView` を単体で使ったコピー描画も含む  |
-| 最小構成デモ      | `RCDE` コンポーネントを 1 つ置くだけの構成をダイアログで別途表示。プロバイダを自分で並べる版との差が比較できる                                     |
+| 分類              | 内容                                                                                                                                                                 |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 点群ビューア      | `Viewer` を `contractFileIds` 以外の全 prop 指定で表示。地図 / ライト / グリッド / ギズモ / 基準点軸の各 R3F オプションをツールバーから切り替え                      |
+| ファイル一覧      | `useContractFileActions` の全メンバー（表示切替・フォーカス・ダウンロード・ステータス判定）と、`useContractFiles` の `load` / `updateFiles` の違い                   |
+| ステータス表示    | `deriveFileStatus` / `isPclodCompleted` / `isFileStatusActive` / `isBatchProcessingStatus` を使い、アップロード状態と PCLOD 変換状態を区別して表示                   |
+| アップロード      | `uploadContractFile`（単発）と `uploadContractFileMultipart`（分割＋進捗）を選んで実行。アップロード中のファイルは一覧に仮の行として並ぶ                             |
+| 距離計測          | `MeasurementHandler` で点を打ち、`MeasurementView` で確定線を常時表示                                                                                                |
+| 基準点            | `useReferencePoint` の `point` / `change` / `focusFileById`。`ReferencePointAxis` を自前で描画して長さ・太さを変更                                                   |
+| 表示・Transform   | `ViewerBridge` の `setAppearance` / `setTransform` / `reset` / `addListener`。`window.postMessage` 経由で外部から制御できることを確認できる                          |
+| メモリ監視        | `memoryMonitoring` の全オプション。サンプリング間隔と estimate / jsHeap / page それぞれの閾値を変更しながら、サンプル / アラート / レベル変化の 3 コールバックを観察 |
+| イベント          | `onObjectClick` / `onObjectHover` / レガシーの `onContractFileClick` / `ViewerBridge.addListener` を 1 つのログに時系列で流す                                        |
+| REST API          | `RCDEClient` の全 12 メソッドを引数を編集して実行し、レスポンス JSON をそのまま確認                                                                                  |
+| 独自 R3F レイヤー | `Viewer` の `children` / `positionOffsetComponent` / `auxiliaryContent` に自前の要素を差し込む。`ContractFileView` を単体で使ったコピー描画も含む                    |
+| 最小構成デモ      | `RCDE` コンポーネントを 1 つ置くだけの構成をダイアログで別途表示。プロバイダを自分で並べる版との差が比較できる                                                       |
 
 ## セットアップ
 

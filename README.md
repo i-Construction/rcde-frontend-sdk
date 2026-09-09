@@ -211,12 +211,21 @@ const App = () => {
   const memoryMonitoring = useMemo<ViewerMemoryMonitoringOptions>(
     () => ({
       enabled: true,
-      sampleIntervalMs: 15000,
+      sampleIntervalMs: 10000,
       thresholds: {
-        warningBytes: 256 * MEBIBYTE,
-        criticalBytes: 384 * MEBIBYTE,
-        source: "max-available",
-        hysteresisBytes: 32 * MEBIBYTE,
+        estimate: {
+          warningBytes: 256 * MEBIBYTE,
+          criticalBytes: 384 * MEBIBYTE,
+          hysteresisBytes: 32 * MEBIBYTE,
+        },
+        jsHeap: {
+          warningBytes: 512 * MEBIBYTE,
+          criticalBytes: 768 * MEBIBYTE,
+        },
+        page: {
+          warningBytes: 1024 * MEBIBYTE,
+          criticalBytes: 1536 * MEBIBYTE,
+        },
       },
       onSample: (sample) => {
         setLastSample(sample);
@@ -247,14 +256,23 @@ const App = () => {
 主な設定項目は以下の通りです。
 
 - `enabled`: `true` を明示した場合のみ監視を有効化します。省略時は無効です。
-- `sampleIntervalMs`: 定期サンプリングの基準間隔です。短くしすぎるとブラウザ負荷が上がるため、`10000` から `30000` ミリ秒程度を推奨します。精密メモリ計測が解決したタイミングでは、この間隔とは別に追加サンプルが発火することがあります。
-- `thresholds.warningBytes`: 警告レベルの閾値です。
-- `thresholds.criticalBytes`: 危険レベルの閾値です。
-- `thresholds.source`: 閾値判定に使う値です。`"estimate"`、`"js-heap"`、`"page"`、`"max-available"` を選べます。未指定時は `"max-available"` として扱います。
-- `thresholds.hysteresisBytes`: 閾値付近で警告が連続発火しないようにする戻り幅です。
+- `sampleIntervalMs`: 定期サンプリングの基準間隔です。未指定時は `10000` ミリ秒です。短くしすぎるとブラウザ負荷が上がるため、`10000` から `30000` ミリ秒程度を推奨します。下限は `1000` ミリ秒にクランプされます。精密メモリ計測が解決したタイミングでは、この間隔とは別に追加サンプルが発火することがあります。
+- `thresholds`: 監視対象ごとの閾値です。`estimate`（`estimatedViewerBytes`）、`jsHeap`（`jsHeapBytes`）、`page`（`pageBytes`）の 3 つを個別に設定でき、指定した対象だけが判定されます。3 つの値はどの設定でも常に取得され、`onSample` から参照できます。
+- `thresholds.<対象>.warningBytes`: その対象の警告レベルの閾値です。
+- `thresholds.<対象>.criticalBytes`: その対象の危険レベルの閾値です。
+- `thresholds.<対象>.hysteresisBytes`: 閾値付近で警告が連続発火しないようにする戻り幅です。省略時は 32 MiB です。
 - `onSample`: サンプル取得時のコールバックです。
 - `onAlert`: 閾値超過時のコールバックです。
 - `onAlertLevelChange`: アラートレベルが変化したときのコールバックです。`undefined` を受け取ったときは警告解除に利用できます。解除時に渡される `sample` は直前に発火した値のため、`sample.timestamp` が現在時刻より古い場合があります。`memoryMonitoring` プロップを外して無効化した場合、解除通知は最後に有効だった時点のコールバックが呼ばれます。
+
+`onAlert` で受け取れる `ViewerMemoryAlert` は、対象ごとの判定結果をまとめた形になっています。
+
+- `level`: 超過した対象のうち最も高いレベルです。`onAlertLevelChange` に渡るレベルと一致します。
+- `breaches`: 閾値を超えた対象の一覧です。各要素は `target`（`"estimate" | "jsHeap" | "page"`）、`level`、`thresholdBytes`、`observedBytes` を持ちます。レベルと超過幅の大きい順に並ぶため、代表値として `breaches[0]` を使えます。
+- `observedBytes`: そのサンプルで観測した 3 値（`estimateBytes` / `jsHeapBytes` / `pageBytes`）です。取得できなかった値は `undefined` です。
+- `sample`: 判定に使った `ViewerMemorySample` です。
+
+判定とヒステリシスは対象ごとに独立して動きます。たとえば `jsHeap` が warning のまま `page` が critical に達した場合、通知されるレベルは `critical` になり、`breaches` には両方が含まれます。
 
 `onSample` で受け取れる `ViewerMemorySample` には、主に以下の値が含まれます。
 
@@ -270,8 +288,8 @@ const App = () => {
 > 注意:
 >
 > - `pageBytes` を返す `performance.measureUserAgentSpecificMemory()` はブラウザ依存で、利用できない環境があります。
-> - `thresholds.source` に `"page"` や `"js-heap"` を指定しても、その値を取得できない環境では閾値判定は発火しません。
-> - `"max-available"` はブラウザや実行環境に応じて `pageBytes` / `jsHeapBytes` / `estimatedViewerBytes` のどれを使うかが変わるため、同じ閾値でも挙動が一致しないことがあります。
+> - `page` や `jsHeap` に閾値を設定しても、その値を取得できない環境では判定がスキップされます。どの環境でも必ず判定させたい場合は `estimate` にも閾値を設定してください。
+> - 3 つの値は測る対象が異なります（Viewer 推定値 < JS ヒープ < ページ全体）。同じ数値を 3 つに設定すると `page` だけが先に発火し続けるため、対象ごとに桁を分けて設定してください。
 > - ブラウザから GPU / WebGL メモリを厳密に取得することは難しいため、SDK では Viewer 推定値をベースに監視します。
 > - `estimatedViewerBytes` は PNG キャッシュ保持量ベースのため、ファイルのアンマウントまたは `meta.version` 変更時にリセットされます。
 > - タイル集計の flush は `requestAnimationFrame` ベースのため、バックグラウンドタブでは推定値更新が遅延または停止することがあります。
