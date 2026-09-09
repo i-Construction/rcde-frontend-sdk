@@ -9,6 +9,7 @@ import {
   type ViewerMemoryAlert,
   type ViewerMemoryAlertLevel,
   type ViewerMemorySample,
+  type ViewerMemoryThresholdTarget,
 } from "@i-con/frontend-sdk";
 import { Alert, Box, Divider, Typography } from "@mui/material";
 import { useCallback, useMemo, useState } from "react";
@@ -22,6 +23,12 @@ import { ViewerHeader } from "@/components/ViewerHeader";
 /** SDK の ReferencePointView より上にツールバーを置くオフセット（px） */
 const VIEWER_TOOLBAR_BOTTOM_OFFSET = 48;
 const MEBIBYTE = 1024 * 1024;
+
+const MEMORY_TARGET_LABELS: Record<ViewerMemoryThresholdTarget, string> = {
+  estimate: "Viewer 推定",
+  jsHeap: "JS ヒープ",
+  page: "ページ全体",
+};
 
 function formatMiB(bytes?: number): string {
   if (bytes === undefined) {
@@ -135,12 +142,22 @@ export function ViewerClient({
   const memoryMonitoring = useMemo(
     () => ({
       enabled: true,
-      sampleIntervalMs: 15000,
+      sampleIntervalMs: 10000,
+      // 測る対象が異なるため、estimate / jsHeap / page で桁を分けて設定する
       thresholds: {
-        warningBytes: 256 * MEBIBYTE,
-        criticalBytes: 384 * MEBIBYTE,
-        source: "max-available" as const,
-        hysteresisBytes: 32 * MEBIBYTE,
+        estimate: {
+          warningBytes: 256 * MEBIBYTE,
+          criticalBytes: 384 * MEBIBYTE,
+          hysteresisBytes: 32 * MEBIBYTE,
+        },
+        jsHeap: {
+          warningBytes: 512 * MEBIBYTE,
+          criticalBytes: 768 * MEBIBYTE,
+        },
+        page: {
+          warningBytes: 1024 * MEBIBYTE,
+          criticalBytes: 1536 * MEBIBYTE,
+        },
       },
       onSample: handleMemorySample,
       onAlert: handleMemoryAlert,
@@ -219,8 +236,13 @@ export function ViewerClient({
               severity={memoryAlert.level === "critical" ? "error" : "warning"}
               sx={{ pointerEvents: "auto" }}
             >
-              3D 表示のメモリ使用量が閾値を超えました。現在値:{" "}
-              {formatMiB(memoryAlert.observedBytes)} / 閾値: {formatMiB(memoryAlert.thresholdBytes)}
+              3D 表示のメモリ使用量が閾値を超えました。
+              {memoryAlert.breaches.map((breach) => (
+                <span key={breach.target} style={{ display: "block" }}>
+                  {MEMORY_TARGET_LABELS[breach.target]}: {formatMiB(breach.observedBytes)} / 閾値:{" "}
+                  {formatMiB(breach.thresholdBytes)}
+                </span>
+              ))}
             </Alert>
           )}
           <Box
@@ -238,7 +260,10 @@ export function ViewerClient({
               Viewer 推定メモリ: {formatMiB(memorySample?.estimatedViewerBytes)}
             </Typography>
             <Typography variant="caption" component="div">
-              ページメモリ: {formatMiB(memorySample?.pageBytes ?? memorySample?.jsHeapBytes)}
+              JS ヒープ: {formatMiB(memorySample?.jsHeapBytes)}
+            </Typography>
+            <Typography variant="caption" component="div">
+              ページ全体: {formatMiB(memorySample?.pageBytes)}
             </Typography>
             <Typography variant="caption" component="div">
               タイル数: {memorySample?.loadedTileCount ?? 0} / ソース: {memorySample?.source ?? "-"}
