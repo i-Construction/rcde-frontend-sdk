@@ -30,12 +30,12 @@ React Three Fiber をベースに、点群表示、契約ファイルの一覧�
 
 ## 動作環境
 
-| 項目 | 内容 |
-| ---- | ---- |
-| React | 18.3 以上（19 でも動作します。下の peer 依存の注記を参照） |
-| ブラウザ | WebGL が使える環境。サーバーサイドでは描画しません |
-| TypeScript | 型定義同梱。利用側での追加パッケージは不要です |
-| モジュール | ESM（`import`）と CJS（`require`）の両方 |
+| 項目       | 内容                                                       |
+| ---------- | ---------------------------------------------------------- |
+| React      | 18.3 以上（19 でも動作します。下の peer 依存の注記を参照） |
+| ブラウザ   | WebGL が使える環境。サーバーサイドでは描画しません         |
+| TypeScript | 型定義同梱。利用側での追加パッケージは不要です             |
+| モジュール | ESM（`import`）と CJS（`require`）の両方                   |
 
 Next.js には依存していません。Next.js App Router から使う場合は、SDK のコンポーネントを描画する側に `"use client"` を付けてください。
 
@@ -185,18 +185,18 @@ const App = ({
 
 `RCDE` と `Viewer` は同じ props を受け取ります。よく使うものは次のとおりです。
 
-| Prop | 内容 |
-| ---- | ---- |
-| `constructionId` / `contractId` | 表示する現場と契約 |
-| `app` | API 接続設定 |
-| `contractFileIds` | 初回ロード時に表示するファイル ID。省略すると全件表示。ロード後の差し替えでは表示状態は変わりません |
-| `children` | React Three Fiber のシーン内に描画する子要素 |
-| `auxiliaryContent` | キャンバスの外（同じラッパー内）に置く HTML。ファイル一覧などを重ねるときに使う |
-| `positionOffsetComponent` | 基準点オフセットを加算した位置に置く R3F 要素 |
-| `r3f` | `canvas` / `map` / `light` / `grid` / `gizmo` / `referencePointAxis` の表示切り替え |
-| `onObjectClick` / `onObjectHover` | 点群のクリック・ホバー。`SET_TRANSFORM` 後の当たり判定には移動前の Bounding Box が使われます |
-| `memoryMonitoring` | メモリ監視。詳細は後述 |
-| `clickEnabled` | `false` でクリック選択を無効化。計測モード中に使います。既定は `true` |
+| Prop                              | 内容                                                                                                |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `constructionId` / `contractId`   | 表示する現場と契約                                                                                  |
+| `app`                             | API 接続設定                                                                                        |
+| `contractFileIds`                 | 初回ロード時に表示するファイル ID。省略すると全件表示。ロード後の差し替えでは表示状態は変わりません |
+| `children`                        | React Three Fiber のシーン内に描画する子要素                                                        |
+| `auxiliaryContent`                | キャンバスの外（同じラッパー内）に置く HTML。ファイル一覧などを重ねるときに使う                     |
+| `positionOffsetComponent`         | 基準点オフセットを加算した位置に置く R3F 要素                                                       |
+| `r3f`                             | `canvas` / `map` / `light` / `grid` / `gizmo` / `referencePointAxis` の表示切り替え                 |
+| `onObjectClick` / `onObjectHover` | 点群のクリック・ホバー。`SET_TRANSFORM` 後の当たり判定には移動前の Bounding Box が使われます        |
+| `memoryMonitoring`                | メモリ監視。詳細は後述                                                                              |
+| `clickEnabled`                    | `false` でクリック選択を無効化。計測モード中に使います。既定は `true`                               |
 
 最小構成は `RCDE` を 1 つ置くだけです。ビューアとファイル一覧を横並びにしたい場合は、後述の [ファイル一覧の操作](#ファイル一覧の操作usecontractfileactions) のとおり `Viewer` と Provider を自前で組んでください。
 
@@ -809,7 +809,6 @@ function Layout({ app, constructionId, contractId }) {
 - `@react-three/fiber` と `@react-three/drei` は対応する系列同士で使ってください（React 18 なら fiber 8 系 + drei 9 系、React 19 なら fiber 9 系 + drei 10 系）。
 - `ViewerBridge` は Three.js を直接制御しません。`window.postMessage` でコマンドを送り、`Viewer` の内部 state を経由して描画へ反映されます。
 - バージョン不一致でビルドエラーが出る場合は、`node_modules` を削除して再インストールしてください。
-
 
 リポジトリ: [i-Construction/rcde-frontend-sdk](https://github.com/i-Construction/rcde-frontend-sdk)
 Issue: [GitHub Issues](https://github.com/i-Construction/rcde-frontend-sdk/issues)
