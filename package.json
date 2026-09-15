@@ -1,6 +1,6 @@
 {
   "name": "@i-con/frontend-sdk",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "R-CDE の点群ビューアと契約ファイル API を React から利用するための SDK",
   "keywords": [
     "rcde",
