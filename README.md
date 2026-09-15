@@ -472,11 +472,25 @@ export function createRCDEClient(accessToken: string) {
 | `getConstruction(constructionId)`                                   | `Construction`          | 現場 1 件                                          |
 | `createConstruction(params)`                                        | レスポンス JSON         | 現場を作成する                                     |
 | `getContractList({ constructionId })`                               | `{ contracts }`         | 契約一覧                                           |
-| `createContract({ constructionId, name, contractedAt })`            | レスポンス JSON         | 契約を作成する                                     |
+| `createContract(params)`                                            | レスポンス JSON         | 契約を作成する（`2legged` のみ）                   |
 
 いずれも 2xx 以外のレスポンスを受けた時点で `Error` を throw します（戻り値で失敗を返しません）。
 
-> `createContract` は R-CDE が必須にしている項目をまだ送っていないため、現時点では 400 で失敗します。
+#### `createContract` の制約
+
+```ts
+await client.createContract({
+  constructionId,
+  name: "契約A",
+  contractedAt: new Date().toISOString(), // ISO 8601 の日時
+  unitPrice: 1200,
+  unitVolume: 34,
+});
+```
+
+- **`2legged` のみ対応**です。`authType: "3legged"` のクライアントで呼ぶと、リクエストを送る前に `Error` を throw します。R-CDE の 3-legged 契約作成 API は `contracteeEmail` / `contractorEmail` のどちらか一方を必須にし、さらにどちらを渡したかで呼び出し元が受注者か注文者かも変わるため、その引数を SDK がまだ持っていません。
+- `contractedAt` は **ISO 8601 の日時**で渡してください。R-CDE 側が `time.Time` のため、`2024-11-19` のような日付だけの文字列はリクエストの解釈時点で 400 になります。
+- `unitPrice` / `unitVolume` は **1 以上**を渡してください。R-CDE 側が符号なし整数の必須項目で、`0` は「未指定」と同じ扱いになり 400 になります。
 
 ### 大容量ファイルの分割アップロード（`uploadContractFileMultipart`）
 
@@ -631,7 +645,7 @@ const App = ({
 
 `ReferencePointAxis` を単体で使う場合は `Viewer` の子要素として配置できます。
 
-`ReferencePointAxis` は常にワールド原点に描画されます。`point` prop を渡しても位置は変わりません（後方互換のため prop 自体は残しています）。
+`ReferencePointAxis` は常にワールド原点に描画されます。描画位置を指定する prop はありません。
 
 カスタムオブジェクトを基準点オフセットの変化に追従させたい場合は、軸ギズモとは別に `<group position={point}>` でラップしてください（上記 Example 参照）。
 

@@ -47,6 +47,12 @@ const WRITE_ACTION_LABELS: Record<WriteAction, string> = {
  * - `getContractFileDownloadUrl(contractId, fileId)` — **位置引数 2 つ**
  * - `createConstruction(params)` / `createContract(params)` — オブジェクト
  *
+ * 書き込み系は SDK の型が任意にしている項目でも R-CDE 側が必須にしているものがあり、
+ * 省略すると HTTP 400 になる。このパネルは必須項目すべての入力欄を持たせてある
+ * （`createConstruction` は 6 項目、`createContract` は 5 項目）。
+ * `createContract` は 2legged 専用で、3legged のクライアントで呼ぶと SDK が送信前に throw する。
+ * このサンプルは `useRcdeSession` で 2legged 固定なので、その経路には入らない。
+ *
  * `uploadContractFile` / `uploadContractFileMultipart` はこのパネルでは扱わない。
  * ファイル選択とアップロード進捗の UI が必要なため、別途アップロードモーダル側で実装している。
  */
@@ -72,6 +78,9 @@ export function ApiPlaygroundPanel() {
   const [advancePaymentRate, setAdvancePaymentRate] = useState("");
   const [contractName, setContractName] = useState("");
   const [contractContractedAt, setContractContractedAt] = useState("");
+  // R-CDE が必須にしている項目なので、有効な最小値を初期値に入れておく（0 は 400 になる）
+  const [contractUnitPrice, setContractUnitPrice] = useState("1");
+  const [contractUnitVolume, setContractUnitVolume] = useState("1");
   const [pendingWrite, setPendingWrite] = useState<WriteAction | undefined>(undefined);
 
   if (client === undefined) {
@@ -138,11 +147,16 @@ export function ApiPlaygroundPanel() {
       toast.error("constructionId が未取得です");
       return;
     }
+    // `contractedAt` は ISO 8601 の日時でなければ R-CDE 側の解釈で 400 になるため、
+    // `Input type="date"` の値（YYYY-MM-DD）をそのまま渡さず `toIsoString` を通す。
+    // `unitPrice` / `unitVolume` は 1 以上でなければ 400 になるので、ボタン側で入力を縛っている。
     await run("createContract", () =>
       client.createContract({
         constructionId,
         name: contractName,
         contractedAt: toIsoString(contractContractedAt) ?? "",
+        unitPrice: Number(contractUnitPrice),
+        unitVolume: Number(contractUnitVolume),
       })
     );
   };
@@ -455,6 +469,30 @@ export function ApiPlaygroundPanel() {
               value={contractContractedAt}
               onChange={(event) => setContractContractedAt(event.target.value)}
             />
+            <Label className="text-xs" htmlFor="contract-unit-price">
+              単価（unitPrice）
+            </Label>
+            <Input
+              id="contract-unit-price"
+              type="number"
+              min={1}
+              step={1}
+              className="h-8 text-xs"
+              value={contractUnitPrice}
+              onChange={(event) => setContractUnitPrice(event.target.value)}
+            />
+            <Label className="text-xs" htmlFor="contract-unit-volume">
+              数量（unitVolume）
+            </Label>
+            <Input
+              id="contract-unit-volume"
+              type="number"
+              min={1}
+              step={1}
+              className="h-8 text-xs"
+              value={contractUnitVolume}
+              onChange={(event) => setContractUnitVolume(event.target.value)}
+            />
             <Button
               size="sm"
               variant="destructive"
@@ -463,11 +501,13 @@ export function ApiPlaygroundPanel() {
                 isBusy ||
                 constructionId === undefined ||
                 contractName === "" ||
-                contractContractedAt === ""
+                contractContractedAt === "" ||
+                !isPositiveInteger(contractUnitPrice) ||
+                !isPositiveInteger(contractUnitVolume)
               }
               onClick={() => setPendingWrite("createContract")}
             >
-              createContract({"{ constructionId, name, contractedAt }"})
+              createContract({"{ constructionId, name, contractedAt, unitPrice, unitVolume }"})
             </Button>
           </div>
         </CardContent>
@@ -537,6 +577,17 @@ function toIsoString(value: string): string | undefined {
   }
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+/**
+ * `unitPrice` / `unitVolume` に渡せる値か。
+ *
+ * R-CDE 側は符号なし整数の必須項目で、`0` はゼロ値なので「未指定」と同じ扱いになり 400 になる。
+ * 小数も符号なし整数への変換で失敗するため、1 以上の整数だけを通す。
+ */
+function isPositiveInteger(value: string): boolean {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1;
 }
 
 /** 数値入力を任意項目として扱う。未入力・不正値は undefined にしてリクエストから省く。 */

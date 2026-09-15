@@ -161,18 +161,11 @@ const MeasurementLine: FC<{
     const dirLength = direction.length();
 
     const normal = new Vector3(direction.y, -direction.x, 0);
-    const offset_0 = new Vector3();
 
     const normalizedDirection = direction.clone().normalize();
     const rotation = Math.PI * 0.15;
 
     const arrowHeadLength = Math.min(dirLength * 0.25, 10);
-    const arrowBodyLengthMin = 15;
-    const arrowBodyLengthMax = 40;
-    const opacity = Math.min(
-      1,
-      (dirLength - arrowBodyLengthMin) / (arrowBodyLengthMax - arrowBodyLengthMin)
-    );
 
     const left = normalizedDirection
       .clone()
@@ -183,16 +176,16 @@ const MeasurementLine: FC<{
       .applyAxisAngle(new Vector3(0, 0, 1), -rotation)
       .setLength(arrowHeadLength);
 
-    const head = to.clone().add(offset_0);
+    const head = to.clone();
     const headLeft = head.clone().add(left.clone().negate());
     const headRight = head.clone().add(right.clone().negate());
 
-    const tail = from.clone().add(offset_0);
+    const tail = from.clone();
     const tailLeft = tail.clone().add(left);
     const tailRight = tail.clone().add(right);
 
-    const offset_1 = normal.clone().setLength(10);
-    const labelPosition = from.clone().add(to).multiplyScalar(0.5).add(offset_1);
+    const labelOffset = normal.clone().setLength(10);
+    const labelPosition = from.clone().add(to).multiplyScalar(0.5).add(labelOffset);
 
     const direction_2 = new Vector2(normalizedDirection.x, normalizedDirection.y).negate();
     const angle = direction_2.angle() * RAD2DEG;
@@ -204,11 +197,10 @@ const MeasurementLine: FC<{
       headRight,
       tailLeft,
       tailRight,
-      opacity,
       angle,
       labelPosition,
     };
-  }, [from, to, length]);
+  }, [from, to]);
 
   return (
     <div

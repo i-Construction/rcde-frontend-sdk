@@ -15,7 +15,6 @@ import { ContractFile } from "../contexts/contractFiles";
 import { parsePngBuffer } from "../lib/pngParse";
 import { loadTile } from "../lib/tileLoader";
 import type { ViewerFileMemoryEstimate } from "../lib/viewerMemory";
-import { clamp } from "../lib/viewerMath";
 import { applyAppearanceToMaterials } from "../lib/viewerMaterials";
 import { CoordinateSystem, type CoordinateSystemType } from "../bridge/viewerBridge";
 
@@ -446,20 +445,14 @@ const ContractFileView = ({
   ) : null;
 };
 
-function getDefaultPointCloudSize(props: {
-  size: { x: number; y: number; z: number };
-  min?: number;
-  max?: number;
-}): number {
+function getDefaultPointCloudSize(props: { size: { x: number; y: number; z: number } }): number {
   const { x, y, z } = props.size;
-  const { min, max } = props;
   const s = Math.max(x, y, z);
   // CAUTION: default size is based on poisson disk sampling method
   // in pcd-lod module, the maximum # of points in each unit cube is `2 ^ 14`,
   // so radius of the poisson disk is `{side length of the unit} / sqrt(2 ^ 14)`.
   // resulting radius multiplied by 3 is optimal size of the point cloud.
-  const ps = (s / 128) * 3;
-  return clamp(ps, min ?? ps, max ?? ps);
+  return (s / 128) * 3;
 }
 
 export { ContractFileView };
