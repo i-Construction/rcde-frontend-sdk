@@ -1,5 +1,3 @@
-examples/
-examples/**
 .cursor/
 node_modules/
 .git/

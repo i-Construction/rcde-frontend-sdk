@@ -5,8 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  // examples/ は各サンプルが自前の lint 設定を持つ（この config は Next 用ではない）。
-  { ignores: ["dist", "examples/**", "**/node_modules/**", "**/.next/**"] },
+  { ignores: ["dist", "**/node_modules/**"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
