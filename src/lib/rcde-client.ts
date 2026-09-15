@@ -289,27 +289,53 @@ export class RCDEClient {
   }
 
   /**
-   * 契約を作成する。
+   * 契約を作成する。2legged のみ対応。
    *
    * status は受け取らない。R-CDE の契約作成 API（ContractCreateFor2LeggedParams /
    * ContractCreateFor3LeggedParams）に status フィールドが無く、送っても echo の Bind が捨てるため。
    * 作成直後の状態は R-CDE 側が決める（2-legged は受注者がダミーなので承認済みまで自動で進む）。
    *
-   * TODO: R-CDE が必須にしている unitPrice / unitVolume をまだ送っていないため、
-   * 現状このメソッドは 400 で失敗する。3-legged はさらに contracteeEmail / contractorEmail が要る。
-   * 引数が増える破壊的変更になるので別 PR で対応する。
+   * 3legged はリクエストを組み立てる前に落とす。R-CDE の ContractCreateFor3LeggedParams は
+   * contracteeEmail / contractorEmail のどちらか一方を必須にし（required_without の相互指定）、
+   * さらにどちらを渡したかで呼び出し元が受注者か注文者かまで変わる。この分岐を表せる引数を
+   * まだ持たないので、送っても必ず 400 になる。飛ばしてから失敗させると呼び出し側には
+   * R-CDE 側の入力不備と区別が付かないため、SDK 側の未対応であることが分かる形で止める。
    */
   async createContract(params: {
     constructionId: number;
     name: string;
+    /**
+     * 契約日。ISO 8601 の日時で渡す（例: `2024-11-19T06:56:31Z`）。
+     *
+     * R-CDE 側は time.Time なので、echo の Bind は RFC3339 しか解釈しない。`2024-11-19` のような
+     * 日付だけの文字列は検証より前の Bind で落ちて 400 になる。
+     */
     contractedAt: string;
+    /**
+     * 単価。1 以上を渡す。
+     *
+     * R-CDE 側は uint64 かつ validate:"required" で、validator はゼロ値を「未指定」として扱う。
+     * そのため 0 は省略と同じ扱いになり 400 になる。SDK 側では弾かず、値域の判断は R-CDE に委ねる。
+     */
+    unitPrice: number;
+    /** 数量。1 以上を渡す。0 が使えない理由は unitPrice と同じ。 */
+    unitVolume: number;
   }): Promise<Json> {
-    const { constructionId, name, contractedAt } = params;
+    if (this.authType === "3legged") {
+      throw new Error(
+        "[RCDEClient] createContract は 2legged のみ対応しています" +
+          "（3legged は contracteeEmail / contractorEmail が必須で、SDK が未対応です）"
+      );
+    }
+
+    const { constructionId, name, contractedAt, unitPrice, unitVolume } = params;
     const url = this.getApiPath("/contract");
     const requestBody: Record<string, unknown> = {
       name,
       contractedAt,
       constructionId,
+      unitPrice,
+      unitVolume,
     };
     return this.requestJson<Json>(url, {
       method: "POST",

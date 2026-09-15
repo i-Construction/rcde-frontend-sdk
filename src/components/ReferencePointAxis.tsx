@@ -20,12 +20,6 @@ export type ReferencePointAxisProps = {
    * @default true
    */
   visible?: boolean;
-  /**
-   * 後方互換のため残している prop。
-   * 基準点はシフト後のワールド原点 (0, 0, 0) に固定されるため、位置決定には使用しない。
-   * @deprecated 位置指定には使用しない。軸は常に原点に描画される。
-   */
-  point?: Vector3 | { x: number; y: number; z: number } | null;
 };
 
 /**

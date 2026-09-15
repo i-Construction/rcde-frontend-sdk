@@ -227,11 +227,56 @@ describe("契約作成リクエストの組み立て（createContract）", () =>
         constructionId: 1,
         name: "契約A",
         contractedAt: "2024-11-19T06:56:31Z",
+        unitPrice: 1,
+        unitVolume: 1,
       });
 
       expect(requests.map((request) => request.body)).toEqual([
-        { constructionId: 1, name: "契約A", contractedAt: "2024-11-19T06:56:31Z" },
+        {
+          constructionId: 1,
+          name: "契約A",
+          contractedAt: "2024-11-19T06:56:31Z",
+          unitPrice: 1,
+          unitVolume: 1,
+        },
       ]);
+    });
+
+    // R-CDE の ContractCreateFor2LeggedParams は unitPrice / unitVolume を validate:"required" で
+    // 必須にしている。省略すると検証で落ちて 400 になるので、必ず載ることを単体で固定する
+    it("契約を作成するとき、R-CDE が必須にしている単価と数量をリクエストに載せる", async () => {
+      const request = await captureRequest({}, (client) =>
+        client.createContract({
+          constructionId: 1,
+          name: "契約A",
+          contractedAt: "2024-11-19T06:56:31Z",
+          unitPrice: 1200,
+          unitVolume: 34,
+        })
+      );
+
+      expect(request.body).toMatchObject({ unitPrice: 1200, unitVolume: 34 });
+    });
+  });
+
+  describe("異常系", () => {
+    // R-CDE の ContractCreateFor3LeggedParams は contracteeEmail / contractorEmail のどちらか一方を
+    // 必須にしており、SDK はその引数を持たない。送れば必ず 400 になるので、飛ばす前に落とす。
+    // リクエストが 0 件であることまで見て、「投げてから失敗」へ戻す変更を検出する
+    it("3legged で契約を作成しようとしたとき、リクエストを送らずに未対応として失敗する", async () => {
+      const { client, requests } = createRequestCapturingClient({ authType: "3legged" });
+
+      await expect(
+        client.createContract({
+          constructionId: 1,
+          name: "契約A",
+          contractedAt: "2024-11-19T06:56:31Z",
+          unitPrice: 1,
+          unitVolume: 1,
+        })
+      ).rejects.toThrow("2legged のみ対応");
+
+      expect(requests).toHaveLength(0);
     });
   });
 });
@@ -333,6 +378,8 @@ describe("リクエスト送信先の組み立て（RCDEClient）", () => {
           constructionId: 1,
           name: "契約A",
           contractedAt: "2024-11-19T06:56:31Z",
+          unitPrice: 1,
+          unitVolume: 1,
         })
       );
 
@@ -342,8 +389,10 @@ describe("リクエスト送信先の組み立て（RCDEClient）", () => {
   });
 });
 
-// 現場・契約の 4 メソッドは認証方式で問い合わせ文字列が変わらず、パスの接頭辞だけが変わる。
-// 3legged でも接頭辞が切り替わることを固定し、直書きへ戻す変更を検出する
+// 現場・契約の読み取り 3 メソッドと現場作成は、認証方式で問い合わせ文字列が変わらず
+// パスの接頭辞だけが変わる。3legged でも接頭辞が切り替わることを固定し、直書きへ戻す変更を検出する。
+// createContract はここに含めない。3legged では接頭辞を組み立てる前に落とすので、
+// 未対応であることの固定は createContract の異常系に置いてある
 describe("認証方式で切り替わるパスの接頭辞（RCDEClient）", () => {
   describe("正常系", () => {
     it("3legged で現場一覧を取得するとき、ユーザー認証済みの現場の取得先へ問い合わせる", async () => {
@@ -368,19 +417,6 @@ describe("認証方式で切り替わるパスの接頭辞（RCDEClient）", () 
       );
 
       expect(request.url).toBe(`${USER_AUTHENTICATED}/construction`);
-      expect(request.method).toBe("POST");
-    });
-
-    it("3legged で契約を作成するとき、ユーザー認証済みの契約の取得先へ送る", async () => {
-      const request = await captureRequest({ authType: "3legged" }, (client) =>
-        client.createContract({
-          constructionId: 1,
-          name: "契約A",
-          contractedAt: "2024-11-19T06:56:31Z",
-        })
-      );
-
-      expect(request.url).toBe(`${USER_AUTHENTICATED}/contract`);
       expect(request.method).toBe("POST");
     });
   });

@@ -30,7 +30,6 @@ export const rayIntersectBox = (
 
 export type RaycastView = {
   boundingBox: Box3;
-  id?: number;
 };
 
 type RaycastResult<T extends RaycastView> = {

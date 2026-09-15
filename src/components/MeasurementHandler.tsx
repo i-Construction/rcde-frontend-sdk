@@ -4,7 +4,6 @@ import { BufferGeometry, Matrix4, Points, Scene, Vector3 } from "three";
 import { buildTree, pick } from "../services/Picking";
 import { useMouseNdcPosition } from "../hooks/useMouseNdcPosition";
 import { MeasurementView } from "./MeasurementView";
-import { useReferencePoint } from "../contexts/referencePoint";
 import { RCDE_CLICK_HANDLED } from "./Viewer";
 
 export type MeasurementHandlerProps = {
@@ -70,7 +69,6 @@ const MeasurementHandler: FC<MeasurementHandlerProps> = ({
 
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useReferencePoint(); // コンテキスト接続を維持
   const treeRef = useRef<ReturnType<typeof buildTree>["tree"] | null>(null);
   const pointsRef = useRef<Vector3[]>([]);
   const prevCameraMatrix = useRef<Matrix4>(new Matrix4());
