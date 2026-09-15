@@ -1,7 +1,7 @@
-import { Box, Typography } from '@mui/material';
-import { FC } from 'react';
+import { Box, Typography } from "@mui/material";
+import { FC } from "react";
 
-export type ReferencePointViewProps = {
+type ReferencePointViewProps = {
   point: {
     x: number;
     y: number;
@@ -14,25 +14,25 @@ const ReferencePointView: FC<ReferencePointViewProps> = ({ point }) => {
     <Box
       component="div"
       sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        alignContent: 'center',
-        pointerEvents: 'none',
-        userSelect: 'none',
+        display: "inline-flex",
+        alignItems: "center",
+        alignContent: "center",
+        pointerEvents: "none",
+        userSelect: "none",
       }}
     >
       <Typography
         variant="caption"
         sx={{
           marginRight: 1,
-          marginTop: '2px',
+          marginTop: "2px",
         }}
       >
         基準点
       </Typography>
       <code
         style={{
-          fontSize: '0.75em',
+          fontSize: "0.75em",
         }}
       >
         ({truncate(point.x)}, {truncate(point.y)}, {truncate(point.z)})

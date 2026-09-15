@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: yarn
+          cache-dependency-path: yarn.lock
+      - run: yarn install --frozen-lockfile
+      - run: yarn lint
+      - run: yarn format:check
+      - run: yarn build
+      # build（tsc -b）はテストを型検査しない（tsconfig.json の exclude）。
+      # vitest も型を落として実行するため、テスト内の型エラーはここでしか落ちない。
+      - run: yarn typecheck
+      - run: yarn test
