@@ -7,18 +7,50 @@ import {
   PointCloudLODLoader,
   PointCloudLODParser,
   PointCloudMeta,
-} from "pcd-viewer";
-import { PNG } from "pngjs/browser";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Vector3 } from "three";
+} from "@i-con/pcd-viewer";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Euler, Group, Vector3 } from "three";
 import { useClient } from "../contexts/client";
 import { ContractFile } from "../contexts/contractFiles";
+import { parsePngBuffer } from "../lib/pngParse";
+import { loadTile } from "../lib/tileLoader";
+import type { ViewerFileMemoryEstimate } from "../lib/viewerMemory";
+import { applyAppearanceToMaterials } from "../lib/viewerMaterials";
+import { CoordinateSystem, type CoordinateSystemType } from "../bridge/viewerBridge";
+
+// 座標系ごとの変換定義
+const COORDINATE_SYSTEM_TRANSFORMS: Record<
+  CoordinateSystemType,
+  {
+    rotation: [number, number, number]; // Euler angles [x, y, z] (radians)
+    scale: [number, number, number];
+  }
+> = {
+  // 右手系 Z Up → 変換不要
+  [CoordinateSystem.RightHandedZUp]: { rotation: [0, 0, 0], scale: [1, 1, 1] },
+  // 右手系 Y Up → X軸周りに +90° 回転して Y→Z へ
+  [CoordinateSystem.RightHandedYUp]: { rotation: [Math.PI / 2, 0, 0], scale: [1, 1, 1] },
+  // 右手系 X Up → Y軸周りに -90° 回転して X→Z へ
+  [CoordinateSystem.RightHandedXUp]: { rotation: [0, -Math.PI / 2, 0], scale: [1, 1, 1] },
+  // 左手系 Z Up → X軸ミラーで右手系に変換
+  [CoordinateSystem.LeftHandedZUp]: { rotation: [0, 0, 0], scale: [-1, 1, 1] },
+  // 左手系 Y Up → X軸周りに +90° 回転 + X軸ミラー
+  [CoordinateSystem.LeftHandedYUp]: { rotation: [Math.PI / 2, 0, 0], scale: [-1, 1, 1] },
+  // 左手系 X Up → Y軸周りに -90° 回転 + X軸ミラー
+  [CoordinateSystem.LeftHandedXUp]: { rotation: [0, -Math.PI / 2, 0], scale: [-1, 1, 1] },
+};
 
 export type ContractFileProps = {
   file: ContractFile;
   meta: PointCloudMeta;
   referencePoint?: Vector3;
   selected?: boolean;
+  translation: { x: number; y: number; z: number };
+  rotation: { x: number; y: number; z: number }; // degree
+  inspectorPointSize?: number;
+  inspectorOpacity?: number;
+  inspectorCoordinateSystem?: CoordinateSystemType;
+  onMemoryEstimateChange?: (estimate: ViewerFileMemoryEstimate) => void;
 };
 
 const ContractFileView = ({
@@ -26,68 +58,204 @@ const ContractFileView = ({
   meta,
   referencePoint,
   selected = false,
+  translation,
+  rotation,
+  inspectorPointSize,
+  inspectorOpacity,
+  inspectorCoordinateSystem,
+  onMemoryEstimateChange,
 }: ContractFileProps) => {
   const { client, project } = useClient();
   const [init, setInit] = useState(false);
   const [hasIntensity, setHasIntensity] = useState(false);
+  const groupRef = useRef<Group>(null);
+  const memoryEstimateFrameRef = useRef<number | null>(null);
+  const cacheStateKey = `${file.id ?? "unknown"}-${meta?.version ?? "unknown"}`;
+  const cacheStateRef = useRef<{
+    key: string;
+    pngBufferCache: Map<string, Promise<PngBuffer>>;
+    loadedTileMemory: Map<string, { compressedBytes: number; decodedBytes: number }>;
+  }>({
+    key: cacheStateKey,
+    pngBufferCache: new Map(),
+    loadedTileMemory: new Map(),
+  });
+  const fileIdRef = useRef(file.id);
+  const onMemoryEstimateChangeRef = useRef(onMemoryEstimateChange);
 
-  const loader: PointCloudLODLoader<PngBuffer> = useCallback(
+  // file / meta.version の切り替わりと同じ commit で読み込み側も新しいキャッシュを参照できるよう、
+  // 描画中の ref として世代を持つ。破棄される render でも更新され得る pragmatic pattern なので、
+  // effect タイミングに戻す際は loader との race に注意すること。
+  if (cacheStateRef.current.key !== cacheStateKey) {
+    cacheStateRef.current = {
+      key: cacheStateKey,
+      pngBufferCache: new Map(),
+      loadedTileMemory: new Map(),
+    };
+  }
+
+  // 基準点変更時に parser の参照が変わり PointCloudGrid 側の読み込み処理が
+  // 再実行されても、同一ファイル・同一LODタイルであれば取得済みのPNGバッファを
+  // 再利用してネットワーク再取得を避けるためのキャッシュ。
+  // file / meta が変わった場合のみキャッシュを作り直す。
+  const emitMemoryEstimate = useCallback(() => {
+    if (file.id === undefined || onMemoryEstimateChange === undefined) {
+      return;
+    }
+
+    let loadedTileCount = 0;
+    let compressedBytes = 0;
+    let decodedBytes = 0;
+    for (const tile of cacheStateRef.current.loadedTileMemory.values()) {
+      loadedTileCount += 1;
+      compressedBytes += tile.compressedBytes;
+      decodedBytes += tile.decodedBytes;
+    }
+
+    onMemoryEstimateChange({
+      fileId: file.id,
+      loadedTileCount,
+      compressedBytes,
+      decodedBytes,
+      totalBytes: decodedBytes,
+    });
+  }, [file.id, onMemoryEstimateChange]);
+
+  const scheduleMemoryEstimateFlush = useCallback(() => {
+    if (onMemoryEstimateChange === undefined) {
+      return;
+    }
+    if (memoryEstimateFrameRef.current !== null) {
+      return;
+    }
+
+    memoryEstimateFrameRef.current = window.requestAnimationFrame(() => {
+      memoryEstimateFrameRef.current = null;
+      emitMemoryEstimate();
+    });
+  }, [emitMemoryEstimate, onMemoryEstimateChange]);
+
+  const registerTileMemory = useCallback(
+    (cacheKey: string, metrics: { compressedBytes: number; decodedBytes: number }) => {
+      const previous = cacheStateRef.current.loadedTileMemory.get(cacheKey);
+      if (
+        previous?.compressedBytes === metrics.compressedBytes &&
+        previous?.decodedBytes === metrics.decodedBytes
+      ) {
+        return;
+      }
+
+      cacheStateRef.current.loadedTileMemory.set(cacheKey, metrics);
+      scheduleMemoryEstimateFlush();
+    },
+    [scheduleMemoryEstimateFlush]
+  );
+
+  // memoryMonitoring の ON/OFF で onMemoryEstimateChange が切り替わると
+  // 参照も変わるが、PNG キャッシュは file/meta 単位で保持しているため
+  // 同一タイルのネットワーク再取得は避けられる。
+  //
+  // 失敗時は素直に reject する。SDK 内部からはこちらを直接使い、
+  // pcd-viewer へ渡すのは下の loader（reject を漏らさない版）。
+  const loadTileCached: PointCloudLODLoader<PngBuffer> = useCallback(
     (props) => {
+      const pngBufferCache = cacheStateRef.current.pngBufferCache;
       const { address, color } = props;
       const { lod, coordinate } = address;
-      // Construct the URL of the PNG file from the address
-      // eslint-disable-next-line no-async-promise-executor
-      return new Promise(async (resolve, reject) => {
-        const png = new PNG();
-        const addr = `${coordinate.x}-${coordinate.y}-${coordinate.z}`;
-        const props = {
-          contractId: project!.contractId!,
-          contractFileId: file.id!,
-          level: lod,
-          addr,
-        };
-        // Fetch position data
-        const pBuffer = await client?.getContractFileImagePosition(props);
-        if (pBuffer === undefined) {
-          reject(new Error("Failed to load PNG buffer"));
-          return;
-        }
-        const pParsed = png.parse(pBuffer);
-        pParsed.on("parsed", async () => {
-          if (color) {
-            // Fetch color data
-            const cBuffer = await client?.getContractFileImageColor(props);
-            if (cBuffer === undefined) {
-              reject(new Error("Failed to load PNG buffer"));
-              return;
-            }
-            const png2 = new PNG();
-            const cParsed = png2.parse(cBuffer);
-            cParsed.on("parsed", () => {
-              resolve({
-                position: pParsed,
-                color: cParsed,
-              });
-            });
-          } else {
-            resolve({
-              position: pParsed,
-            });
-          }
+      const addr = `${coordinate.x}-${coordinate.y}-${coordinate.z}`;
+      const cacheKey = `${lod}-${addr}-${color ? "color" : "position"}`;
+
+      const cached = pngBufferCache.get(cacheKey);
+      if (cached !== undefined) {
+        return cached;
+      }
+
+      // ID を読めなかったファイルはタイルの取得先を組み立てられない。非 null アサーションで
+      // 押し通すと String(undefined) が問い合わせ文字列に載り、R-CDE 側で別のエラーとして
+      // 現れて原因を追いにくくなるので、ここで取得を失敗させる。
+      // このコンポーネントと ContractFileProps は公開しているため、ID を持たないファイルは
+      // Viewer 経由では届かなくても利用者から直接渡され得る。
+      if (client === undefined || project === undefined || file.id === undefined) {
+        // 呼び出し側（初期ロードの effect）は console.warn(e) しか出さないので、3 つの原因を
+        // 1 文へ畳むとどれが欠けているか切り分けられない。欠けている名前だけを並べる。
+        const missing = [
+          client === undefined ? "client" : undefined,
+          project === undefined ? "project" : undefined,
+          file.id === undefined ? "file.id" : undefined,
+        ].filter((name): name is string => name !== undefined);
+        return Promise.reject(
+          new Error(`[ContractFileView] cannot load tiles without ${missing.join(", ")}`)
+        );
+      }
+
+      const requestProps = {
+        contractId: project.contractId,
+        contractFileId: file.id,
+        level: lod,
+        addr,
+      };
+
+      const promise = loadTile(
+        () => client.getContractFileImagePosition(requestProps),
+        color ? () => client.getContractFileImageColor(requestProps) : undefined,
+        parsePngBuffer
+      ).then((result) => {
+        registerTileMemory(cacheKey, {
+          compressedBytes: result.compressedBytes,
+          decodedBytes: result.decodedBytes,
         });
+        const buf: PngBuffer = { position: result.position };
+        if (result.color) buf.color = result.color;
+        return buf;
       });
+
+      pngBufferCache.set(cacheKey, promise);
+      promise.catch(() => {
+        pngBufferCache.delete(cacheKey);
+      });
+      return promise;
     },
-    [client, project, file]
+    [client, project, file, registerTileMemory]
   );
+
+  // pcd-viewer の PointCloudGrid は loader の戻り値に catch を付けずに then だけを繋ぐ。
+  // そのまま reject を返すと unhandled rejection になり、1 タイルの失敗がアプリ全体の
+  // エラーとして飛ぶ（dev ではオーバーレイが出る）。
+  //
+  // かといって空タイルで resolve すると「読めた」と解釈されて子 LOD の読み込みへ降りてしまい、
+  // 壊れたファイルの数だけ無駄なリクエストが増える。読めなかったことを伝える手段が
+  // loader の戻り値には無いので、解決しない Promise を返して先へ進ませない。
+  // reject と同じく後続の then は動かず、grid は Loading のまま据え置かれる。
+  const loader: PointCloudLODLoader<PngBuffer> = useCallback(
+    (props) =>
+      loadTileCached(props).catch((error: unknown) => {
+        console.warn("[ContractFileView] failed to load tile", error);
+        // loadTileCached が失敗したキーをキャッシュから外しているので、
+        // 次に呼ばれたときは再取得が走る（一時的な通信エラーから復帰できる）。
+        return new Promise<PngBuffer>(() => {});
+      }),
+    [loadTileCached]
+  );
+
+  useEffect(() => {
+    fileIdRef.current = file.id;
+    onMemoryEstimateChangeRef.current = onMemoryEstimateChange;
+  }, [file.id, onMemoryEstimateChange]);
+
+  useEffect(() => {
+    emitMemoryEstimate();
+  }, [cacheStateKey, emitMemoryEstimate]);
 
   useEffect(() => {
     (async () => {
       if (meta?.version !== undefined) {
         try {
           // load initial position data and check for intensity
+          // 解決しない loader ではなく loadTileCached を使う。失敗を catch できないと
+          // 下の setInit(true) に到達せず、このファイルが何も描画されなくなる。
           const {
             position: { data },
-          } = await loader({
+          } = await loadTileCached({
             address: {
               lod: 0,
               coordinate: {
@@ -109,11 +277,31 @@ const ContractFileView = ({
       }
       setInit(true);
     })();
-  }, [meta, loader]);
+  }, [meta, loadTileCached]);
+
+  useEffect(() => {
+    return () => {
+      if (memoryEstimateFrameRef.current !== null) {
+        window.cancelAnimationFrame(memoryEstimateFrameRef.current);
+      }
+      cacheStateRef.current.pngBufferCache.clear();
+      cacheStateRef.current.loadedTileMemory.clear();
+      if (fileIdRef.current !== undefined && onMemoryEstimateChangeRef.current !== undefined) {
+        onMemoryEstimateChangeRef.current({
+          fileId: fileIdRef.current,
+          loadedTileCount: 0,
+          compressedBytes: 0,
+          decodedBytes: 0,
+          totalBytes: 0,
+        });
+      }
+    };
+    // cleanup はアンマウント時だけに限定する。依存変更時にキャッシュを破棄しない。
+  }, []);
 
   // Shift metadata considering the reference point
   const shiftedMeta = useMemo(() => {
-    if (referencePoint === undefined) return meta;
+    if (referencePoint === undefined || referencePoint === null) return meta;
     const { min, max } = meta.bounds;
     const mi = new Vector3().fromArray(min).add(referencePoint);
     const ma = new Vector3().fromArray(max).add(referencePoint);
@@ -158,7 +346,7 @@ const ContractFileView = ({
     ({ point }) => {
       const { color: c } = point;
       let baseColor: [number, number, number];
-      
+
       if (c !== undefined) {
         const { r, g, b, a } = c;
         if (hasIntensity) {
@@ -174,7 +362,7 @@ const ContractFileView = ({
       if (selected) {
         const blueColor = [0x21 / 255, 0x96 / 255, 0xf3 / 255] as [number, number, number];
         const blendFactor = 0.3; // 30% blue, 70% original color
-        
+
         // Linear interpolation (lerp) between base color and blue
         const blendedColor: [number, number, number] = [
           baseColor[0] * (1 - blendFactor) + blueColor[0] * blendFactor,
@@ -201,34 +389,70 @@ const ContractFileView = ({
     return (pointSize ?? 1) * 1e-1;
   }, [pointSize]);
 
+  // Apply inspector appearance settings to this file's materials
+  useEffect(() => {
+    applyAppearanceToMaterials(groupRef.current, {
+      pointSize: inspectorPointSize,
+      opacity: inspectorOpacity,
+    });
+  }, [inspectorPointSize, inspectorOpacity]);
+
+  // 座標系に基づく変換を計算
+  const csTransform = useMemo(() => {
+    if (!inspectorCoordinateSystem) return undefined;
+    return COORDINATE_SYSTEM_TRANSFORMS[inspectorCoordinateSystem];
+  }, [inspectorCoordinateSystem]);
+
   // Render the PointCloud if initialization is complete
+  // Wrap in group to apply file-specific translation, rotation, and appearance
+  // 外側 group: ユーザーが設定した座標・角度
+  // 内側 group: 座標系変換（データの座標系 → ビューアの座標系）
   return init ? (
-    <PointCloud
-      frustumCulled={false}
-      meta={shiftedMeta}
-      loader={loader}
-      parser={parser}
-      pointColorHandler={pointCloudColor}
-      pointSize={pointSize}
-      minPointSize={minPointSize}
-    />
+    <group
+      ref={groupRef}
+      position={[translation.x, translation.y, translation.z]}
+      rotation={[
+        rotation.x * (Math.PI / 180),
+        rotation.y * (Math.PI / 180),
+        rotation.z * (Math.PI / 180),
+        "XYZ",
+      ]}
+    >
+      <group
+        rotation={
+          csTransform
+            ? new Euler(
+                csTransform.rotation[0],
+                csTransform.rotation[1],
+                csTransform.rotation[2],
+                "XYZ"
+              )
+            : undefined
+        }
+        scale={csTransform ? csTransform.scale : undefined}
+      >
+        <PointCloud
+          frustumCulled={false}
+          meta={shiftedMeta}
+          loader={loader}
+          parser={parser}
+          pointColorHandler={pointCloudColor}
+          pointSize={pointSize}
+          minPointSize={minPointSize}
+        />
+      </group>
+    </group>
   ) : null;
 };
 
-function getDefaultPointCloudSize(props: {
-  size: { x: number; y: number; z: number };
-  min?: number;
-  max?: number;
-}): number {
+function getDefaultPointCloudSize(props: { size: { x: number; y: number; z: number } }): number {
   const { x, y, z } = props.size;
-  const { min, max } = props;
   const s = Math.max(x, y, z);
   // CAUTION: default size is based on poisson disk sampling method
   // in pcd-lod module, the maximum # of points in each unit cube is `2 ^ 14`,
   // so radius of the poisson disk is `{side length of the unit} / sqrt(2 ^ 14)`.
   // resulting radius multiplied by 3 is optimal size of the point cloud.
-  const ps = (s / 128) * 3;
-  return Math.min(Math.max(min ?? ps, ps), max ?? ps);
+  return (s / 128) * 3;
 }
 
 export { ContractFileView };

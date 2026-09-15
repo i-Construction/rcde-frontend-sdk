@@ -1,8 +1,11 @@
-
-declare module 'pngjs/browser' {
+declare module "pngjs/browser" {
   export class PNG {
-    constructor ();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    parse (data: ArrayBuffer): any;
+    data: Uint8Array;
+    width: number;
+    height: number;
+    constructor();
+    parse(data: ArrayBuffer): PNG;
+    on(event: "parsed", callback: () => void): PNG;
+    on(event: "error", callback: (error: Error) => void): PNG;
   }
 }

@@ -1,13 +1,65 @@
 export * from "./components/RCDE";
-export * from './bridge/viewerBridge';
-export { RCDEClient, type AuthType, type RCDEClientOptions } from './lib/rcde-client';
-export { Viewer, type RCDEAppConfig, type ViewerProps } from './components/Viewer';
+export * from "./bridge/viewerBridge";
+export {
+  RCDEClient,
+  type AuthType,
+  type RCDEClientOptions,
+  type BatchProcessingResult,
+} from "./lib/rcde-client";
+export {
+  BATCH_PROCESSING_STATUS,
+  isBatchProcessingStatus,
+  type BatchProcessingStatus,
+} from "./lib/batchProcessingStatus";
+export {
+  deriveFileStatus,
+  isPclodCompleted,
+  isFileStatusActive,
+  type PendingUploads,
+  type PendingUpload,
+  type FileStatus,
+  type UploadStatus,
+  type PclodStatus,
+} from "./lib/contractFileStatus";
+export {
+  useContractFileActions,
+  type ContractFileActions,
+  type ContractFileRow,
+} from "./hooks/useContractFileActions";
+export type {
+  ViewerFileMemoryEstimate,
+  ViewerMemoryAlert,
+  ViewerMemoryAlertLevel,
+  ViewerMemoryAlertLevels,
+  ViewerMemoryMonitoringOptions,
+  ViewerMemoryObservedBytes,
+  ViewerMemorySample,
+  ViewerMemorySource,
+  ViewerMemoryThreshold,
+  ViewerMemoryThresholdBreach,
+  ViewerMemoryThresholds,
+  ViewerMemoryThresholdTarget,
+} from "./lib/viewerMemory";
+export {
+  Viewer,
+  RCDE_CLICK_HANDLED,
+  type RCDEAppConfig,
+  type ViewerProps,
+  type ViewerClickEvent,
+  type ViewerHoverEvent,
+} from "./components/Viewer";
 export { ReferencePointProvider, useReferencePoint } from "./contexts/referencePoint";
 export { ClientProvider, useClient, type ClientContextType } from "./contexts/client";
-export { ContractFilesProvider, useContractFiles, type ContractFiles, type ContractFile, type ContractFileContainer } from "./contexts/contractFiles";
-export { GlobalStateContext } from "./contexts/state";
+export {
+  ContractFilesProvider,
+  useContractFiles,
+  type ContractFiles,
+  type ContractFile,
+  type ContractFileContainer,
+} from "./contexts/contractFiles";
 export { ContractFileView } from "./components/ContractFileView";
 export type { ContractFileProps } from "./components/ContractFileView";
-export { MeasurementProvider, useMeasurement, MeasurementContext, type MeasurementContextProps } from './contexts/measurement';
-export { MeasurementHandler, type MeasurementHandlerProps } from './components/MeasurementHandler';
-export { MeasurementView } from './components/MeasurementView';
+export { MeasurementHandler, type MeasurementHandlerProps } from "./components/MeasurementHandler";
+export { MeasurementView } from "./components/MeasurementView";
+export { ReferencePointAxis } from "./components/ReferencePointAxis";
+export type { ReferencePointAxisProps } from "./components/ReferencePointAxis";
