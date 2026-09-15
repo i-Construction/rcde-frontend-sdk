@@ -1,6 +1,22 @@
 {
   "name": "@i-con/frontend-sdk",
   "version": "0.0.3",
+  "description": "R-CDE の点群ビューアと契約ファイル API を React から利用するための SDK",
+  "keywords": [
+    "rcde",
+    "point-cloud",
+    "react",
+    "three",
+    "react-three-fiber"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/i-Construction/rcde-frontend-sdk.git"
+  },
+  "homepage": "https://github.com/i-Construction/rcde-frontend-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/i-Construction/rcde-frontend-sdk/issues"
+  },
   "publishConfig": {
     "access": "public"
   },
