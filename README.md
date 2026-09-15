@@ -43,8 +43,8 @@ SDK 自体のビルド・開発に使うバージョンは次のとおりです�
 
 > **バージョンの組み合わせについて**
 >
-> peerDependencies の宣言は React 18 系ですが、`examples/standalone` は
-> React 19 / Next.js 16.2.9 / `@react-three/fiber` 9 系 / `@react-three/drei` 10 系で動作しています。
+> peerDependencies の宣言は React 18 系ですが、
+> React 19 / Next.js 16 系 / `@react-three/fiber` 9 系 / `@react-three/drei` 10 系でも動作します。
 > React 18 に固定する必要はありません。  
 > 揃えるべきなのは React と React DOM、および `@react-three/fiber` と `@react-three/drei` の
 > 対応関係です（React 18 なら fiber 8 系、React 19 なら fiber 9 系）。
@@ -112,19 +112,6 @@ src/
 
 ---
 
-## サンプルアプリ
-
-`examples/` に 2 つのサンプルがあります。選び分けは [examples/README.md](examples/README.md) を参照してください。
-
-| サンプル                                                         | 使う場面                                           | SDK 依存 |
-| ---------------------------------------------------------------- | -------------------------------------------------- | -------- |
-| [examples/standalone](examples/standalone/README.md)             | ブラウザから R-CDE の点群を表示・アップロードする  | あり     |
-| [examples/webhook-receiver](examples/webhook-receiver/README.md) | R-CDE の点群処理の完了通知を自分のサーバーで受ける | なし     |
-
-`examples/` は公開パッケージには含まれません。
-
----
-
 ## 事前準備
 
 RCDEのサイトでアプリケーションを作成します。
@@ -182,8 +169,8 @@ const App = ({
 [事前準備](#事前準備)で作成したアプリケーションの `clientId` / `clientSecret` は、
 **SDK には渡しません**。ブラウザに秘匿情報を置かないため、サーバー側でこれらを使って
 アクセストークンを発行し、そのトークンだけを `app.token` に渡します。
-`examples/standalone` では Next.js の Route Handler がトークン発行と API プロキシを担い、
-`baseUrl` にそのプロキシのパス（`/api/rcde`）を指定しています。
+利用側アプリでは Route Handler などでトークン発行と API プロキシを担い、
+`baseUrl` にそのプロキシのパス（例: `/api/rcde`）を指定します。
 ブラウザから R-CDE API を直接呼ぶと CORS で失敗するため、プロキシ経由の構成を推奨します。
 
 ### `memoryMonitoring` の使い方
@@ -757,8 +744,7 @@ function FileList({ pendingUploads }) {
 ## 開発時の注意事項
 
 - SDK は Next.js の構成に依存しません。`src/app/` のような画面ディレクトリは持たず、
-  公開するのはコンポーネントとフックだけです。App Router を使った画面の組み方は
-  `examples/standalone` を参照してください。
+  公開するのはコンポーネントとフックだけです。
 - SDK のコンポーネントはすべてブラウザで動きます。Next.js App Router から使う場合は、
   それらを描画するコンポーネントに `"use client"` を付与してください。
 - アクセストークンは `RCDEClient` のインスタンスがメモリ上に保持するだけで、
@@ -785,3 +771,4 @@ function FileList({ pendingUploads }) {
 | 1.2.0      | 2026-06-25 | Node.js 24 / Next.js 16.2.9 対応、同梱 example 削除                                               |
 | 1.3.0      | 2026-08-31 | サンプルを examples/ 配下の 2 タイプ（standalone / webhook-receiver）に整理                       |
 | 1.4.0      | 2026-09-02 | ViewerBridge・app 設定・構成概要・依存バージョンの記述を実装に合わせて修正、RCDEClient の節を追加 |
+| —          | 2026-09-15 | `examples/` 配下のサンプルアプリをリポジトリから削除                                              |
