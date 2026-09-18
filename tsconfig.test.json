@@ -10,7 +10,7 @@
   // エディタ（tsserver）はファイルから上へ tsconfig.json だけを探すので、
   // この設定は自動では拾われない。手元で検知したいなら yarn typecheck を回す。
   "extends": "./tsconfig.json",
-  "include": ["src"],
+  "include": ["src", "vite.externals.ts"],
   "exclude": [],
   "compilerOptions": {
     "noEmit": true,

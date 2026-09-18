@@ -804,7 +804,7 @@ function Layout({ app, constructionId, contractId }) {
 
 ## 依存関係の注意
 
-- `three` / `@react-three/fiber` / `@react-three/drei` / `react` / `react-dom` はライブラリのバンドルから external にしています。利用側アプリの依存が 1 つだけ解決されるようにしてください。同じパッケージが二重に読み込まれると R3F のコンテキストが分かれて描画されません。
+- `react` / `react-dom` / `react/jsx-runtime` / `three` / `@react-three/fiber` / `@react-three/drei` / `@i-con/pcd-viewer` はライブラリのバンドルから external にしています。利用側アプリの依存が 1 つだけ解決されるようにしてください。同じパッケージが二重に読み込まれると R3F のコンテキストが分かれて描画されません。React の jsx-runtime や pcd-viewer の事前ビルド成果物を埋め込むと、ビルド時の React 内部 API が固定され、利用側の React 19 で `ReactCurrentDispatcher` が読めなくなります。
 - `@react-three/fiber` と `@react-three/drei` は対応する系列同士で使ってください（React 18 なら fiber 8 系 + drei 9 系、React 19 なら fiber 9 系 + drei 10 系）。
 - `ViewerBridge` は Three.js を直接制御しません。`window.postMessage` でコマンドを送り、`Viewer` の内部 state を経由して描画へ反映されます。
 - バージョン不一致でビルドエラーが出る場合は、`node_modules` を削除して再インストールしてください。
