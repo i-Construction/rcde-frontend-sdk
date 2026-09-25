@@ -50,23 +50,15 @@ yarn add @i-con/frontend-sdk react react-dom three @react-three/fiber @react-thr
 pnpm add @i-con/frontend-sdk react react-dom three @react-three/fiber @react-three/drei
 ```
 
-| パッケージ           | バージョン範囲 | 備考                                     |
-| -------------------- | -------------- | ---------------------------------------- |
-| `react`              | `^18.3.1`      | 下の注記も参照                           |
-| `react-dom`          | `^18.3.1`      | `react` と同じメジャーバージョンに揃える |
-| `three`              | `^0.171.0`     | 3D 描画本体                              |
-| `@react-three/fiber` | `^8.17.10`     | 下の注記も参照                           |
-| `@react-three/drei`  | `^9.120.4`     | `@react-three/fiber` の系列に揃える      |
+| パッケージ           | バージョン範囲              | 備考                                     |
+| -------------------- | --------------------------- | ---------------------------------------- |
+| `react`              | `^18.3.1` または `^19.0.0`  | 下の注記も参照                           |
+| `react-dom`          | `^18.3.1` または `^19.0.0`  | `react` と同じメジャーバージョンに揃える |
+| `three`              | `^0.171.0`                  | 3D 描画本体                              |
+| `@react-three/fiber` | `^8.17.10` または `^9.0.0`  | 下の注記も参照                           |
+| `@react-three/drei`  | `^9.120.4` または `^10.0.0` | `@react-three/fiber` の系列に揃える      |
 
-React 19 の構成（`@react-three/fiber` 9 系 / `@react-three/drei` 10 系）でも動作しますが、上の `peerDependencies` はその範囲を含んでいません。挙動はパッケージマネージャで分かれます。
-
-| パッケージマネージャ | 挙動                                                                                                           | 回避方法                                                                 |
-| -------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| npm 7 以降           | `ERESOLVE` で失敗                                                                                              | `--legacy-peer-deps`、または `package.json` の `overrides`               |
-| pnpm                 | 既定では警告のみ（v8 以降は `strict-peer-dependencies` の既定が false）。v7 以前や明示的に有効化した場合は失敗 | 失敗する場合は `strict-peer-dependencies=false`、または `pnpm.overrides` |
-| yarn                 | 警告のみで継続                                                                                                 | 対応不要                                                                 |
-
-揃えるべきなのは React と React DOM、および `@react-three/fiber` と `@react-three/drei` の対応関係です（React 18 なら fiber 8 系、React 19 なら fiber 9 系）。ここがずれると `react-reconciler` 関連の型エラーや実行時エラーが発生します。
+揃えるべきなのは React と React DOM、および `@react-three/fiber` と `@react-three/drei` の対応関係です（React 18 なら fiber 8 系 + drei 9 系、React 19 なら fiber 9 系 + drei 10 系）。ここがずれると `react-reconciler` 関連の型エラーや実行時エラーが発生します。
 
 ## 事前準備
 
@@ -133,9 +125,11 @@ export const POST = proxy;
 export const PUT = proxy;
 ```
 
-`RCDEClient` は `baseUrl` の後ろに `/ext/v2/authenticated/...`（`3legged` のときは `/ext/v2/userAuthenticated/...`）を付けるので、`baseUrl` を `/api/rcde` にすればパスがそのままプロキシへ乗ります。
+`RCDEClient` は `baseUrl` の後ろに `/ext/v2/authenticated/...` を付けるので、`baseUrl` を `/api/rcde` にすればパスがそのままプロキシへ乗ります。
 
-2-legged のトークンはアプリ単位の権限を持ちます。開発中は上のようにブラウザへトークンを渡して構いませんが、本番ではトークンをブラウザに出さずプロキシ側で `Authorization` を付ける、あるいはユーザー単位の 3-legged 認証を検討してください。
+この SDK は **2-legged のみ対応**です。3-legged（`/ext/v2/userAuthenticated`）は対応外で、`authType: "3legged"` は型でも実行時でも受け付けません。
+
+2-legged のトークンはアプリ単位の権限を持ちます。開発中は上のようにブラウザへトークンを渡して構いませんが、本番ではトークンをブラウザに出さずプロキシ側で `Authorization` を付けてください。
 
 ## クイックスタート
 
@@ -174,11 +168,11 @@ const App = ({
 
 `app` に渡す `RCDEAppConfig` のフィールドは次の 3 つです。
 
-| フィールド | 必須 | 内容                                                                                          |
-| ---------- | ---- | --------------------------------------------------------------------------------------------- |
-| `token`    | 必須 | R-CDE API のアクセストークン。`Authorization: Bearer <token>` として送信されます              |
-| `baseUrl`  | 任意 | API のベース URL。省略時は空文字（同一オリジンの相対パス）です                                |
-| `authType` | 任意 | `"2legged"`（既定）または `"3legged"`。API パスの接頭辞と一部クエリパラメータが切り替わります |
+| フィールド | 必須 | 内容                                                                             |
+| ---------- | ---- | -------------------------------------------------------------------------------- |
+| `token`    | 必須 | R-CDE API のアクセストークン。`Authorization: Bearer <token>` として送信されます |
+| `baseUrl`  | 任意 | API のベース URL。省略時は空文字（同一オリジンの相対パス）です                   |
+| `authType` | 任意 | `"2legged"` のみ（既定も `"2legged"`）。3-legged は対応外です                    |
 
 トークンは `RCDEClient` のインスタンスがメモリ上に保持するだけで、SDK は Cookie や localStorage へ保存しません。取得・保管・失効時の再取得は利用側アプリの責務です。
 
@@ -471,12 +465,12 @@ export function createRCDEClient(accessToken: string) {
 
 すべて任意です。
 
-| オプション    | 既定値             | 内容                                                                                              |
-| ------------- | ------------------ | ------------------------------------------------------------------------------------------------- |
-| `accessToken` | なし               | 指定すると `Authorization: Bearer <token>` を全リクエストに付与する                               |
-| `baseUrl`     | `""`               | API のベース URL。省略時は同一オリジンの相対パスになる                                            |
-| `authType`    | `"2legged"`        | `"2legged"` は `/ext/v2/authenticated`、`"3legged"` は `/ext/v2/userAuthenticated` を接頭辞に使う |
-| `fetchImpl`   | グローバル `fetch` | 差し替え用の fetch 実装。テストやプロキシ層の差し込みに使う                                       |
+| オプション    | 既定値             | 内容                                                                        |
+| ------------- | ------------------ | --------------------------------------------------------------------------- |
+| `accessToken` | なし               | 指定すると `Authorization: Bearer <token>` を全リクエストに付与する         |
+| `baseUrl`     | `""`               | API のベース URL。省略時は同一オリジンの相対パスになる                      |
+| `authType`    | `"2legged"`        | `"2legged"` のみ。`/ext/v2/authenticated` を接頭辞に使う。3-legged は対応外 |
+| `fetchImpl`   | グローバル `fetch` | 差し替え用の fetch 実装。テストやプロキシ層の差し込みに使う                 |
 
 `RCDEAppConfig` の `token` がここでは `accessToken` という名前になる点に注意してください。
 
@@ -495,7 +489,7 @@ export function createRCDEClient(accessToken: string) {
 | `getConstruction(constructionId)`                                   | `Construction`          | 現場 1 件                                          |
 | `createConstruction(params)`                                        | レスポンス JSON         | 現場を作成する                                     |
 | `getContractList({ constructionId })`                               | `{ contracts }`         | 契約一覧                                           |
-| `createContract(params)`                                            | レスポンス JSON         | 契約を作成する（`2legged` のみ）                   |
+| `createContract(params)`                                            | レスポンス JSON         | 契約を作成する                                     |
 
 いずれも 2xx 以外のレスポンスを受けた時点で `Error` を throw します（戻り値で失敗を返しません）。
 
@@ -511,7 +505,7 @@ await client.createContract({
 });
 ```
 
-- **`2legged` のみ対応**です。`authType: "3legged"` のクライアントで呼ぶと、リクエストを送る前に `Error` を throw します。R-CDE の 3-legged 契約作成 API は `contracteeEmail` / `contractorEmail` のどちらか一方を必須にし、さらにどちらを渡したかで呼び出し元が受注者か注文者かも変わるため、その引数を SDK がまだ持っていません。
+- SDK 全体が **2-legged のみ対応**です。3-legged は対応外です。
 - `contractedAt` は **ISO 8601 の日時**で渡してください。R-CDE 側が `time.Time` のため、`2024-11-19` のような日付だけの文字列はリクエストの解釈時点で 400 になります。
 - `unitPrice` / `unitVolume` は **1 以上**を渡してください。R-CDE 側が符号なし整数の必須項目で、`0` は「未指定」と同じ扱いになり 400 になります。
 
@@ -804,7 +798,7 @@ function Layout({ app, constructionId, contractId }) {
 
 ## 依存関係の注意
 
-- `three` / `@react-three/fiber` / `@react-three/drei` / `react` / `react-dom` はライブラリのバンドルから external にしています。利用側アプリの依存が 1 つだけ解決されるようにしてください。同じパッケージが二重に読み込まれると R3F のコンテキストが分かれて描画されません。
+- `react` / `react-dom` / `react/jsx-runtime` / `three` / `@react-three/fiber` / `@react-three/drei` / `@i-con/pcd-viewer` はライブラリのバンドルから external にしています。利用側アプリの依存が 1 つだけ解決されるようにしてください。同じパッケージが二重に読み込まれると R3F のコンテキストが分かれて描画されません。React の jsx-runtime や pcd-viewer の事前ビルド成果物を埋め込むと、ビルド時の React 内部 API が固定され、利用側の React 19 で `ReactCurrentDispatcher` が読めなくなります。
 - `@react-three/fiber` と `@react-three/drei` は対応する系列同士で使ってください（React 18 なら fiber 8 系 + drei 9 系、React 19 なら fiber 9 系 + drei 10 系）。
 - `ViewerBridge` は Three.js を直接制御しません。`window.postMessage` でコマンドを送り、`Viewer` の内部 state を経由して描画へ反映されます。
 - バージョン不一致でビルドエラーが出る場合は、`node_modules` を削除して再インストールしてください。
