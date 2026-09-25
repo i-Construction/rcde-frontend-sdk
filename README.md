@@ -50,13 +50,13 @@ yarn add @i-con/frontend-sdk react react-dom three @react-three/fiber @react-thr
 pnpm add @i-con/frontend-sdk react react-dom three @react-three/fiber @react-three/drei
 ```
 
-| パッケージ           | バージョン範囲                 | 備考                                     |
-| -------------------- | ------------------------------ | ---------------------------------------- |
-| `react`              | `^18.3.1` または `^19.0.0`     | 下の注記も参照                           |
-| `react-dom`          | `^18.3.1` または `^19.0.0`     | `react` と同じメジャーバージョンに揃える |
-| `three`              | `^0.171.0`                     | 3D 描画本体                              |
-| `@react-three/fiber` | `^8.17.10` または `^9.0.0`     | 下の注記も参照                           |
-| `@react-three/drei`  | `^9.120.4` または `^10.0.0`    | `@react-three/fiber` の系列に揃える      |
+| パッケージ           | バージョン範囲              | 備考                                     |
+| -------------------- | --------------------------- | ---------------------------------------- |
+| `react`              | `^18.3.1` または `^19.0.0`  | 下の注記も参照                           |
+| `react-dom`          | `^18.3.1` または `^19.0.0`  | `react` と同じメジャーバージョンに揃える |
+| `three`              | `^0.171.0`                  | 3D 描画本体                              |
+| `@react-three/fiber` | `^8.17.10` または `^9.0.0`  | 下の注記も参照                           |
+| `@react-three/drei`  | `^9.120.4` または `^10.0.0` | `@react-three/fiber` の系列に揃える      |
 
 揃えるべきなのは React と React DOM、および `@react-three/fiber` と `@react-three/drei` の対応関係です（React 18 なら fiber 8 系 + drei 9 系、React 19 なら fiber 9 系 + drei 10 系）。ここがずれると `react-reconciler` 関連の型エラーや実行時エラーが発生します。
 
@@ -168,11 +168,11 @@ const App = ({
 
 `app` に渡す `RCDEAppConfig` のフィールドは次の 3 つです。
 
-| フィールド | 必須 | 内容                                                                                          |
-| ---------- | ---- | --------------------------------------------------------------------------------------------- |
-| `token`    | 必須 | R-CDE API のアクセストークン。`Authorization: Bearer <token>` として送信されます              |
-| `baseUrl`  | 任意 | API のベース URL。省略時は空文字（同一オリジンの相対パス）です                                |
-| `authType` | 任意 | `"2legged"` のみ（既定も `"2legged"`）。3-legged は対応外です |
+| フィールド | 必須 | 内容                                                                             |
+| ---------- | ---- | -------------------------------------------------------------------------------- |
+| `token`    | 必須 | R-CDE API のアクセストークン。`Authorization: Bearer <token>` として送信されます |
+| `baseUrl`  | 任意 | API のベース URL。省略時は空文字（同一オリジンの相対パス）です                   |
+| `authType` | 任意 | `"2legged"` のみ（既定も `"2legged"`）。3-legged は対応外です                    |
 
 トークンは `RCDEClient` のインスタンスがメモリ上に保持するだけで、SDK は Cookie や localStorage へ保存しません。取得・保管・失効時の再取得は利用側アプリの責務です。
 
@@ -465,12 +465,12 @@ export function createRCDEClient(accessToken: string) {
 
 すべて任意です。
 
-| オプション    | 既定値             | 内容                                                                                              |
-| ------------- | ------------------ | ------------------------------------------------------------------------------------------------- |
-| `accessToken` | なし               | 指定すると `Authorization: Bearer <token>` を全リクエストに付与する                               |
-| `baseUrl`     | `""`               | API のベース URL。省略時は同一オリジンの相対パスになる                                            |
+| オプション    | 既定値             | 内容                                                                        |
+| ------------- | ------------------ | --------------------------------------------------------------------------- |
+| `accessToken` | なし               | 指定すると `Authorization: Bearer <token>` を全リクエストに付与する         |
+| `baseUrl`     | `""`               | API のベース URL。省略時は同一オリジンの相対パスになる                      |
 | `authType`    | `"2legged"`        | `"2legged"` のみ。`/ext/v2/authenticated` を接頭辞に使う。3-legged は対応外 |
-| `fetchImpl`   | グローバル `fetch` | 差し替え用の fetch 実装。テストやプロキシ層の差し込みに使う                                       |
+| `fetchImpl`   | グローバル `fetch` | 差し替え用の fetch 実装。テストやプロキシ層の差し込みに使う                 |
 
 `RCDEAppConfig` の `token` がここでは `accessToken` という名前になる点に注意してください。
 

@@ -70,7 +70,7 @@ const AUTH_API_PREFIX = "/ext/v2/authenticated";
 function assertSupportedAuthType(authType: string | undefined): void {
   if (authType !== undefined && authType !== "2legged") {
     throw new Error(
-      "[RCDEClient] 3legged 認証は対応していません。authType は \"2legged\" のみ指定できます"
+      '[RCDEClient] 3legged 認証は対応していません。authType は "2legged" のみ指定できます'
     );
   }
 }

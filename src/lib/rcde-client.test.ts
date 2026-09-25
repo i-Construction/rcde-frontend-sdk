@@ -316,9 +316,9 @@ describe("認証方式の受け付け（RCDEClient）", () => {
     // 型は "2legged" だけだが、実行時に文字列で 3legged を渡されたときもリクエストを組まない。
     // 型アサーションや JS からの呼び出しで 3legged が復活しないことを固定する
     it("3legged を指定してクライアントを作ろうとしたとき、対応外として失敗する", () => {
-      expect(
-        () => new RCDEClient({ authType: "3legged" as unknown as AuthType })
-      ).toThrow("3legged 認証は対応していません");
+      expect(() => new RCDEClient({ authType: "3legged" as unknown as AuthType })).toThrow(
+        "3legged 認証は対応していません"
+      );
     });
   });
 });
