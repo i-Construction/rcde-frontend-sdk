@@ -12,6 +12,10 @@ export type { AuthType };
 export type RCDEClientOptions = {
   baseUrl?: string;
   accessToken?: string;
+  /**
+   * 認証方式。`"2legged"` のみ。省略時も 2-legged。
+   * `"3legged"` は型でも実行時でも受け付けない。
+   */
   authType?: AuthType;
   fetchImpl?: typeof fetch;
 };
@@ -60,10 +64,16 @@ type RawContractFile = {
 
 type Json = Record<string, unknown>;
 
-const AUTH_API_PREFIX: Record<AuthType, string> = {
-  "2legged": "/ext/v2/authenticated",
-  "3legged": "/ext/v2/userAuthenticated",
-};
+/** 2-legged 専用。3-legged の `/ext/v2/userAuthenticated` は対応外 */
+const AUTH_API_PREFIX = "/ext/v2/authenticated";
+
+function assertSupportedAuthType(authType: string | undefined): void {
+  if (authType !== undefined && authType !== "2legged") {
+    throw new Error(
+      "[RCDEClient] 3legged 認証は対応していません。authType は \"2legged\" のみ指定できます"
+    );
+  }
+}
 
 /**
  * R-CDE へ 1 リクエスト送り、成功以外は HTTP ステータス付きで失敗させる。
@@ -89,19 +99,8 @@ function buildUrlWithQuery(url: string, queryParams: URLSearchParams): string {
   return query ? `${url}?${query}` : url;
 }
 
-/**
- * 2legged のときだけ契約 ID を問い合わせの末尾に足す。
- *
- * 条件が違う 2 つ（getContractFileList は認証方式を見ず常に付ける、getContractList は現場 ID の
- * 真偽も見る）はここへ寄せない。揃えてよいかどうかは R-CDE 側の 3legged ハンドラが 2legged と
- * 同じ絞り込みをしているかで決まり、SDK 側だけでは判断できない。
- */
-function appendContractIdFor2Legged(
-  queryParams: URLSearchParams,
-  authType: AuthType,
-  contractId: number
-): void {
-  if (authType !== "2legged") return;
+/** 契約 ID を問い合わせの末尾に足す。2-legged では必須の絞り込み条件 */
+function appendContractId(queryParams: URLSearchParams, contractId: number): void {
   queryParams.append("contractId", String(contractId));
 }
 
@@ -114,7 +113,6 @@ function appendContractIdFor2Legged(
  */
 function buildPclodImageUrl(
   imageEndpointUrl: string,
-  authType: AuthType,
   params: { contractId: number; contractFileId: number; level?: number; addr?: string }
 ): string {
   const { contractId, contractFileId, level = 0, addr = "0-0-0" } = params;
@@ -123,20 +121,19 @@ function buildPclodImageUrl(
     level: String(level),
     addr,
   });
-  appendContractIdFor2Legged(queryParams, authType, contractId);
+  appendContractId(queryParams, contractId);
   return buildUrlWithQuery(imageEndpointUrl, queryParams);
 }
 
 export class RCDEClient {
   private baseUrl: string;
   private token?: string;
-  private authType: AuthType;
   private fetchImpl: typeof fetch;
 
   constructor(opts: RCDEClientOptions = {}) {
+    assertSupportedAuthType(opts.authType);
     this.baseUrl = opts.baseUrl ?? "";
     this.token = opts.accessToken;
-    this.authType = opts.authType ?? "2legged";
     this.fetchImpl = opts.fetchImpl ?? fetch.bind(globalThis);
   }
 
@@ -147,7 +144,7 @@ export class RCDEClient {
   }
 
   private getApiPath(segment: string): string {
-    return `${this.baseUrl}${AUTH_API_PREFIX[this.authType]}${segment}`;
+    return `${this.baseUrl}${AUTH_API_PREFIX}${segment}`;
   }
 
   /** R-CDE の応答を JSON として読む。失敗は sendRcdeRequest 側。T は検証せず信じた形。parse は呼び出し側 */
@@ -169,7 +166,6 @@ export class RCDEClient {
     contractId: number;
   }): Promise<{ contractFiles: ContractFile[] }> {
     const { contractId } = params;
-    // 認証方式を見ず常に契約 ID を付ける形はここだけ（寄せない理由は appendContractIdFor2Legged の JSDoc）
     const queryParams = new URLSearchParams({ contractId: String(contractId) });
     const url = buildUrlWithQuery(this.getApiPath("/contractFile"), queryParams);
     const data = await this.requestJson<{ contractFiles: RawContractFile[]; total?: number }>(url);
@@ -185,7 +181,7 @@ export class RCDEClient {
     const queryParams = new URLSearchParams({
       contractFileId: String(contractFileId),
     });
-    appendContractIdFor2Legged(queryParams, this.authType, contractId);
+    appendContractId(queryParams, contractId);
     const url = buildUrlWithQuery(this.getApiPath("/pclod/meta"), queryParams);
     return this.requestJson<Json>(url);
   }
@@ -197,7 +193,7 @@ export class RCDEClient {
     level?: number;
     addr?: string;
   }): Promise<ArrayBuffer> {
-    const url = buildPclodImageUrl(this.getApiPath("/pclod/imagePosition"), this.authType, params);
+    const url = buildPclodImageUrl(this.getApiPath("/pclod/imagePosition"), params);
     return this.requestArrayBuffer(url);
   }
 
@@ -208,7 +204,7 @@ export class RCDEClient {
     level?: number;
     addr?: string;
   }): Promise<ArrayBuffer> {
-    const url = buildPclodImageUrl(this.getApiPath("/pclod/imageColor"), this.authType, params);
+    const url = buildPclodImageUrl(this.getApiPath("/pclod/imageColor"), params);
     return this.requestArrayBuffer(url);
   }
 
@@ -218,7 +214,7 @@ export class RCDEClient {
     fileId: number
   ): Promise<{ presignedURL: string; url: string }> {
     const queryParams = new URLSearchParams();
-    appendContractIdFor2Legged(queryParams, this.authType, contractId);
+    appendContractId(queryParams, contractId);
     const url = buildUrlWithQuery(
       this.getApiPath(`/contractFile/downloadURL/${fileId}`),
       queryParams
@@ -277,29 +273,18 @@ export class RCDEClient {
   // Contract関連のAPI
   async getContractList(params: { constructionId: number }): Promise<{ contracts: Contract[] }> {
     const { constructionId } = params;
-    const queryParams = new URLSearchParams();
-    // 現場 ID の真偽も見る形はここだけ（2legged なら常に、3legged は現場 ID が truthy のときだけ）。
-    // 揃えると 3legged で現場 ID 0 の絞り込みが消える（寄せない理由は appendContractIdFor2Legged の JSDoc）
-    if (this.authType === "2legged" || constructionId) {
-      queryParams.append("constructionId", String(constructionId));
-    }
+    const queryParams = new URLSearchParams({ constructionId: String(constructionId) });
     const url = buildUrlWithQuery(this.getApiPath("/contract"), queryParams);
     const data = await this.requestJson<{ contracts: RawContract[]; total?: number }>(url);
     return { contracts: (data.contracts ?? []).map(parseContract) };
   }
 
   /**
-   * 契約を作成する。2legged のみ対応。
+   * 契約を作成する。2-legged 専用。
    *
-   * status は受け取らない。R-CDE の契約作成 API（ContractCreateFor2LeggedParams /
-   * ContractCreateFor3LeggedParams）に status フィールドが無く、送っても echo の Bind が捨てるため。
+   * status は受け取らない。R-CDE の契約作成 API（ContractCreateFor2LeggedParams）に
+   * status フィールドが無く、送っても echo の Bind が捨てるため。
    * 作成直後の状態は R-CDE 側が決める（2-legged は受注者がダミーなので承認済みまで自動で進む）。
-   *
-   * 3legged はリクエストを組み立てる前に落とす。R-CDE の ContractCreateFor3LeggedParams は
-   * contracteeEmail / contractorEmail のどちらか一方を必須にし（required_without の相互指定）、
-   * さらにどちらを渡したかで呼び出し元が受注者か注文者かまで変わる。この分岐を表せる引数を
-   * まだ持たないので、送っても必ず 400 になる。飛ばしてから失敗させると呼び出し側には
-   * R-CDE 側の入力不備と区別が付かないため、SDK 側の未対応であることが分かる形で止める。
    */
   async createContract(params: {
     constructionId: number;
@@ -321,13 +306,6 @@ export class RCDEClient {
     /** 数量。1 以上を渡す。0 が使えない理由は unitPrice と同じ。 */
     unitVolume: number;
   }): Promise<Json> {
-    if (this.authType === "3legged") {
-      throw new Error(
-        "[RCDEClient] createContract は 2legged のみ対応しています" +
-          "（3legged は contracteeEmail / contractorEmail が必須で、SDK が未対応です）"
-      );
-    }
-
     const { constructionId, name, contractedAt, unitPrice, unitVolume } = params;
     const url = this.getApiPath("/contract");
     const requestBody: Record<string, unknown> = {
@@ -363,7 +341,7 @@ export type Contract = {
    * R-CDE 上の契約 ID。省略可能な理由は `ContractFile.id` と同じで、ここが res.json() 由来の
    * 未検証 JSON を受ける境界だから。整数として読めない値が届いたときだけ undefined になる。
    *
-   * 3 つの ID の中でこれだけ影響範囲が広い。`appendContractIdFor2Legged` を通って 2-legged の
+   * 3 つの ID の中でこれだけ影響範囲が広い。`appendContractId` を通って
    * ほぼ全リクエストの問い合わせ文字列に載るため、読めない値を通すと失敗の出方が散らばる。
    */
   id?: number;

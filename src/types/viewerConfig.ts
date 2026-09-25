@@ -10,5 +10,9 @@ import type { AuthType } from "./rcdeApiTypes";
 export type RCDEAppConfig = {
   token: string;
   baseUrl?: string;
+  /**
+   * 認証方式。`"2legged"` のみ。省略時も 2-legged。
+   * `"3legged"` は型でも実行時でも受け付けない。
+   */
   authType?: AuthType;
 };
