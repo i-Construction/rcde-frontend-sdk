@@ -58,10 +58,10 @@
     "pngjs": "^7.0.0"
   },
   "peerDependencies": {
-    "@react-three/drei": "^9.120.4",
-    "@react-three/fiber": "^8.17.10",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "@react-three/drei": "^9.120.4 || ^10.0.0",
+    "@react-three/fiber": "^8.17.10 || ^9.0.0",
+    "react": "^18.3.1 || ^19.0.0",
+    "react-dom": "^18.3.1 || ^19.0.0",
     "three": "^0.171.0"
   },
   "devDependencies": {
