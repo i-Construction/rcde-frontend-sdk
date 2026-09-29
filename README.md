@@ -34,7 +34,7 @@ React Three Fiber をベースに、点群表示、契約ファイルの一覧�
 | React      | 18.3 以上（19 でも動作します。下の peer 依存の注記を参照） |
 | ブラウザ   | WebGL が使える環境。サーバーサイドでは描画しません         |
 | TypeScript | 型定義同梱。利用側での追加パッケージは不要です             |
-| モジュール | ESM（`import`）と CJS（`require`）の両方                   |
+| モジュール | ESM（`import`）のみ。CJS（`require`）は非対応              |
 
 Next.js には依存していません。Next.js App Router から使う場合は、SDK のコンポーネントを描画する側に `"use client"` を付けてください。
 

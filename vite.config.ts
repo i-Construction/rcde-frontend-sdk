@@ -16,24 +16,11 @@ export default defineConfig(() => ({
   build: {
     lib: {
       entry: "src/index.ts",
-      name: "rcde-frontend-sdk",
-      fileName: (format) => `index.${format}.js`,
-      formats: ["es", "umd"],
+      fileName: () => "index.es.js",
+      formats: ["es"],
     },
     rollupOptions: {
       external: isSdkBuildExternal,
-      output: {
-        globals: {
-          react: "React",
-          "react-dom": "ReactDOM",
-          "react/jsx-runtime": "jsxRuntime",
-          "react/jsx-dev-runtime": "jsxDevRuntime",
-          "@react-three/fiber": "fiber",
-          "@react-three/drei": "drei",
-          "@i-con/pcd-viewer": "pcdViewer",
-          three: "three",
-        },
-      },
     },
   },
   publicDir: false,
