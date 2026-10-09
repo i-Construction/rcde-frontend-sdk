@@ -17,6 +17,7 @@
   "bugs": {
     "url": "https://github.com/i-Construction/rcde-frontend-sdk/issues"
   },
+  "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
