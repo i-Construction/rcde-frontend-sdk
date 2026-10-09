@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { isSdkBuildExternal } from "../../vite.externals";
+import { THIRD_PARTY_LICENSE_BANNER } from "../../vite.banner";
 
 describe("SDK ライブラリビルドの external 判定（isSdkBuildExternal）", () => {
   describe("正常系", () => {
@@ -14,11 +15,10 @@ describe("SDK ライブラリビルドの external 判定（isSdkBuildExternal�
       ).toBe(true);
     });
 
-    it("R3F / three / pcd-viewer を external にする", () => {
+    it("R3F / three を external にする", () => {
       expect(isSdkBuildExternal("@react-three/fiber")).toBe(true);
       expect(isSdkBuildExternal("@react-three/drei")).toBe(true);
       expect(isSdkBuildExternal("three")).toBe(true);
-      expect(isSdkBuildExternal("@i-con/pcd-viewer")).toBe(true);
     });
   });
 
@@ -27,6 +27,11 @@ describe("SDK ライブラリビルドの external 判定（isSdkBuildExternal�
       expect(isSdkBuildExternal("@emotion/react")).toBe(false);
       expect(isSdkBuildExternal("@mui/material/colors")).toBe(false);
       expect(isSdkBuildExternal("chroma-js")).toBe(false);
+    });
+
+    it("pcd-viewer はバンドル対象にする", () => {
+      expect(isSdkBuildExternal("@i-con/pcd-viewer")).toBe(false);
+      expect(isSdkBuildExternal("@i-con/pcd-viewer/src/index.ts")).toBe(false);
     });
   });
 });
@@ -40,8 +45,20 @@ describe("SDK の dist に React 内部 API を埋め込まない", () => {
     expect(es).not.toContain("react-jsx-runtime.production.min.js");
   });
 
-  it("jsx-runtime と pcd-viewer は import のまま残す", () => {
+  it("jsx-runtime は import のまま残す", () => {
     expect(es).toContain('from "react/jsx-runtime"');
-    expect(es).toContain('from "@i-con/pcd-viewer"');
+  });
+});
+
+describe("利用側に pcd-viewer のトランスパイル設定を要求しない", () => {
+  const es = readFileSync(resolve(process.cwd(), "dist/index.es.js"), "utf8");
+
+  it("実行時に pcd-viewer を import しない", () => {
+    const imported = [...es.matchAll(/\bfrom "([^"]+)"/g)].map((m) => m[1]);
+    expect(imported).not.toContain("@i-con/pcd-viewer");
+  });
+
+  it("同梱した pcd-viewer の MIT 表示を dist に残す", () => {
+    expect(es).toContain(THIRD_PARTY_LICENSE_BANNER);
   });
 });
