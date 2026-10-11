@@ -1,7 +1,7 @@
 import { Box } from "@mui/material";
 import { GizmoHelper, GizmoViewport, Grid, MapControls } from "@react-three/drei";
 import { Canvas, CanvasProps, useThree } from "@react-three/fiber";
-import { PointCloudMeta } from "@i-con/pcd-viewer";
+import type { PointCloudMeta } from "../types/pointCloudMeta";
 import {
   FC,
   useCallback,
