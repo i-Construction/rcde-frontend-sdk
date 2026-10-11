@@ -62,3 +62,17 @@ describe("利用側に pcd-viewer のトランスパイル設定を要求しな�
     expect(es).toContain(THIRD_PARTY_LICENSE_BANNER);
   });
 });
+
+describe("利用側の型検査に pcd-viewer のソースを持ち込まない", () => {
+  const dts = readFileSync(resolve(process.cwd(), "dist/index.d.ts"), "utf8");
+
+  // pcd-viewer の types は TypeScript のソースを指しており、型定義が参照すると
+  // 利用側がそのソースをコンパイルして pngjs/browser の型宣言不足で落ちる
+  it("型定義から pcd-viewer を参照しない", () => {
+    expect(dts).not.toContain("@i-con/pcd-viewer");
+  });
+
+  it("ContractFileView の meta に使う PointCloudMeta を公開する", () => {
+    expect(dts).toMatch(/export declare type PointCloudMeta\b/);
+  });
+});

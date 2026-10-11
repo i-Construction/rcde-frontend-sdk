@@ -59,6 +59,7 @@ export {
 } from "./contexts/contractFiles";
 export { ContractFileView } from "./components/ContractFileView";
 export type { ContractFileProps } from "./components/ContractFileView";
+export type { PointCloudMeta } from "./types/pointCloudMeta";
 export { MeasurementHandler, type MeasurementHandlerProps } from "./components/MeasurementHandler";
 export { MeasurementView } from "./components/MeasurementView";
 export { ReferencePointAxis } from "./components/ReferencePointAxis";
