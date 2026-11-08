@@ -14,7 +14,7 @@ export const THIRD_PARTY_LICENSES_FILE = "THIRD_PARTY_LICENSES.txt";
  * パッケージ自身に入っていないもの。補足のライセンス文を、そのパッケージの項に続けて出す。
  *
  * pngjs の browser.js は browserify でまとめたファイルで、Node.js 互換のモジュールを
- * 29 個内包している。ビルドのモジュール一覧には pngjs としか現れないため、自動では拾えない。
+ * 30 個内包している。ビルドのモジュール一覧には pngjs としか現れないため、自動では拾えない。
  *
  * version は内包モジュールを確かめた版。browser.js は版ごとに作り直されうるので、
  * 同梱した版と違えばビルドを止める（supplementVersionError）。

@@ -247,3 +247,36 @@ describe("同梱した第三者パッケージのライセンスを配布物に�
     }
   });
 });
+
+describe("pngjs の補足ライセンスが browser.js の内包モジュールと一致する", () => {
+  const browserJs = readFileSync(resolve(process.cwd(), "node_modules/pngjs/browser.js"), "utf8");
+  const supplement = readFileSync(
+    resolve(process.cwd(), "licenses/pngjs-browser-embedded.txt"),
+    "utf8"
+  );
+
+  // browserify は各モジュールの後ろに {"require した名前":番号} の依存表を置く。
+  // 組み込みモジュールは browserify の別名で現れるので、配布元のパッケージ名に直す。
+  // dup は重複を省いた印で、パッケージではない
+  const BROWSERIFY_ALIASES: Record<string, string> = {
+    _process: "process",
+    stream: "stream-browserify",
+    zlib: "browserify-zlib",
+  };
+  const embedded = new Set<string>();
+  for (const table of browserJs.matchAll(/\},\{((?:"[^"]+":\d+,?)*)\}\]/g)) {
+    for (const [, specifier] of table[1].matchAll(/"([^"]+)":\d+/g)) {
+      if (specifier.startsWith(".") || specifier === "dup") continue;
+      const [first, second] = specifier.split("/");
+      const name = first.startsWith("@") ? `${first}/${second}` : first;
+      embedded.add(BROWSERIFY_ALIASES[name] ?? name);
+    }
+  }
+  const listed = [...supplement.matchAll(/^(@?[^@\s]+)@\d\S* \(/gm)].map((m) => m[1]);
+
+  // 依存の入れ直しでは現れない古い版の内包モジュール（call-bind）が漏れていた
+  it("browser.js が require するパッケージを過不足なく載せる", () => {
+    expect(embedded.size).toBeGreaterThan(0);
+    expect([...listed].sort()).toEqual([...embedded].sort());
+  });
+});
