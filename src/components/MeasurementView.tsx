@@ -1,8 +1,7 @@
 import { Html } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Matrix4, Vector2, Vector3 } from "three";
-import { RAD2DEG } from "three/src/math/MathUtils.js";
+import { Camera, MathUtils, Matrix4, Vector2, Vector3 } from "three";
 
 type MeasurementViewProps = {
   points?: Vector3[];
@@ -188,7 +187,7 @@ const MeasurementLine: FC<{
     const labelPosition = from.clone().add(to).multiplyScalar(0.5).add(labelOffset);
 
     const direction_2 = new Vector2(normalizedDirection.x, normalizedDirection.y).negate();
-    const angle = direction_2.angle() * RAD2DEG;
+    const angle = direction_2.angle() * MathUtils.RAD2DEG;
 
     return {
       head,
