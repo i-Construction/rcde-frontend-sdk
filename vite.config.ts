@@ -3,11 +3,13 @@ import react from "@vitejs/plugin-react-swc";
 import dts from "vite-plugin-dts";
 import { isSdkBuildExternal } from "./vite.externals";
 import { THIRD_PARTY_LICENSE_BANNER } from "./vite.banner";
+import { thirdPartyLicenses } from "./vite.licenses";
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [
     react({}),
+    thirdPartyLicenses(),
     dts({
       tsconfigPath: "./tsconfig.json",
       insertTypesEntry: true,

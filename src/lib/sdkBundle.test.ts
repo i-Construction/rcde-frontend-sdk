@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { isSdkBuildExternal } from "../../vite.externals";
 import { THIRD_PARTY_LICENSE_BANNER } from "../../vite.banner";
+import { packageDirFromModuleId, THIRD_PARTY_LICENSES_FILE } from "../../vite.licenses";
 
 describe("SDK ライブラリビルドの external 判定（isSdkBuildExternal）", () => {
   describe("正常系", () => {
@@ -19,6 +20,12 @@ describe("SDK ライブラリビルドの external 判定（isSdkBuildExternal�
       expect(isSdkBuildExternal("@react-three/fiber")).toBe(true);
       expect(isSdkBuildExternal("@react-three/drei")).toBe(true);
       expect(isSdkBuildExternal("three")).toBe(true);
+    });
+
+    // サブパスが漏れると three の一部だけが dist に複製される（RAD2DEG で実際に起きていた）
+    it("three のサブパスも external にする", () => {
+      expect(isSdkBuildExternal("three/src/math/MathUtils.js")).toBe(true);
+      expect(isSdkBuildExternal("three/addons/controls/OrbitControls.js")).toBe(true);
     });
   });
 
@@ -58,7 +65,8 @@ describe("利用側に pcd-viewer のトランスパイル設定を要求しな�
     expect(imported).not.toContain("@i-con/pcd-viewer");
   });
 
-  it("同梱した pcd-viewer の MIT 表示を dist に残す", () => {
+  // Vite がヘルパー関数を前に置くので、ファイルの先頭とは限らない
+  it("第三者ソフトウェアのライセンスの置き場所を dist で案内する", () => {
     expect(es).toContain(THIRD_PARTY_LICENSE_BANNER);
   });
 });
@@ -77,5 +85,80 @@ describe("利用側の型検査に pcd-viewer のソースを持ち込まない"
   // declare の有無は型定義を出力するプラグインの書き方次第なので問わない
   it("ContractFileView の meta に使う PointCloudMeta を公開する", () => {
     expect(dts).toMatch(/export (declare )?type PointCloudMeta\b/);
+  });
+});
+
+describe("モジュール ID から同梱パッケージを特定する（packageDirFromModuleId）", () => {
+  describe("正常系", () => {
+    it("node_modules 直下のパッケージのディレクトリを返す", () => {
+      expect(packageDirFromModuleId("/repo/node_modules/pngjs/browser.js")).toBe(
+        "/repo/node_modules/pngjs"
+      );
+    });
+
+    it("スコープ付きパッケージは @scope/name までをパッケージ名とする", () => {
+      expect(packageDirFromModuleId("/repo/node_modules/@mui/material/Box/Box.js")).toBe(
+        "/repo/node_modules/@mui/material"
+      );
+    });
+
+    it("入れ子の node_modules は最も内側のパッケージを採る", () => {
+      expect(
+        packageDirFromModuleId("/repo/node_modules/prop-types/node_modules/react-is/index.js")
+      ).toBe("/repo/node_modules/prop-types/node_modules/react-is");
+    });
+
+    it("仮想モジュールの \\0 と ? 以降のクエリを取り除く", () => {
+      expect(
+        packageDirFromModuleId("\0/repo/node_modules/object-assign/index.js?commonjs-module")
+      ).toBe("/repo/node_modules/object-assign");
+    });
+
+    it("Windows のパス区切りでも判定する", () => {
+      expect(packageDirFromModuleId("C:\\repo\\node_modules\\clsx\\dist\\clsx.mjs")).toBe(
+        "C:/repo/node_modules/clsx"
+      );
+    });
+  });
+
+  describe("異常系", () => {
+    it("SDK 自身のソースは同梱パッケージとして扱わない", () => {
+      expect(packageDirFromModuleId("/repo/src/components/Viewer.tsx")).toBeUndefined();
+    });
+  });
+});
+
+describe("同梱した第三者パッケージのライセンスを配布物に含める", () => {
+  const notices = readFileSync(resolve(process.cwd(), "dist", THIRD_PARTY_LICENSES_FILE), "utf8");
+  const headings = [...notices.matchAll(/^(@?[^@\s]+)@\S+ \(/gm)].map((m) => m[1]);
+
+  // 0.1.4 までは pcd-viewer 以外の著作権表示が dist に無かった
+  it("主要な同梱パッケージの著作権表示とライセンス文を含む", () => {
+    for (const name of [
+      "@i-con/pcd-viewer",
+      "pngjs",
+      "chroma-js",
+      "js-quadtree",
+      "@mui/material",
+      "@emotion/react",
+      "prop-types",
+    ]) {
+      expect(headings).toContain(name);
+    }
+    expect(notices).toContain("Copyright (c) 2018 Corentin THOMASSET");
+    expect(notices).toContain("Gregor Aisch");
+  });
+
+  it("pngjs の browser.js に内包されたモジュールのライセンス文を含む", () => {
+    expect(notices).toContain("Modules embedded in pngjs/browser.js");
+    for (const name of ["pako", "buffer", "ieee754", "readable-stream", "browserify-zlib"]) {
+      expect(notices).toMatch(new RegExp(`^${name}@\\S+ \\(`, "m"));
+    }
+  });
+
+  it("external にしたパッケージは同梱していないので載せない", () => {
+    for (const name of ["react", "react-dom", "three", "@react-three/fiber", "@react-three/drei"]) {
+      expect(headings).not.toContain(name);
+    }
   });
 });

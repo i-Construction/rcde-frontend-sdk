@@ -26,6 +26,7 @@ React Three Fiber をベースに、点群表示、契約ファイルの一覧�
 - [距離計測](#距離計測)
 - [ファイル一覧の操作](#ファイル一覧の操作usecontractfileactions)
 - [依存関係の注意](#依存関係の注意)
+- [ライセンス](#ライセンス)
 
 ## 動作環境
 
@@ -803,6 +804,12 @@ function Layout({ app, constructionId, contractId }) {
 - `@react-three/fiber` と `@react-three/drei` は対応する系列同士で使ってください（React 18 なら fiber 8 系 + drei 9 系、React 19 なら fiber 9 系 + drei 10 系）。
 - `ViewerBridge` は Three.js を直接制御しません。`window.postMessage` でコマンドを送り、`Viewer` の内部 state を経由して描画へ反映されます。
 - バージョン不一致でビルドエラーが出る場合は、`node_modules` を削除して再インストールしてください。
+
+## ライセンス
+
+[MIT](./LICENSE)
+
+`dist/index.es.js` には、MUI・Emotion・pngjs・chroma-js などの第三者パッケージを同梱しています。それらの著作権表示とライセンス文は、パッケージ内の `dist/THIRD_PARTY_LICENSES.txt` にまとめています。このファイルはビルド時に、実際に同梱したパッケージから自動で生成しています。
 
 リポジトリ: [i-Construction/rcde-frontend-sdk](https://github.com/i-Construction/rcde-frontend-sdk)
 Issue: [GitHub Issues](https://github.com/i-Construction/rcde-frontend-sdk/issues)
