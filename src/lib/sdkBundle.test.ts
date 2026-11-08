@@ -1,9 +1,16 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { isSdkBuildExternal } from "../../vite.externals";
 import { THIRD_PARTY_LICENSE_BANNER } from "../../vite.banner";
-import { packageDirFromModuleId, THIRD_PARTY_LICENSES_FILE } from "../../vite.licenses";
+import {
+  type LicenseEntry,
+  packageDirFromModuleId,
+  readLicenseEntry,
+  supplementVersionError,
+  THIRD_PARTY_LICENSES_FILE,
+} from "../../vite.licenses";
 
 describe("SDK ライブラリビルドの external 判定（isSdkBuildExternal）", () => {
   describe("正常系", () => {
@@ -124,6 +131,84 @@ describe("モジュール ID から同梱パッケージを特定する（packag
   describe("異常系", () => {
     it("SDK 自身のソースは同梱パッケージとして扱わない", () => {
       expect(packageDirFromModuleId("/repo/src/components/Viewer.tsx")).toBeUndefined();
+    });
+  });
+});
+
+describe("同梱パッケージのライセンス情報を読む（readLicenseEntry）", () => {
+  let dir: string;
+
+  function makePackage(pkg: Record<string, unknown>, files: Record<string, string> = {}) {
+    dir = mkdtempSync(join(tmpdir(), "rcde-license-"));
+    writeFileSync(
+      join(dir, "package.json"),
+      JSON.stringify({ name: "fixture", version: "1.0.0", ...pkg })
+    );
+    for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text);
+    return dir;
+  }
+
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  });
+
+  describe("正常系", () => {
+    it("license 欄とライセンスファイルの本文を読む", () => {
+      const entry = readLicenseEntry(makePackage({ license: "MIT" }, { LICENSE: "Copyright X\n" }));
+      expect(entry).toEqual({
+        name: "fixture",
+        version: "1.0.0",
+        license: "MIT",
+        text: "Copyright X",
+      });
+    });
+
+    // REUSE 準拠のパッケージは LICENSES/ ディレクトリを持つことがある
+    it("ライセンスらしい名前のディレクトリは読まずにファイルだけを読む", () => {
+      makePackage({ license: "MIT" }, { LICENSE: "Copyright X" });
+      mkdirSync(join(dir, "LICENSES"));
+      expect(readLicenseEntry(dir)).toMatchObject({ text: "Copyright X" });
+    });
+  });
+
+  describe("異常系", () => {
+    it("licenses が空の配列なら UNKNOWN とする", () => {
+      const entry = readLicenseEntry(makePackage({ licenses: [] }, { LICENSE: "Copyright X" }));
+      expect(entry).toMatchObject({ license: "UNKNOWN" });
+    });
+
+    it("ライセンスファイルが無ければ、パッケージ名と版を含むエラー文を返す", () => {
+      makePackage({ license: "MIT" });
+      mkdirSync(join(dir, "LICENSES"));
+      expect(readLicenseEntry(dir)).toContain("fixture@1.0.0 にライセンスファイルがありません");
+    });
+  });
+});
+
+describe("補足ライセンスの版を確かめる（supplementVersionError）", () => {
+  const entry = (name: string, version: string): LicenseEntry => ({
+    name,
+    version,
+    license: "MIT",
+    text: "",
+  });
+
+  describe("正常系", () => {
+    it("確かめた版と同じなら通す", () => {
+      expect(supplementVersionError(entry("pngjs", "7.0.0"))).toBeUndefined();
+    });
+
+    it("補足の無いパッケージは版を問わない", () => {
+      expect(supplementVersionError(entry("clsx", "9.9.9"))).toBeUndefined();
+    });
+  });
+
+  describe("異常系", () => {
+    // browser.js が作り直されると内包モジュールが変わりうるので、古い一覧を配布しない
+    it("確かめた版と違えばビルドを止めるエラー文を返す", () => {
+      expect(supplementVersionError(entry("pngjs", "7.1.0"))).toContain(
+        "pngjs@7.1.0 は補足ライセンス（7.0.0 で確認）と版が異なります"
+      );
     });
   });
 });
