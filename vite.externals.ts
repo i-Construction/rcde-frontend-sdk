@@ -24,6 +24,7 @@ export function isSdkBuildExternal(id: string): boolean {
     /(^|\/)node_modules\/react-dom\//.test(normalized) ||
     id === "@react-three/fiber" ||
     id === "@react-three/drei" ||
-    id === "three"
+    id === "three" ||
+    id.startsWith("three/")
   );
 }

@@ -6,7 +6,6 @@ import {
   PointCloudColor,
   PointCloudLODLoader,
   PointCloudLODParser,
-  PointCloudMeta,
 } from "@i-con/pcd-viewer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Euler, Group, Vector3 } from "three";
@@ -17,6 +16,7 @@ import { loadTile } from "../lib/tileLoader";
 import type { ViewerFileMemoryEstimate } from "../lib/viewerMemory";
 import { applyAppearanceToMaterials } from "../lib/viewerMaterials";
 import { CoordinateSystem, type CoordinateSystemType } from "../bridge/viewerBridge";
+import type { PointCloudMeta } from "../types/pointCloudMeta";
 
 // 座標系ごとの変換定義
 const COORDINATE_SYSTEM_TRANSFORMS: Record<

@@ -26,15 +26,16 @@ React Three Fiber をベースに、点群表示、契約ファイルの一覧�
 - [距離計測](#距離計測)
 - [ファイル一覧の操作](#ファイル一覧の操作usecontractfileactions)
 - [依存関係の注意](#依存関係の注意)
+- [ライセンス](#ライセンス)
 
 ## 動作環境
 
-| 項目       | 内容                                                       |
-| ---------- | ---------------------------------------------------------- |
-| React      | 18.3 以上（19 でも動作します。下の peer 依存の注記を参照） |
-| ブラウザ   | WebGL が使える環境。サーバーサイドでは描画しません         |
-| TypeScript | 型定義同梱。利用側での追加パッケージは不要です             |
-| モジュール | ESM（`import`）のみ。CJS（`require`）は非対応              |
+| 項目       | 内容                                               |
+| ---------- | -------------------------------------------------- |
+| React      | 18.3 以上、または 19 系                            |
+| ブラウザ   | WebGL が使える環境。サーバーサイドでは描画しません |
+| TypeScript | 型定義同梱。利用側での追加パッケージは不要です     |
+| モジュール | ESM（`import`）のみ。CJS（`require`）は非対応      |
 
 Next.js には依存していません。Next.js App Router から使う場合は、SDK のコンポーネントを描画する側に `"use client"` を付けてください。
 
@@ -798,10 +799,17 @@ function Layout({ app, constructionId, contractId }) {
 
 ## 依存関係の注意
 
-- `react` / `react-dom` / `react/jsx-runtime` / `three` / `@react-three/fiber` / `@react-three/drei` / `@i-con/pcd-viewer` はライブラリのバンドルから external にしています。利用側アプリの依存が 1 つだけ解決されるようにしてください。同じパッケージが二重に読み込まれると R3F のコンテキストが分かれて描画されません。React の jsx-runtime や pcd-viewer の事前ビルド成果物を埋め込むと、ビルド時の React 内部 API が固定され、利用側の React 19 で `ReactCurrentDispatcher` が読めなくなります。
+- `react` / `react-dom` / `react/jsx-runtime` / `three` / `@react-three/fiber` / `@react-three/drei` はライブラリのバンドルから external にしています。利用側アプリの依存が 1 つだけ解決されるようにしてください。同じパッケージが二重に読み込まれると R3F のコンテキストが分かれて描画されません。React の jsx-runtime をバンドルに含めると、ビルド時の React 内部 API が固定され、利用側の React 19 で `ReactCurrentDispatcher` が読めなくなります。
+- 点群描画に使う `@i-con/pcd-viewer` は SDK のバンドルに含めています。このパッケージはビルド済みの JS を配布しておらず TypeScript のソースのみのため、SDK のビルド時にコンパイルして取り込んでいます。利用側で `transpilePackages` などの設定や、`@i-con/pcd-viewer` のインストールは不要です。`ContractFileView` の `meta` に渡す型は、SDK から `PointCloudMeta` として import してください。
 - `@react-three/fiber` と `@react-three/drei` は対応する系列同士で使ってください（React 18 なら fiber 8 系 + drei 9 系、React 19 なら fiber 9 系 + drei 10 系）。
 - `ViewerBridge` は Three.js を直接制御しません。`window.postMessage` でコマンドを送り、`Viewer` の内部 state を経由して描画へ反映されます。
 - バージョン不一致でビルドエラーが出る場合は、`node_modules` を削除して再インストールしてください。
+
+## ライセンス
+
+[MIT](./LICENSE)
+
+`dist/index.es.js` には、MUI・Emotion・pngjs・chroma-js などの第三者パッケージを同梱しています。それらの著作権表示とライセンス文は、パッケージ内の `dist/THIRD_PARTY_LICENSES.txt` にまとめています。このファイルはビルド時に、実際に同梱したパッケージから自動で生成しています。
 
 リポジトリ: [i-Construction/rcde-frontend-sdk](https://github.com/i-Construction/rcde-frontend-sdk)
 Issue: [GitHub Issues](https://github.com/i-Construction/rcde-frontend-sdk/issues)

@@ -1,32 +1,14 @@
+import { THIRD_PARTY_LICENSES_FILE } from "./vite.licenses";
+
 /**
- * dist に同梱した第三者コードの著作権表示。
- * MIT は配布物に著作権表示と許諾文を含めることを条件にしているため、
- * バンドルした @i-con/pcd-viewer の分をビルド成果物の先頭へ出す。
+ * dist に出す第三者ソフトウェアの案内。Rollup の banner として出力するが、
+ * Vite がヘルパー関数を前に置くため、ファイルの先頭行になるとは限らない。
+ * 同梱したパッケージの著作権表示とライセンス全文は、ビルド時に vite.licenses.ts が
+ * 集めて THIRD_PARTY_LICENSES.txt に書き出す。手書きで列挙すると依存が増えたときに漏れるため、
+ * ここでは置き場所だけを示す。
  */
 export const THIRD_PARTY_LICENSE_BANNER = `/*!
- * This bundle includes the following third-party software.
- *
- * @i-con/pcd-viewer
- * MIT License
- *
- * Copyright (c) 2024 THE UNIVERSITY OF TOKYO, SCHOOL OF ENGINEERING
- * Construction System Management for Innovation
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * @i-con/frontend-sdk
+ * This bundle includes third-party software. See ${THIRD_PARTY_LICENSES_FILE}
+ * in this package for their copyright notices and license texts.
  */`;
