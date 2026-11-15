@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -278,5 +278,24 @@ describe("pngjs の補足ライセンスが browser.js の内包モジュール�
   it("browser.js が require するパッケージを過不足なく載せる", () => {
     expect(embedded.size).toBeGreaterThan(0);
     expect([...listed].sort()).toEqual([...embedded].sort());
+  });
+});
+
+describe("テストとビルドで同じ vite を使う", () => {
+  const pkg = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+    devDependencies: Record<string, string>;
+    resolutions?: Record<string, string>;
+  };
+
+  // vitest 4 は vite を dependencies と peerDependencies の両方に持つ。yarn v1 が
+  // dependencies 側の範囲で新しい vite を選ぶとリンクに失敗するため、resolutions で
+  // プロジェクトの vite に揃えている。package.json にはコメントを書けないので、
+  // vite を上げるときに resolutions を忘れないよう、ここで一致を確かめる
+  it("resolutions の vitest/vite が devDependencies の vite と同じ範囲である", () => {
+    expect(pkg.resolutions?.["vitest/vite"]).toBe(pkg.devDependencies.vite);
+  });
+
+  it("vitest の下に別の vite が入っていない", () => {
+    expect(existsSync(resolve(process.cwd(), "node_modules/vitest/node_modules/vite"))).toBe(false);
   });
 });
